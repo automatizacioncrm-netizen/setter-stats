@@ -5,7 +5,7 @@ interface ReportCardProps {
   title: string;
   description: string;
   available: boolean;
-  to?: string;
+  to?: "/reports/vsl-closers";
 }
 
 export function ReportCard({ title, description, available, to }: ReportCardProps) {
