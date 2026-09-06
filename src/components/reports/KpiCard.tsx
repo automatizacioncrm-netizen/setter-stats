@@ -12,7 +12,7 @@ export function KpiCard({ label, value, accent, hint }: KpiCardProps) {
         {accent ? (
           <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: accent }} />
         ) : null}
-        <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <p className="text-[11px] font-medium uppercase leading-tight tracking-wide text-muted-foreground">
           {label}
         </p>
       </div>
