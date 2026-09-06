@@ -31,8 +31,8 @@ function isoDate(daysAgo: number) {
 }
 
 export const MOCK_VSL_CLOSERS_RECORDS: RawRecord[] = Array.from({ length: 168 }, (_, i) => {
-  const setter = MOCK_SETTERS[Math.floor(pseudoRandom(i + 1) * MOCK_SETTERS.length)];
-  const estado = WEIGHTED_ESTADOS[Math.floor(pseudoRandom(i + 101) * WEIGHTED_ESTADOS.length)];
+  const setter = MOCK_SETTERS[Math.floor(pseudoRandom(i + 1) * MOCK_SETTERS.length)]!;
+  const estado = WEIGHTED_ESTADOS[Math.floor(pseudoRandom(i + 101) * WEIGHTED_ESTADOS.length)]!;
   const daysAgo = Math.floor(pseudoRandom(i + 501) * 32);
   return {
     id: `opp-${i + 1}`,

@@ -70,7 +70,7 @@ export function SetterStatusChart({ rows, tasaAsistencia }: Props) {
                 name={serie.label}
                 stackId="estado"
                 fill={serie.color}
-                radius={serie.key === "reagendado" ? [0, 4, 4, 0] : undefined}
+                radius={serie.key === "reagendado" ? [0, 4, 4, 0] : 0}
               />
             ))}
           </BarChart>
