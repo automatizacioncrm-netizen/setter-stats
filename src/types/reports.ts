@@ -22,6 +22,9 @@ export interface ReportFilters {
 }
 
 export interface ReportKpis {
+  totalLeads: number;
+  conEstadoAgenda: number;
+  /** Compatibility alias for conEstadoAgenda: only leads with a valid agenda status. */
   total: number;
   agendadoCRM: number;
   asistio: number;

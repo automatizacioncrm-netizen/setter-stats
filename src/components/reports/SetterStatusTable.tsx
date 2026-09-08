@@ -98,7 +98,11 @@ export function SetterStatusTable({ rows, totals }: { rows: SetterRow[]; totals:
               <td className="sticky left-0 bg-brand-soft px-4 py-2">Total general</td>
               {COLUMNS.map((col) => (
                 <td key={col.key} className="px-4 py-2 text-right tabular-nums">
-                  {n(totals[col.key as keyof typeof totals])}
+                  {n(
+                    col.key === "total"
+                      ? totals.conEstadoAgenda
+                      : totals[col.key as keyof typeof totals],
+                  )}
                 </td>
               ))}
             </tr>

@@ -5,7 +5,8 @@ interface Props {
 }
 
 export function ConversionSummary({ kpis }: Props) {
-  const pct = (value: number) => (kpis.total ? Math.round((value / kpis.total) * 100) : 0);
+  const pct = (value: number) =>
+    kpis.conEstadoAgenda ? Math.round((value / kpis.conEstadoAgenda) * 100) : 0;
 
   const steps = [
     {
@@ -24,7 +25,9 @@ export function ConversionSummary({ kpis }: Props) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4 shadow-card">
       <h3 className="text-sm font-semibold text-foreground">Efectividad de la agenda</h3>
-      <p className="text-xs text-muted-foreground">Sobre {kpis.total} oportunidades</p>
+      <p className="text-xs text-muted-foreground">
+        Sobre {kpis.conEstadoAgenda} leads con estado de agenda
+      </p>
 
       <div className="mt-4 space-y-3">
         {steps.map((step) => (

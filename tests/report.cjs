@@ -24,6 +24,8 @@ test("exact pivot example and zero-safe rates", () => {
     [12, 35, 24, 72, 25],
   );
   assert.deepEqual(report.kpis, {
+    totalLeads: 168,
+    conEstadoAgenda: 168,
     total: 168,
     agendadoCRM: 55,
     asistio: 60,
@@ -136,7 +138,7 @@ test("report response defaults, numeric strings, phone strings and pagination", 
     ok: true,
     data: {
       report: "VSL | CLOSERS",
-      kpis: { total: "10", asistio: "3" },
+      kpis: { total: "10", asistio: "3", agendadoCRM: "7" },
       setters: [{ setter: "Ana" }],
       detail: {
         rows: [{ telefono: "00123", estadoAgenda: "Otro", correo: null }],
@@ -147,6 +149,8 @@ test("report response defaults, numeric strings, phone strings and pagination", 
   };
   const result = mapVslReportResponse(raw, query);
   assert.equal(result.kpis.total, 10);
+  assert.equal(result.kpis.totalLeads, 30);
+  assert.equal(result.kpis.conEstadoAgenda, 10);
   assert.equal(result.kpis.tasaAsistencia, 30);
   assert.equal(result.setters[0].cancelado, 0);
   assert.equal(result.detail[0].telefono, "00123");
@@ -154,6 +158,79 @@ test("report response defaults, numeric strings, phone strings and pagination", 
   assert.equal(result.detailPage, 2);
   assert.throws(() => mapVslReportResponse({ ok: false }, query));
   assert.throws(() => mapVslReportResponse({ ok: true, data: { report: "OTHER" } }, query));
+});
+test("real leads and classified leads are distinct; rates use the six agenda states", () => {
+  const result = mapVslReportResponse(
+    {
+      ok: true,
+      data: {
+        report: "VSL | CLOSERS",
+        kpis: {
+          total: 999,
+          agendadoCRM: "118",
+          asistio: "188",
+          cancelado: "95",
+          noShow: "49",
+          pendienteAgenda: "188",
+          reagendado: "2",
+        },
+        detail: { pagination: { totalRecords: "947" } },
+      },
+    },
+    { ...query, includeDetail: false },
+  );
+  assert.equal(result.kpis.totalLeads, 947);
+  assert.equal(result.kpis.conEstadoAgenda, 640);
+  assert.equal(result.kpis.total, 640);
+  assert.equal(result.kpis.tasaAsistencia, 29.38);
+  assert.equal(result.kpis.tasaNoShow, 7.66);
+  assert.equal(result.detail.length, 0);
+  const empty = mapVslReportResponse({ ok: true, data: { report: "VSL | CLOSERS" } }, query);
+  for (const value of Object.values(empty.kpis)) assert.equal(value, 0);
+});
+
+test("both lead KPIs respect general filters and ignore detail pagination/search", () => {
+  const base = {
+    Secuencia: "VSL | CLOSERS",
+    "Setter asignado": "Ana",
+    Asignado: "Pedro",
+    "VSL Origen": "Origen A",
+    "Fecha de reunión": "2026-09-06",
+  };
+  const rows = [
+    { ...base, "Estado de agenda": "Asistió", "Nombre contacto": "Uno" },
+    { ...base, "Estado de agenda": "" },
+    { ...base, "Estado de agenda": "Desconocido" },
+    {
+      ...base,
+      "Setter asignado": "Beto",
+      Asignado: "Luis",
+      "VSL Origen": "Origen B",
+      "Fecha de reunión": "2026-09-08",
+      "Estado de agenda": "No show",
+    },
+  ];
+  for (const filter of [
+    { setter: "Ana" },
+    { closer: "Pedro" },
+    { vslOrigen: "Origen A" },
+    { dateFrom: "2026-09-06", dateTo: "2026-09-06" },
+  ]) {
+    const result = map(rows, { ...defaultFilters, ...filter });
+    assert.equal(result.kpis.totalLeads, 3);
+    assert.equal(result.kpis.conEstadoAgenda, 1);
+    assert.equal(result.setters[0].total, 1);
+    assert.equal(result.kpis.tasaAsistencia, 100);
+  }
+  const classified = map(rows, { ...defaultFilters, estadoAgenda: "Asistió" });
+  assert.equal(classified.kpis.totalLeads, 1);
+  assert.equal(classified.kpis.conEstadoAgenda, 1);
+  const searched = map(rows, defaultFilters, { ...defaultDetail, search: "Uno", pageSize: 1 });
+  assert.equal(searched.kpis.totalLeads, 4);
+  assert.equal(searched.kpis.conEstadoAgenda, 2);
+  assert.equal(searched.detailTotal, 1);
+  const empty = map(rows, { ...defaultFilters, setter: "Missing" });
+  for (const value of Object.values(empty.kpis)) assert.equal(value, 0);
 });
 test("central adapter forwards only allowed params and sanitizes upstream failures", async () => {
   const previousFetch = global.fetch;

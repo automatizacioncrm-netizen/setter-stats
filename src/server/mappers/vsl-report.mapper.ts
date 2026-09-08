@@ -6,6 +6,7 @@ import type {
   SheetRow,
   VslClosersReport,
 } from "../../types/reports";
+import { mapVslKpis } from "./vsl-kpis.mapper";
 const keys = {
   "Agendado CRM": "agendadoCRM",
   Asistió: "asistio",
@@ -123,11 +124,8 @@ export function mapSheetRowsToVslReport(
     filters,
     source,
     setters,
-    kpis: {
-      ...totals,
-      tasaAsistencia: totals.total ? +((totals.asistio / totals.total) * 100).toFixed(2) : 0,
-      tasaNoShow: totals.total ? +((totals.noShow / totals.total) * 100).toFixed(2) : 0,
-    },
+    // Detail search/pagination do not change the general dashboard filters.
+    kpis: mapVslKpis(totals, filtered.length),
     availableSetters: options("setterAsignado"),
     availableClosers: options("closerAsignado"),
     availableOrigins: options("vslOrigen"),

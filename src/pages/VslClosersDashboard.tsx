@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
@@ -12,6 +12,7 @@ import { ConversionSummary } from "@/components/reports/ConversionSummary";
 import { getVslClosersReport } from "@/services/reports";
 import { triggerVslReconciliation } from "@/services/reconciliation.service";
 import { RefreshButton } from "@/components/reports/RefreshButton";
+import { LoadingModal } from "@/components/reports/LoadingModal";
 import { LeadDetailTable } from "@/components/reports/LeadDetailTable";
 import type { DatePreset, DetailQuery, ReportFilters } from "@/types/reports";
 
@@ -77,6 +78,7 @@ function formatUpdatedAt(value: string) {
 export function VslClosersDashboard() {
   const [filters, setFilters] = useState<ReportFilters>(EMPTY_FILTERS);
   const [syncing, setSyncing] = useState(false);
+  const syncInFlight = useRef(false);
   const [syncMessage, setSyncMessage] = useState("");
   const [detail, setDetail] = useState<DetailQuery>({
     includeDetail: false,
@@ -96,6 +98,8 @@ export function VslClosersDashboard() {
     queryKey: ["vsl-closers", filters, { ...detail, search }],
     queryFn: ({ signal }) => getVslClosersReport(filters, { ...detail, search }, signal),
     retry: false,
+    refetchOnWindowFocus: !syncing,
+    refetchOnReconnect: !syncing,
   });
 
   const handleChange = useCallback((next: Partial<ReportFilters>) => {
@@ -111,23 +115,36 @@ export function VslClosersDashboard() {
   }, []);
 
   const handleSync = useCallback(async () => {
+    if (syncInFlight.current) return;
+    syncInFlight.current = true;
     setSyncing(true);
     setSyncMessage("");
+    let reconciled = false;
     try {
       const result = await triggerVslReconciliation();
-      const message = `${result.newRecords} nuevos · ${result.updated} actualizados · ${result.errors} errores`;
-      setSyncMessage(`${message} · ${formatUpdatedAt(result.timestamp)}`);
+      reconciled = true;
       const refreshed = await query.refetch();
-      if (!result.ok || result.errors) toast.warning(`Reconciliación con incidencias: ${message}`);
-      else if (refreshed.isError)
-        toast.warning("Reconciliación completada; no se pudo recargar el reporte.");
-      else toast.success(`Datos actualizados correctamente. ${message}`);
-    } catch (error) {
+      if (refreshed.isError) throw refreshed.error;
       const message =
-        error instanceof Error ? error.message : "No se pudo actualizar. Intenta nuevamente.";
+        result.inserted === 0 && result.updated === 0
+          ? "Los datos ya estaban actualizados"
+          : `${result.inserted} nuevos · ${result.updated} actualizados`;
+      if (!result.ok || result.errors) {
+        const warning = `Reconciliación con incidencias: ${message} · ${result.errors} errores`;
+        setSyncMessage(warning);
+        toast.warning(warning);
+      } else {
+        setSyncMessage(message);
+        toast.success("Datos actualizados correctamente", { description: message });
+      }
+    } catch {
+      const message = reconciled
+        ? "La sincronización terminó, pero no se pudo recargar el reporte. Intenta nuevamente."
+        : "No se pudo actualizar la información.";
       setSyncMessage(message);
       toast.error(message);
     } finally {
+      syncInFlight.current = false;
       setSyncing(false);
     }
   }, [query]);
@@ -139,7 +156,8 @@ export function VslClosersDashboard() {
     () =>
       kpis
         ? [
-            { label: "Total de leads", value: kpis.total },
+            { label: "Total de leads", value: kpis.totalLeads },
+            { label: "Con estado de agenda", value: kpis.conEstadoAgenda },
             { label: "Agendado CRM", value: kpis.agendadoCRM, accent: "var(--status-agendado)" },
             { label: "Asistió", value: kpis.asistio, accent: "var(--status-asistio)" },
             { label: "Cancelado", value: kpis.cancelado, accent: "var(--status-cancelado)" },
@@ -162,6 +180,15 @@ export function VslClosersDashboard() {
 
   return (
     <div className="min-h-screen w-full bg-background px-4 py-6">
+      <LoadingModal
+        open={syncing || query.isLoading}
+        title={syncing ? "Actualizando datos..." : "Cargando reporte..."}
+        description={
+          syncing
+            ? "Sincronizando las oportunidades con GoHighLevel. Esto puede tardar unos segundos."
+            : "Obteniendo la información del reporte VSL | CLOSERS."
+        }
+      />
       <div className="mx-auto w-full max-w-[1400px] space-y-4">
         <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
           <div className="min-w-0">
@@ -215,7 +242,7 @@ export function VslClosersDashboard() {
           <div className="rounded-xl border border-border bg-surface p-10 text-center text-sm text-muted-foreground shadow-card">
             Cargando reporte...
           </div>
-        ) : query.isError ? (
+        ) : query.isError && !data ? (
           <div className="rounded-xl border border-border bg-surface p-10 text-center shadow-card">
             <p className="text-sm text-foreground">
               {query.error instanceof Error ? query.error.message : "No se pudo cargar el reporte."}
@@ -233,7 +260,7 @@ export function VslClosersDashboard() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
               {kpiCards.map((card) => (
                 <KpiCard key={card.label} {...card} />
               ))}
@@ -244,7 +271,9 @@ export function VslClosersDashboard() {
               <ConversionSummary kpis={data.kpis} />
             </div>
 
-            {data.kpis.total === 0 && <p>No existen registros para los filtros seleccionados.</p>}
+            {data.kpis.totalLeads === 0 && (
+              <p>No existen registros para los filtros seleccionados.</p>
+            )}
             <SetterStatusTable rows={data.setters} totals={data.kpis} />
           </>
         )}

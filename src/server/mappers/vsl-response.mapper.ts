@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { VslClosersReport } from "../../types/reports";
 import { ApiError } from "../config/env.server";
+import { mapVslKpis } from "./vsl-kpis.mapper";
 
 const str = z
   .union([z.string(), z.number()])
@@ -101,11 +102,7 @@ export function mapVslReportResponse(
       closer: query.closer,
       vslOrigen: query.vslOrigin,
     },
-    kpis: {
-      ...d.kpis,
-      tasaAsistencia: d.kpis.total ? +((d.kpis.asistio / d.kpis.total) * 100).toFixed(2) : 0,
-      tasaNoShow: d.kpis.total ? +((d.kpis.noShow / d.kpis.total) * 100).toFixed(2) : 0,
-    },
+    kpis: mapVslKpis(d.kpis, d.detail.pagination.totalRecords),
     setters: d.setters,
     availableSetters: d.filters.available.setters,
     availableClosers: d.filters.available.closers,
