@@ -11,7 +11,10 @@ export type EstadoAgenda = (typeof ESTADOS_AGENDA)[number];
 
 export type DatePreset = "hoy" | "ayer" | "7dias" | "mes" | "custom" | "todos";
 
+export type LeadType = "paid" | "organic";
+
 export interface ReportFilters {
+  leadType: LeadType;
   preset: DatePreset;
   dateFrom: string;
   dateTo: string;
@@ -19,6 +22,12 @@ export interface ReportFilters {
   estadoAgenda: string;
   vslOrigen: string;
   closer: string;
+}
+
+export interface LeadTypeKpis {
+  totalLeads: number;
+  attended: number;
+  attendanceRate: number;
 }
 
 export interface ReportKpis {
@@ -48,10 +57,12 @@ export interface SetterRow {
 }
 
 export interface VslClosersReport {
+  leadType: LeadType;
   report: "VSL | CLOSERS";
   updatedAt: string;
   filters: Omit<ReportFilters, "preset">;
   kpis: ReportKpis;
+  leadTypeKpis: LeadTypeKpis;
   setters: SetterRow[];
   availableSetters: string[];
   availableClosers: string[];

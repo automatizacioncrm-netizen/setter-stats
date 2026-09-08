@@ -1,10 +1,11 @@
-import type { ReportKpis } from "@/types/reports";
+import type { ReportKpis, LeadType } from "@/types/reports";
 
 interface Props {
   kpis: ReportKpis;
+  leadType: LeadType;
 }
 
-export function ConversionSummary({ kpis }: Props) {
+export function ConversionSummary({ kpis, leadType }: Props) {
   const pct = (value: number) =>
     kpis.conEstadoAgenda ? Math.round((value / kpis.conEstadoAgenda) * 100) : 0;
 
@@ -26,7 +27,8 @@ export function ConversionSummary({ kpis }: Props) {
     <div className="rounded-xl border border-border bg-surface p-4 shadow-card">
       <h3 className="text-sm font-semibold text-foreground">Efectividad de la agenda</h3>
       <p className="text-xs text-muted-foreground">
-        Sobre {kpis.conEstadoAgenda} leads con estado de agenda
+        Sobre {kpis.conEstadoAgenda} leads {leadType === "organic" ? "orgánicos" : "VSL pagados"}{" "}
+        con estado de agenda
       </p>
 
       <div className="mt-4 space-y-3">

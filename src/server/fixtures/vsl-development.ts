@@ -23,7 +23,7 @@ export function developmentSheet() {
           "Correo electrónico": `ejemplo${rows.length + 1}@example.com`,
           "VSL Origen": i % 2 ? "No agendado" : "Agendado automatico",
           Fase: "Ejemplo",
-          Fuente: "Desarrollo",
+          Fuente: "VSL FUNNEL",
         });
     });
   return { rows, updatedAt: "2026-09-06T15:42:00Z" };

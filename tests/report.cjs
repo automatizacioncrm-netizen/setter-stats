@@ -16,7 +16,155 @@ const {
   defaultDetail,
 } = require("../src/server/mappers/vsl-report.mapper.ts");
 const { developmentSheet } = require("../src/server/fixtures/vsl-development.ts");
+const vm = require("node:vm");
 const { mapReconciliationResponse } = require("../src/server/mappers/reconciliation.mapper.ts");
+
+test("Apps Script paid report: all/date/setter/closer/status/origin filters and detail-only search", () => {
+  const headers = [
+    "Nombre contacto",
+    "Telefono",
+    "Correo electrónico",
+    "Secuencia",
+    "Fase",
+    "Fuente",
+    "Asignado",
+    "Setter asignado",
+    "VSL Origen",
+    "Estado de agenda",
+    "Fecha de reunión",
+  ];
+  const record = (
+    name,
+    source,
+    status,
+    date,
+    setter = "Ana",
+    closer = "Pedro",
+    origin = "Origen A",
+  ) => [
+    name,
+    "00123",
+    "test@example.com",
+    "VSL | CLOSERS",
+    "",
+    source,
+    closer,
+    setter,
+    origin,
+    status,
+    date,
+  ];
+  const rows = [
+    record("Hoy asistió", "VSL FUNNEL", "Asistió", "2026-09-08"),
+    record("Hoy sin estado", " vsl funnel ", "", "2026-09-08"),
+    record("Ayer", "VSL FUNNEL", "No show", "2026-09-07", "Beto", "Luis", "Origen B"),
+    record("Semana", "VSL FUNNEL", "Agendado CRM", "2026-09-02"),
+    record("Anterior", "VSL FUNNEL", "Asistió", "2026-08-31"),
+    record("Orgánico", "Orgánico", "Asistió", "2026-09-08"),
+    record("WhatsApp", "WhatsApp", "Asistió", "2026-09-08"),
+    record("Coincidencia parcial", "Otra fuente", "Asistió", "2026-09-08"),
+  ];
+  let values = [headers, ...rows];
+  const ctx = vm.createContext({
+    APP_CONFIG: { PIPELINE_NAME: "VSL | CLOSERS" },
+    SHEET_GET_DATA_SHEET: () => ({
+      getLastRow: () => values.length,
+      getLastColumn: () => headers.length,
+      getRange: () => ({ getValues: () => values }),
+    }),
+  });
+  vm.runInContext(fs.readFileSync("apps-script/10_API.gs", "utf8"), ctx);
+  const build = (filters) => JSON.parse(JSON.stringify(ctx.API_BUILD_VSL_REPORT(filters)));
+  const scenarios = [
+    [{}, 5, 2],
+    [{ dateFrom: "2026-09-08", dateTo: "2026-09-08" }, 2, 1],
+    [{ dateFrom: "2026-09-02", dateTo: "2026-09-08" }, 4, 1],
+    [{ dateFrom: "2026-09-02", dateTo: "2026-09-07" }, 2, 0],
+    [{ setter: "Ana" }, 4, 2],
+    [{ closer: "Luis" }, 1, 0],
+    [{ status: "Asistió" }, 2, 2],
+    [{ vslOrigin: "Origen B" }, 1, 0],
+    [{ setter: "Missing" }, 0, 0],
+  ];
+  for (const [filters, total, attended] of scenarios) {
+    const raw = build(filters);
+    const report = mapVslReportResponse({ ok: true, data: raw }, { ...query, ...filters });
+    assert.equal(report.leadTypeKpis.totalLeads, total);
+    assert.equal(report.leadTypeKpis.attended, attended);
+    assert.equal(
+      report.leadTypeKpis.attendanceRate,
+      total ? +((attended / total) * 100).toFixed(2) : 0,
+    );
+    assert.equal(
+      report.setters.reduce((sum, row) => sum + row.asistio, 0),
+      attended,
+    );
+    assert.equal(
+      report.setters.reduce((sum, row) => sum + row.total, 0),
+      report.kpis.conEstadoAgenda,
+    );
+    assert.equal(
+      report.kpis.tasaAsistencia,
+      report.kpis.conEstadoAgenda
+        ? +((attended / report.kpis.conEstadoAgenda) * 100).toFixed(2)
+        : 0,
+    );
+    const searched = build({ ...filters, search: "Hoy asistió", pageSize: 1, page: 99 });
+    assert.deepEqual(searched.leadTypeKpis, raw.leadTypeKpis);
+    assert.deepEqual(searched.kpis, raw.kpis);
+    assert.deepEqual(searched.setters, raw.setters);
+    assert.ok(searched.detail.pagination.totalRecords <= 1);
+    assert.equal(searched.detail.pagination.page, 1);
+  }
+  const noMatch = build({ search: "No existe" });
+  assert.equal(noMatch.detail.pagination.totalRecords, 0);
+  assert.equal(noMatch.leadTypeKpis.totalLeads, 5);
+  const examples = [
+    ["VSL FUNNEL", "paid"],
+    ["vsl funnel", "paid"],
+    ["META | VSL FUNNEL", "paid"],
+    ["VSL FUNNEL - META ADS", "paid"],
+    ["Campaña VSL FUNNEL Perú", "paid"],
+    ["Organico", "organic"],
+    ["ORGANICO | WHATSAPP", "organic"],
+    ["ORGÁNICO", "organic"],
+    ["Organico Facebook", "organic"],
+    ["LEAD ORGANICO", "organic"],
+    ["VSL FUNNEL ORGANICO", "paid"],
+    ["WhatsApp", "other"],
+    [null, "other"],
+  ];
+  const { getLeadType } = require("../src/server/mappers/lead-source.ts");
+  for (const [source, expected] of examples) {
+    assert.equal(ctx.API_GET_LEAD_TYPE(source), expected);
+    assert.equal(getLeadType(source), expected);
+  }
+  values = [
+    headers,
+    ...examples.map(([source, type], i) =>
+      record(String(i), source, "Asistió", "2026-09-08", type, type, type),
+    ),
+  ];
+  for (const leadType of ["paid", "organic"]) {
+    const raw = build({ leadType, dateFrom: "2026-09-08", dateTo: "2026-09-08" });
+    const report = mapVslReportResponse({ ok: true, data: raw }, query);
+    const expected = examples.filter(([, type]) => type === leadType).length;
+    assert.equal(report.leadType, leadType);
+    assert.equal(report.leadTypeKpis.totalLeads, expected);
+    assert.equal(report.leadTypeKpis.attended, expected);
+    assert.equal(
+      report.setters.reduce((sum, r) => sum + r.asistio, 0),
+      expected,
+    );
+    assert.deepEqual(report.availableSetters, [leadType]);
+    assert.deepEqual(report.availableClosers, [leadType]);
+    assert.deepEqual(report.availableOrigins, [leadType]);
+  }
+  assert.equal(build({ leadType: "invalid" }).leadType, "paid");
+  values = [headers];
+  assert.deepEqual(build({}).leadTypeKpis, { totalLeads: 0, attended: 0, attendanceRate: 0 });
+  assert.throws(() => mapVslReportResponse({ ok: true, data: { report: "VSL | CLOSERS" } }, query));
+});
 test("exact pivot example and zero-safe rates", () => {
   const report = map(developmentSheet().rows);
   assert.deepEqual(
@@ -42,6 +190,7 @@ test("setter is independent from closer; other sequences and unknown states", ()
   const rows = [
     {
       Secuencia: " VSL | CLOSERS ",
+      Fuente: "VSL FUNNEL",
       "Setter asignado": " Ana  Maria ",
       Asignado: "Pedro",
       "Estado de agenda": "Asistió",
@@ -49,7 +198,7 @@ test("setter is independent from closer; other sequences and unknown states", ()
       "Correo electrónico": null,
     },
     { Secuencia: "OTHER", "Estado de agenda": "Asistió" },
-    { Secuencia: "VSL | CLOSERS", "Estado de agenda": "__proto__" },
+    { Secuencia: "VSL | CLOSERS", Fuente: "VSL FUNNEL", "Estado de agenda": "__proto__" },
   ];
   const report = map(rows, defaultFilters, { ...defaultDetail, includeDetail: true });
   assert.equal(report.setters[0].setter, "Ana Maria");
@@ -119,7 +268,62 @@ const {
   runVslReconciliation,
 } = require("../src/server/adapters/apps-script.adapter.server.ts");
 const { apiError } = require("../src/server/config/env.server.ts");
+test("service and internal endpoint forward leadType with filters; missing/invalid values use paid", async () => {
+  const { getVslClosersReport } = require("../src/services/reports.ts");
+  const { reportApi } = require("../src/server/api/report.api.server.ts");
+  const savedFetch = global.fetch;
+  const savedUrl = process.env.APPS_SCRIPT_URL;
+  const savedSecret = process.env.APPS_SCRIPT_SECRET;
+  try {
+    process.env.APPS_SCRIPT_URL = "https://example.com/exec";
+    process.env.APPS_SCRIPT_SECRET = "test-only";
+    global.fetch = async (url) => {
+      const params = new URL(url, "https://local.test").searchParams;
+      assert.equal(params.get("leadType"), "organic");
+      assert.equal(params.get("setter"), "Ana");
+      assert.equal(params.get("dateFrom"), "2026-08-01");
+      return Response.json({});
+    };
+    await getVslClosersReport(
+      { ...defaultFilters, leadType: "organic", setter: "Ana", dateFrom: "2026-08-01" },
+      defaultDetail,
+    );
+    for (const [value, expected] of [
+      ["organic", "organic"],
+      ["paid", "paid"],
+      ["invalid", "paid"],
+      ["", "paid"],
+    ]) {
+      global.fetch = async (url) => {
+        assert.equal(url.searchParams.get("leadType"), expected);
+        assert.equal(url.searchParams.get("dateFrom"), "2026-08-01");
+        return Response.json({
+          ok: true,
+          data: {
+            report: "VSL | CLOSERS",
+            leadType: expected,
+            leadTypeKpis: { totalLeads: 0, attended: 0, attendanceRate: 0 },
+          },
+        });
+      };
+      const response = await reportApi(
+        new Request(
+          `https://local.test/api/reports/vsl-closers?dateFrom=2026-08-01${value ? `&leadType=${value}` : ""}`,
+        ),
+      );
+      assert.equal(response.status, 200);
+      assert.equal((await response.json()).leadType, expected);
+    }
+  } finally {
+    global.fetch = savedFetch;
+    if (savedUrl === undefined) delete process.env.APPS_SCRIPT_URL;
+    else process.env.APPS_SCRIPT_URL = savedUrl;
+    if (savedSecret === undefined) delete process.env.APPS_SCRIPT_SECRET;
+    else process.env.APPS_SCRIPT_SECRET = savedSecret;
+  }
+});
 const query = {
+  leadType: "paid",
   dateFrom: "2026-09-01",
   dateTo: "2026-09-07",
   setter: "Evelyn & Ana",
@@ -138,6 +342,8 @@ test("report response defaults, numeric strings, phone strings and pagination", 
     ok: true,
     data: {
       report: "VSL | CLOSERS",
+      leadType: "paid",
+      leadTypeKpis: { totalLeads: "30", attended: "3", attendanceRate: "10" },
       kpis: { total: "10", asistio: "3", agendadoCRM: "7" },
       setters: [{ setter: "Ana" }],
       detail: {
@@ -165,6 +371,7 @@ test("real leads and classified leads are distinct; rates use the six agenda sta
       ok: true,
       data: {
         report: "VSL | CLOSERS",
+        leadType: "paid",
         kpis: {
           total: 999,
           agendadoCRM: "118",
@@ -174,6 +381,7 @@ test("real leads and classified leads are distinct; rates use the six agenda sta
           pendienteAgenda: "188",
           reagendado: "2",
         },
+        leadTypeKpis: { totalLeads: 947, attended: 188, attendanceRate: 19.85 },
         detail: { pagination: { totalRecords: "947" } },
       },
     },
@@ -185,13 +393,24 @@ test("real leads and classified leads are distinct; rates use the six agenda sta
   assert.equal(result.kpis.tasaAsistencia, 29.38);
   assert.equal(result.kpis.tasaNoShow, 7.66);
   assert.equal(result.detail.length, 0);
-  const empty = mapVslReportResponse({ ok: true, data: { report: "VSL | CLOSERS" } }, query);
+  const empty = mapVslReportResponse(
+    {
+      ok: true,
+      data: {
+        report: "VSL | CLOSERS",
+        leadType: "paid",
+        leadTypeKpis: { totalLeads: 0, attended: 0, attendanceRate: 0 },
+      },
+    },
+    query,
+  );
   for (const value of Object.values(empty.kpis)) assert.equal(value, 0);
 });
 
 test("both lead KPIs respect general filters and ignore detail pagination/search", () => {
   const base = {
     Secuencia: "VSL | CLOSERS",
+    Fuente: "VSL FUNNEL",
     "Setter asignado": "Ana",
     Asignado: "Pedro",
     "VSL Origen": "Origen A",

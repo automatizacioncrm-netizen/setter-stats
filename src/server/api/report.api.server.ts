@@ -13,6 +13,7 @@ const date = z
         new Date(v).toISOString().slice(0, 10) === v),
   );
 const schema = z.object({
+  leadType: z.enum(["paid", "organic"]).catch("paid"),
   dateFrom: date.default(""),
   dateTo: date.default(""),
   setter: z.string().max(300).default(""),

@@ -9,7 +9,7 @@ function harness() {
   const state = [];
   let cursor = 0;
   const notices = [];
-  const query = { isLoading: true, isError: false, data: undefined };
+  const query = { isLoading: true, isFetching: false, isError: false, data: undefined };
   const api = { post: async () => ({ ok: true, inserted: 2, updated: 17, errors: 0 }) };
   const components = new Map();
   const component = (name) => {
@@ -45,7 +45,13 @@ function harness() {
           useMemo: (fn) => fn(),
           useCallback: (fn) => fn,
         };
-      if (name === "@tanstack/react-query") return { useQuery: () => query };
+      if (name === "@tanstack/react-query")
+        return {
+          useQuery: (options) => {
+            query.options = options;
+            return query;
+          },
+        };
       if (name === "sonner")
         return {
           toast: Object.fromEntries(
@@ -75,7 +81,12 @@ function harness() {
   }
   function loaded() {
     query.isLoading = false;
-    query.data = { updatedAt: "2026-09-08", kpis: { total: 1 }, setters: [] };
+    query.data = {
+      updatedAt: "2026-09-08",
+      kpis: { total: 1 },
+      leadTypeKpis: { totalLeads: 1, attended: 1, attendanceRate: 100 },
+      setters: [],
+    };
     query.refetch = async () => ({ isError: false });
     render();
   }
@@ -101,6 +112,41 @@ test("initial loading closes on success or error; retry remains available", () =
   assert.equal(h.find("button").props.children, "Reintentar");
   h.loaded();
   assert.ok(h.find("SetterStatusTable"));
+});
+
+test("lead type changes retain filters, reset page, show loading and survive reconciliation", async () => {
+  const h = harness();
+  h.loaded();
+  assert.equal(h.query.options.queryKey[1].leadType, "paid");
+  h.find("DashboardFilters").props.onChange({
+    dateFrom: "2026-08-01",
+    dateTo: "2026-08-31",
+    setter: "Jose Luis",
+  });
+  h.render();
+  h.find("input").props.onChange({ target: { checked: true } });
+  h.render();
+  h.find("LeadDetailTable").props.onChange({ page: 4 });
+  h.render();
+  h.find("DashboardFilters").props.onChange({ leadType: "organic" });
+  h.render();
+  const filters = h.query.options.queryKey[1];
+  assert.equal(filters.dateFrom, "2026-08-01");
+  assert.equal(filters.dateTo, "2026-08-31");
+  assert.equal(filters.setter, "Jose Luis");
+  assert.equal(filters.leadType, "organic");
+  assert.equal(h.query.options.queryKey[2].page, 1);
+  h.query.isFetching = true;
+  h.render();
+  assert.equal(h.find("LoadingModal").props.open, true);
+  h.query.isFetching = false;
+  h.query.data.leadType = "organic";
+  h.render();
+  assert.equal(h.find("KpiCard").props.label, "Leads orgánicos");
+  assert.equal(h.find("SetterStatusTable").props.rows, h.find("SetterStatusChart").props.rows);
+  await h.find("RefreshButton").props.onClick();
+  h.render();
+  assert.equal(h.query.options.queryKey[1].leadType, "organic");
 });
 
 test("one continuous modal spans POST and GET, blocks duplicate calls, and renders fresh data", async () => {

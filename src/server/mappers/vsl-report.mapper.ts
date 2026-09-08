@@ -7,6 +7,7 @@ import type {
   VslClosersReport,
 } from "../../types/reports";
 import { mapVslKpis } from "./vsl-kpis.mapper";
+import { getLeadType } from "./lead-source";
 const keys = {
   "Agendado CRM": "agendadoCRM",
   Asistió: "asistio",
@@ -27,6 +28,7 @@ const empty = () => ({
 });
 export const defaultFilters: ReportFilters = {
   preset: "todos",
+  leadType: "paid",
   dateFrom: "",
   dateTo: "",
   setter: "",
@@ -63,7 +65,11 @@ export function mapSheetRowsToVslReport(
   source: VslClosersReport["source"] = "sheet",
 ): VslClosersReport {
   const leads: LeadDetailRow[] = rows
-    .filter((r) => text(r["Secuencia"]) === "VSL | CLOSERS")
+    .filter(
+      (r) =>
+        text(r["Secuencia"]) === "VSL | CLOSERS" &&
+        getLeadType(r["Fuente"]) === (filters.leadType === "organic" ? "organic" : "paid"),
+    )
     .map((r) => ({
       nombreContacto: text(r["Nombre contacto"]),
       telefono: text(r["Telefono"]),
@@ -120,12 +126,18 @@ export function mapSheetRowsToVslReport(
   const page = Math.max(1, Math.min(detailQuery.page, Math.ceil(detail.length / pageSize) || 1));
   return {
     report: "VSL | CLOSERS",
+    leadType: filters.leadType === "organic" ? "organic" : "paid",
     updatedAt,
     filters,
     source,
     setters,
     // Detail search/pagination do not change the general dashboard filters.
     kpis: mapVslKpis(totals, filtered.length),
+    leadTypeKpis: {
+      totalLeads: filtered.length,
+      attended: totals.asistio,
+      attendanceRate: filtered.length ? +((totals.asistio / filtered.length) * 100).toFixed(2) : 0,
+    },
     availableSetters: options("setterAsignado"),
     availableClosers: options("closerAsignado"),
     availableOrigins: options("vslOrigen"),

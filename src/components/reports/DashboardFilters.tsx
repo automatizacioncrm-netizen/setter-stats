@@ -34,6 +34,21 @@ export function DashboardFilters({
 }: Props) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4 shadow-card">
+      <label className="mb-4 block max-w-xs">
+        <span className="mb-1 block text-xs font-medium uppercase text-muted-foreground">
+          Tipo de lead
+        </span>
+        <select
+          className={fieldClass}
+          value={filters.leadType}
+          onChange={(e) =>
+            onChange({ leadType: e.target.value === "organic" ? "organic" : "paid" })
+          }
+        >
+          <option value="paid">Pagados</option>
+          <option value="organic">Orgánicos</option>
+        </select>
+      </label>
       <div className="flex flex-wrap items-center gap-2">
         <span className="mr-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Fecha de reunión
@@ -80,6 +95,9 @@ export function DashboardFilters({
             className={fieldClass}
           >
             <option value="">Todos</option>
+            {filters.setter && !setters.includes(filters.setter) && (
+              <option value={filters.setter}>{filters.setter} (sin registros de este tipo)</option>
+            )}
             {setters.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -116,6 +134,9 @@ export function DashboardFilters({
               onChange={(e) => onChange({ [key]: e.target.value })}
             >
               <option value="">Todos</option>
+              {filters[key] && !options.includes(filters[key]) && (
+                <option value={filters[key]}>{filters[key]} (sin registros de este tipo)</option>
+              )}
               {options.map((value) => (
                 <option key={value} value={value}>
                   {value}

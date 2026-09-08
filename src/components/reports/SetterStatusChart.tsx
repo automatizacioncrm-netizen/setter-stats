@@ -36,7 +36,7 @@ export function SetterStatusChart({ rows, tasaAsistencia }: Props) {
         </div>
         <div className="shrink-0 rounded-lg bg-brand-soft px-3 py-1.5 text-right">
           <p className="text-[11px] font-medium uppercase tracking-wide text-brand">
-            Tasa de asistencia general
+            Asistencia del tipo seleccionado
           </p>
           <p className="text-lg font-semibold tabular-nums text-brand">{tasaAsistencia}%</p>
         </div>
@@ -44,9 +44,17 @@ export function SetterStatusChart({ rows, tasaAsistencia }: Props) {
 
       <div className="mt-4 w-full" style={{ height }}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 8 }}>
+          <BarChart
+            data={rows}
+            layout="vertical"
+            margin={{ top: 4, right: 16, bottom: 4, left: 8 }}
+          >
             <CartesianGrid horizontal={false} stroke="var(--border)" />
-            <XAxis type="number" tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} allowDecimals={false} />
+            <XAxis
+              type="number"
+              tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+              allowDecimals={false}
+            />
             <YAxis
               type="category"
               dataKey="setter"

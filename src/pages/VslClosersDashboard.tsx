@@ -18,6 +18,7 @@ import type { DatePreset, DetailQuery, ReportFilters } from "@/types/reports";
 
 const EMPTY_FILTERS: ReportFilters = {
   preset: "todos",
+  leadType: "paid",
   dateFrom: "",
   dateTo: "",
   setter: "",
@@ -150,38 +151,30 @@ export function VslClosersDashboard() {
   }, [query]);
 
   const data = query.data;
-  const kpis = data?.kpis;
+  const kpis = data?.leadTypeKpis;
+  const leadLabel =
+    (data?.leadType ?? filters.leadType) === "organic" ? "orgánicos" : "VSL pagados";
 
   const kpiCards = useMemo(
     () =>
       kpis
         ? [
-            { label: "Total de leads", value: kpis.totalLeads },
-            { label: "Con estado de agenda", value: kpis.conEstadoAgenda },
-            { label: "Agendado CRM", value: kpis.agendadoCRM, accent: "var(--status-agendado)" },
-            { label: "Asistió", value: kpis.asistio, accent: "var(--status-asistio)" },
-            { label: "Cancelado", value: kpis.cancelado, accent: "var(--status-cancelado)" },
-            { label: "No show", value: kpis.noShow, accent: "var(--status-noshow)" },
+            { label: `Leads ${leadLabel}`, value: kpis.totalLeads },
             {
-              label: "Pendiente de agenda",
-              value: kpis.pendienteAgenda,
-              accent: "var(--status-pendiente)",
-            },
-            { label: "Reagendado", value: kpis.reagendado, accent: "var(--status-reagendado)" },
-            {
-              label: "Tasa de asistencia",
-              value: `${kpis.tasaAsistencia}%`,
-              hint: `No show: ${kpis.tasaNoShow}%`,
+              label: "Asistieron",
+              value: kpis.attended,
+              accent: "var(--status-asistio)",
+              hint: `${kpis.attendanceRate.toFixed(2)}% de leads ${leadLabel}`,
             },
           ]
         : [],
-    [kpis],
+    [kpis, leadLabel],
   );
 
   return (
     <div className="min-h-screen w-full bg-background px-4 py-6">
       <LoadingModal
-        open={syncing || query.isLoading}
+        open={syncing || query.isLoading || query.isFetching}
         title={syncing ? "Actualizando datos..." : "Cargando reporte..."}
         description={
           syncing
@@ -202,7 +195,7 @@ export function VslClosersDashboard() {
               REPORTE COMERCIAL — VSL | CLOSERS
             </h1>
             <p className="text-sm text-muted-foreground">
-              Seguimiento de agenda y desempeño por Setter
+              Leads {leadLabel} · Agenda y desempeño por Setter
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Última actualización: {data ? formatUpdatedAt(data.updatedAt) : "—"}
@@ -235,7 +228,10 @@ export function VslClosersDashboard() {
           origins={data?.availableOrigins ?? []}
           onChange={handleChange}
           onPreset={handlePreset}
-          onClear={() => setFilters(EMPTY_FILTERS)}
+          onClear={() => {
+            setFilters({ ...EMPTY_FILTERS, leadType: filters.leadType });
+            setDetail((prev) => ({ ...prev, page: 1 }));
+          }}
         />
 
         {query.isLoading ? (
@@ -260,15 +256,18 @@ export function VslClosersDashboard() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {kpiCards.map((card) => (
                 <KpiCard key={card.label} {...card} />
               ))}
             </div>
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-              <SetterStatusChart rows={data.setters} tasaAsistencia={data.kpis.tasaAsistencia} />
-              <ConversionSummary kpis={data.kpis} />
+              <SetterStatusChart
+                rows={data.setters}
+                tasaAsistencia={data.leadTypeKpis.attendanceRate}
+              />
+              <ConversionSummary kpis={data.kpis} leadType={data.leadType} />
             </div>
 
             {data.kpis.totalLeads === 0 && (

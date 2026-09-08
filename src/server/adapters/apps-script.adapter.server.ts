@@ -1,5 +1,6 @@
 import { ApiError, getServerEnv } from "../config/env.server";
 export interface ReportRequest {
+  leadType: "paid" | "organic";
   dateFrom: string;
   dateTo: string;
   setter: string;
@@ -18,6 +19,7 @@ async function requestScript(action: "vsl_report" | "vsl_reconciliar", filters?:
   url.searchParams.set("key", env.APPS_SCRIPT_SECRET);
   if (filters)
     for (const key of [
+      "leadType",
       "dateFrom",
       "dateTo",
       "setter",

@@ -40,6 +40,7 @@ const lead = z.object({
 export const vslResponseSchema = z.object({
   ok: z.literal(true),
   data: z.object({
+    leadType: z.enum(["paid", "organic"]),
     report: z.literal("VSL | CLOSERS"),
     updatedAt: str,
     filters: z
@@ -50,6 +51,11 @@ export const vslResponseSchema = z.object({
       })
       .default({}),
     kpis: z.object({ ...counts, tasaAsistencia: num, tasaNoShow: num }).default({}),
+    leadTypeKpis: z.object({
+      totalLeads: z.coerce.number().finite().nonnegative(),
+      attended: z.coerce.number().finite().nonnegative(),
+      attendanceRate: z.coerce.number().finite().min(0).max(100),
+    }),
     setters: z.array(z.object({ setter: str, ...counts })).default([]),
     detail: z
       .object({
@@ -80,7 +86,10 @@ export function mapVslReportResponse(
   },
 ): VslClosersReport {
   const parsed = vslResponseSchema.safeParse(raw);
-  if (!parsed.success) throw new ApiError("Apps Script devolvió un reporte con formato inválido.");
+  if (!parsed.success)
+    throw new ApiError(
+      "Apps Script devolvió un reporte con formato inválido. Verifica que esté publicada la versión de 10_API con selector Pagados/Orgánicos.",
+    );
   const d = parsed.data.data;
   // Only the received page is sorted: Apps Script has not specified global sort support.
   const rows = d.detail.rows
@@ -92,9 +101,11 @@ export function mapVslReportResponse(
     );
   return {
     report: d.report,
+    leadType: d.leadType,
     updatedAt: d.updatedAt,
     source: "sheet",
     filters: {
+      leadType: d.leadType,
       dateFrom: query.dateFrom,
       dateTo: query.dateTo,
       setter: query.setter,
@@ -102,7 +113,8 @@ export function mapVslReportResponse(
       closer: query.closer,
       vslOrigen: query.vslOrigin,
     },
-    kpis: mapVslKpis(d.kpis, d.detail.pagination.totalRecords),
+    kpis: mapVslKpis(d.kpis, d.leadTypeKpis.totalLeads),
+    leadTypeKpis: d.leadTypeKpis,
     setters: d.setters,
     availableSetters: d.filters.available.setters,
     availableClosers: d.filters.available.closers,
