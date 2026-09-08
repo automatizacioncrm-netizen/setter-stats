@@ -41,7 +41,9 @@ function harness() {
             const index = cursor++;
             return (state[index] ??= { current: initial });
           },
-          useEffect() {},
+          useEffect(fn, deps) {
+            if (deps.length === 1 && deps[0] === query.data) fn();
+          },
           useMemo: (fn) => fn(),
           useCallback: (fn) => fn,
         };
@@ -138,7 +140,7 @@ test("lead type changes retain filters, reset page, show loading and survive rec
   assert.equal(h.query.options.queryKey[2].page, 1);
   h.query.isFetching = true;
   h.render();
-  assert.equal(h.find("LoadingModal").props.open, true);
+  assert.equal(h.find("LoadingModal").props.open, false);
   h.query.isFetching = false;
   h.query.data.leadType = "organic";
   h.render();
@@ -243,7 +245,7 @@ test("sales uses the same query data as the setter table across filters and refr
   });
   h.query.isFetching = true;
   h.render();
-  assert.equal(h.find("LoadingModal").props.open, true);
+  assert.equal(h.find("LoadingModal").props.open, false);
   const fresh = { total: 0, byStage: [], rows: [] };
   h.query.data = { ...h.query.data, sales: fresh, leadType: "organic" };
   h.query.isFetching = false;
@@ -253,4 +255,26 @@ test("sales uses the same query data as the setter table across filters and refr
   await h.find("RefreshButton").props.onClick();
   h.render();
   assert.equal(h.find("SalesSection").props.sales, h.query.data.sales);
+});
+
+test("focus refresh and failed filter refresh retain loaded data without a modal", () => {
+  const h = harness();
+  h.loaded();
+  const previous = h.query.data;
+  assert.equal(h.query.options.refetchOnWindowFocus, true);
+  h.query.isFetching = true;
+  h.render();
+  assert.equal(h.find("LoadingModal").props.open, false);
+  assert.ok(h.find("SetterStatusTable"));
+  h.query.data = undefined;
+  h.query.isLoading = true;
+  h.render();
+  assert.equal(h.find("LoadingModal").props.open, false);
+  assert.equal(h.find("SetterStatusTable").props.rows, previous.setters);
+  h.query.isLoading = false;
+  h.query.isFetching = false;
+  h.query.isError = true;
+  h.render();
+  assert.equal(h.find("LoadingModal").props.open, false);
+  assert.ok(h.find("SetterStatusTable"));
 });

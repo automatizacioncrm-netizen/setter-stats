@@ -1,4 +1,6 @@
 import { ApiError, getServerEnv } from "../config/env.server";
+export const REPORT_TIMEOUT_MS = 15_000;
+export const RECONCILE_TIMEOUT_MS = 60_000;
 export interface ReportRequest {
   leadType: "paid" | "organic";
   dateFrom: string;
@@ -33,7 +35,10 @@ async function requestScript(action: "vsl_report" | "vsl_reconciliar", filters?:
       url.searchParams.set(key, String(filters[key]));
     }
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), action === "vsl_report" ? 15_000 : 60_000);
+  const timer = setTimeout(
+    () => controller.abort(),
+    action === "vsl_report" ? REPORT_TIMEOUT_MS : RECONCILE_TIMEOUT_MS,
+  );
   try {
     const response = await fetch(url, {
       method: action === "vsl_report" ? "GET" : "POST",

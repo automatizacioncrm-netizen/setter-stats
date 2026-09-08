@@ -15,7 +15,7 @@ import { RefreshButton } from "@/components/reports/RefreshButton";
 import { LoadingModal } from "@/components/reports/LoadingModal";
 import { LeadDetailTable } from "@/components/reports/LeadDetailTable";
 import { SalesSection } from "@/components/reports/SalesSection";
-import type { DatePreset, DetailQuery, ReportFilters } from "@/types/reports";
+import type { DatePreset, DetailQuery, ReportFilters, VslClosersReport } from "@/types/reports";
 
 const EMPTY_FILTERS: ReportFilters = {
   preset: "todos",
@@ -151,7 +151,13 @@ export function VslClosersDashboard() {
     }
   }, [query]);
 
-  const data = query.data;
+  const lastReport = useRef<VslClosersReport | undefined>(undefined);
+  useEffect(() => {
+    if (query.data) lastReport.current = query.data;
+  }, [query.data]);
+  const data = query.data ?? lastReport.current;
+  const initialLoading = !data && query.isLoading;
+  const backgroundRefreshing = !!data && query.isFetching && !syncing;
   const kpis = data?.leadTypeKpis;
   const leadLabel =
     (data?.leadType ?? filters.leadType) === "organic" ? "orgánicos" : "VSL pagados";
@@ -175,7 +181,7 @@ export function VslClosersDashboard() {
   return (
     <div className="min-h-screen w-full bg-background px-4 py-6">
       <LoadingModal
-        open={syncing || query.isLoading || query.isFetching}
+        open={syncing || initialLoading}
         title={syncing ? "Actualizando datos..." : "Cargando reporte..."}
         description={
           syncing
@@ -200,6 +206,11 @@ export function VslClosersDashboard() {
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Última actualización: {data ? formatUpdatedAt(data.updatedAt) : "—"}
+              {backgroundRefreshing && (
+                <span role="status" className="ml-2">
+                  Actualizando...
+                </span>
+              )}
             </p>
           </div>
 
@@ -235,7 +246,13 @@ export function VslClosersDashboard() {
           }}
         />
 
-        {query.isLoading ? (
+        {query.isError && data && !syncing && (
+          <p role="status" className="text-xs text-muted-foreground">
+            No se pudo actualizar el reporte en segundo plano. Se mantienen los últimos datos
+            cargados.
+          </p>
+        )}
+        {initialLoading ? (
           <div className="rounded-xl border border-border bg-surface p-10 text-center text-sm text-muted-foreground shadow-card">
             Cargando reporte...
           </div>

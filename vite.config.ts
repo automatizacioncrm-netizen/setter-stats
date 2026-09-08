@@ -6,6 +6,10 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { loadEnv } from "vite";
+import vercelConfig from "./vercel.json";
+
+// Keep Nitro's prebuilt output and Vercel's project configuration in sync.
+const nitroConfig = { preset: "vercel", vercel: { config: { crons: vercelConfig.crons } } };
 
 export default defineConfig({
   vite: {
@@ -14,15 +18,15 @@ export default defineConfig({
         name: "private-report-env",
         configResolved(config) {
           if (config.command !== "serve") return;
-          const env = loadEnv(config.mode, config.envDir, "APPS_SCRIPT_");
-          for (const key of ["APPS_SCRIPT_URL", "APPS_SCRIPT_SECRET"]) {
+          const env = loadEnv(config.mode, config.envDir, ["APPS_SCRIPT_", "CRON_SECRET"]);
+          for (const key of ["APPS_SCRIPT_URL", "APPS_SCRIPT_SECRET", "CRON_SECRET"]) {
             if (process.env[key] === undefined && env[key]) process.env[key] = env[key];
           }
         },
       },
     ],
   },
-  nitro: { preset: "vercel" },
+  nitro: nitroConfig,
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this

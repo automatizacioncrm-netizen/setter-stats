@@ -71,7 +71,7 @@ export function SalesSection({ sales, available }: { sales: SalesReport; availab
           <SalesFinancialCards values={sales.salesValueByCurrency} />
           <div className="overflow-hidden rounded-lg border border-border">
             <h3 className="border-b border-border px-4 py-3 text-sm font-semibold">
-              Detalle de ventas
+              Detalle de ventas por Setter y Closer
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[850px] text-sm">

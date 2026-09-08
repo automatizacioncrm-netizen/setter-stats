@@ -719,3 +719,75 @@ test("Perdida is included and finance values come from backend with separate cur
     getSalesStageStyle(SALES_STAGES[3]).accent,
   );
 });
+
+test("cron authenticates before upstream call and shares manual reconciliation service", async () => {
+  const { cronReconciliationApi } = require("../src/server/api/cron-reconciliation.api.server.ts");
+  const oldFetch = global.fetch;
+  const saved = {
+    CRON_SECRET: process.env.CRON_SECRET,
+    APPS_SCRIPT_URL: process.env.APPS_SCRIPT_URL,
+    APPS_SCRIPT_SECRET: process.env.APPS_SCRIPT_SECRET,
+  };
+  let calls = 0;
+  try {
+    process.env.CRON_SECRET = "cron-test-only";
+    process.env.APPS_SCRIPT_URL = "https://example.com/exec";
+    process.env.APPS_SCRIPT_SECRET = "upstream-test-only";
+    global.fetch = async (url, options) => {
+      calls++;
+      assert.equal(options.method, "POST");
+      assert.equal(url.searchParams.get("action"), "vsl_reconciliar");
+      return Response.json({
+        ok: true,
+        resultado: {
+          revisadas: 1,
+          nuevas: 0,
+          modificadas: 0,
+          sinCambios: 1,
+          insertadas: 0,
+          actualizadas: 0,
+          errores: 0,
+          segundos: 1,
+        },
+        timestamp: "2026-09-08T00:00:00Z",
+      });
+    };
+    for (const auth of ["", "Bearer wrong"]) {
+      const r = await cronReconciliationApi(
+        new Request("https://local.test/api/cron/vsl-reconcile", {
+          headers: { authorization: auth },
+        }),
+      );
+      assert.equal(r.status, 401);
+    }
+    assert.equal(calls, 0);
+    for (const schedule of require("../vercel.json").crons) {
+      assert.equal(schedule.path, "/api/cron/vsl-reconcile");
+      const r = await cronReconciliationApi(
+        new Request("https://local.test" + schedule.path, {
+          headers: { authorization: "Bearer cron-test-only" },
+        }),
+      );
+      assert.equal(r.status, 200);
+      assert.equal((await r.json()).ok, true);
+    }
+    assert.equal(calls, 2);
+    assert.deepEqual(
+      require("../vercel.json").crons.map((c) => c.schedule),
+      ["0 5 * * *", "0 17 * * *"],
+    );
+    delete process.env.CRON_SECRET;
+    assert.equal(
+      (await cronReconciliationApi(new Request("https://local.test/api/cron/vsl-reconcile")))
+        .status,
+      503,
+    );
+    assert.equal(calls, 2);
+  } finally {
+    global.fetch = oldFetch;
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});

@@ -29,7 +29,7 @@ export function SalesFinancialCards({ values }: { values: SalesValueByCurrency[]
         >
           {[
             {
-              label: "VALOR ESPERADO",
+              label: "VALOR TOTAL DE TICKET DE VENTA",
               value: formatCurrency(item.salesValue, item.currency),
               currency: item.currency,
               accent: "var(--status-agendado)",

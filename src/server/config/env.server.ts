@@ -31,6 +31,12 @@ export function getServerEnv() {
   }
   return parsed.data;
 }
+export function getCronSecret() {
+  const secret = process.env["CRON_SECRET"];
+  if (!secret || !secret.trim())
+    throw new ApiError("La tarea programada no está configurada.", 503);
+  return secret;
+}
 export function apiError(error: unknown) {
   return Response.json(
     { message: error instanceof ApiError ? error.message : "No se pudo procesar el reporte." },
