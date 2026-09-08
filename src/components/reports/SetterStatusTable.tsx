@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ArrowUpDown } from "lucide-react";
-import type { SetterRow } from "@/types/reports";
+import type { SetterRow, ReportKpis } from "@/types/reports";
 
 type SortKey = keyof SetterRow;
 
@@ -16,43 +16,21 @@ const COLUMNS: { key: SortKey; label: string }[] = [
 
 const n = (value: number | undefined | null) => (typeof value === "number" ? value : 0);
 
-export function SetterStatusTable({ rows }: { rows: SetterRow[] }) {
+export function SetterStatusTable({ rows, totals }: { rows: SetterRow[]; totals: ReportKpis }) {
   const [sortKey, setSortKey] = useState<SortKey>("total");
   const [asc, setAsc] = useState(false);
 
   const sorted = useMemo(() => {
     const copy = [...rows];
     copy.sort((a, b) => {
-      if (sortKey === "setter") return asc ? a.setter.localeCompare(b.setter) : b.setter.localeCompare(a.setter);
-      return asc ? n(a[sortKey] as number) - n(b[sortKey] as number) : n(b[sortKey] as number) - n(a[sortKey] as number);
+      if (sortKey === "setter")
+        return asc ? a.setter.localeCompare(b.setter) : b.setter.localeCompare(a.setter);
+      return asc
+        ? n(a[sortKey] as number) - n(b[sortKey] as number)
+        : n(b[sortKey] as number) - n(a[sortKey] as number);
     });
     return copy;
   }, [rows, sortKey, asc]);
-
-  const totals = useMemo(
-    () =>
-      rows.reduce(
-        (acc, r) => ({
-          agendadoCRM: acc.agendadoCRM + n(r.agendadoCRM),
-          asistio: acc.asistio + n(r.asistio),
-          cancelado: acc.cancelado + n(r.cancelado),
-          noShow: acc.noShow + n(r.noShow),
-          pendienteAgenda: acc.pendienteAgenda + n(r.pendienteAgenda),
-          reagendado: acc.reagendado + n(r.reagendado),
-          total: acc.total + n(r.total),
-        }),
-        {
-          agendadoCRM: 0,
-          asistio: 0,
-          cancelado: 0,
-          noShow: 0,
-          pendienteAgenda: 0,
-          reagendado: 0,
-          total: 0,
-        },
-      ),
-    [rows],
-  );
 
   const toggle = (key: SortKey) => {
     if (key === sortKey) setAsc((v) => !v);
@@ -66,7 +44,9 @@ export function SetterStatusTable({ rows }: { rows: SetterRow[] }) {
     <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-card">
       <div className="border-b border-border px-4 py-3">
         <h3 className="text-sm font-semibold text-foreground">Desempeño por Setter</h3>
-        <p className="text-xs text-muted-foreground">Conteo de oportunidades por estado de agenda</p>
+        <p className="text-xs text-muted-foreground">
+          Conteo de oportunidades por estado de agenda
+        </p>
       </div>
       <div className="w-full overflow-x-auto">
         <table className="w-full min-w-[760px] text-sm">
@@ -79,7 +59,10 @@ export function SetterStatusTable({ rows }: { rows: SetterRow[] }) {
               </th>
               {COLUMNS.map((col) => (
                 <th key={col.key} className="px-4 py-2 text-right font-medium">
-                  <button className="inline-flex items-center gap-1" onClick={() => toggle(col.key)}>
+                  <button
+                    className="inline-flex items-center gap-1"
+                    onClick={() => toggle(col.key)}
+                  >
                     {col.label} <ArrowUpDown className="h-3 w-3" />
                   </button>
                 </th>
@@ -88,15 +71,20 @@ export function SetterStatusTable({ rows }: { rows: SetterRow[] }) {
           </thead>
           <tbody>
             {sorted.map((row) => (
-              <tr key={row.setter} className="border-t border-border hover:bg-accent/50">
+              <tr
+                key={row.setter || "Sin setter asignado"}
+                className="border-t border-border hover:bg-accent/50"
+              >
                 <td className="sticky left-0 bg-surface px-4 py-2 font-medium text-foreground">
-                  {row.setter}
+                  {row.setter || "Sin setter asignado"}
                 </td>
                 {COLUMNS.map((col) => (
                   <td
                     key={col.key}
                     className={`px-4 py-2 text-right tabular-nums ${
-                      col.key === "total" ? "font-semibold text-foreground" : "text-muted-foreground"
+                      col.key === "total"
+                        ? "font-semibold text-foreground"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {n(row[col.key] as number)}

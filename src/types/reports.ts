@@ -17,6 +17,8 @@ export interface ReportFilters {
   dateTo: string;
   setter: string;
   estadoAgenda: string;
+  vslOrigen: string;
+  closer: string;
 }
 
 export interface ReportKpis {
@@ -43,13 +45,42 @@ export interface SetterRow {
 }
 
 export interface VslClosersReport {
-  report: string;
+  report: "VSL | CLOSERS";
   updatedAt: string;
   filters: Omit<ReportFilters, "preset">;
   kpis: ReportKpis;
   setters: SetterRow[];
   availableSetters: string[];
+  availableClosers: string[];
+  availableOrigins: string[];
+  unknownStatusCount: number;
+  source: "development" | "sheet";
+  detail?: LeadDetailRow[];
+  detailTotal: number;
+  detailPage: number;
 }
+
+export interface LeadDetailRow {
+  nombreContacto: string;
+  telefono: string;
+  correo: string;
+  setterAsignado: string;
+  closerAsignado: string;
+  vslOrigen: string;
+  estadoAgenda: string;
+  fechaReunion: string;
+  fase: string;
+  fuente: string;
+}
+export interface DetailQuery {
+  includeDetail: boolean;
+  search: string;
+  page: number;
+  pageSize: number;
+  sort: keyof LeadDetailRow;
+  direction: "asc" | "desc";
+}
+export type SheetRow = Record<string, unknown>;
 
 export interface RawRecord {
   id: string;

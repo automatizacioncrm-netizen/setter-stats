@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReportsIndexRouteImport } from './routes/reports.index'
 import { Route as ReportsVslClosersRouteImport } from './routes/reports.vsl-closers'
+import { Route as ApiReportsVslClosersRouteImport } from './routes/api.reports.vsl-closers'
+import { Route as ApiReportsVslClosersReconcileRouteImport } from './routes/api.reports.vsl-closers.reconcile'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +30,69 @@ const ReportsVslClosersRoute = ReportsVslClosersRouteImport.update({
   path: '/reports/vsl-closers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiReportsVslClosersRoute = ApiReportsVslClosersRouteImport.update({
+  id: '/api/reports/vsl-closers',
+  path: '/api/reports/vsl-closers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReportsVslClosersReconcileRoute =
+  ApiReportsVslClosersReconcileRouteImport.update({
+    id: '/reconcile',
+    path: '/reconcile',
+    getParentRoute: () => ApiReportsVslClosersRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/reports/vsl-closers': typeof ReportsVslClosersRoute
   '/reports/': typeof ReportsIndexRoute
+  '/api/reports/vsl-closers': typeof ApiReportsVslClosersRouteWithChildren
+  '/api/reports/vsl-closers/reconcile': typeof ApiReportsVslClosersReconcileRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/reports/vsl-closers': typeof ReportsVslClosersRoute
   '/reports': typeof ReportsIndexRoute
+  '/api/reports/vsl-closers': typeof ApiReportsVslClosersRouteWithChildren
+  '/api/reports/vsl-closers/reconcile': typeof ApiReportsVslClosersReconcileRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/reports/vsl-closers': typeof ReportsVslClosersRoute
   '/reports/': typeof ReportsIndexRoute
+  '/api/reports/vsl-closers': typeof ApiReportsVslClosersRouteWithChildren
+  '/api/reports/vsl-closers/reconcile': typeof ApiReportsVslClosersReconcileRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/reports/vsl-closers' | '/reports/'
+  fullPaths:
+    | '/'
+    | '/reports/vsl-closers'
+    | '/reports/'
+    | '/api/reports/vsl-closers'
+    | '/api/reports/vsl-closers/reconcile'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/reports/vsl-closers' | '/reports'
-  id: '__root__' | '/' | '/reports/vsl-closers' | '/reports/'
+  to:
+    | '/'
+    | '/reports/vsl-closers'
+    | '/reports'
+    | '/api/reports/vsl-closers'
+    | '/api/reports/vsl-closers/reconcile'
+  id:
+    | '__root__'
+    | '/'
+    | '/reports/vsl-closers'
+    | '/reports/'
+    | '/api/reports/vsl-closers'
+    | '/api/reports/vsl-closers/reconcile'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ReportsVslClosersRoute: typeof ReportsVslClosersRoute
   ReportsIndexRoute: typeof ReportsIndexRoute
+  ApiReportsVslClosersRoute: typeof ApiReportsVslClosersRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -82,13 +118,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReportsVslClosersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/reports/vsl-closers': {
+      id: '/api/reports/vsl-closers'
+      path: '/api/reports/vsl-closers'
+      fullPath: '/api/reports/vsl-closers'
+      preLoaderRoute: typeof ApiReportsVslClosersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/reports/vsl-closers/reconcile': {
+      id: '/api/reports/vsl-closers/reconcile'
+      path: '/reconcile'
+      fullPath: '/api/reports/vsl-closers/reconcile'
+      preLoaderRoute: typeof ApiReportsVslClosersReconcileRouteImport
+      parentRoute: typeof ApiReportsVslClosersRoute
+    }
   }
 }
+
+interface ApiReportsVslClosersRouteChildren {
+  ApiReportsVslClosersReconcileRoute: typeof ApiReportsVslClosersReconcileRoute
+}
+
+const ApiReportsVslClosersRouteChildren: ApiReportsVslClosersRouteChildren = {
+  ApiReportsVslClosersReconcileRoute: ApiReportsVslClosersReconcileRoute,
+}
+
+const ApiReportsVslClosersRouteWithChildren =
+  ApiReportsVslClosersRoute._addFileChildren(ApiReportsVslClosersRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ReportsVslClosersRoute: ReportsVslClosersRoute,
   ReportsIndexRoute: ReportsIndexRoute,
+  ApiReportsVslClosersRoute: ApiReportsVslClosersRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -13,6 +13,8 @@ const PRESETS: { value: DatePreset; label: string }[] = [
 interface Props {
   filters: ReportFilters;
   setters: string[];
+  closers: string[];
+  origins: string[];
   onChange: (next: Partial<ReportFilters>) => void;
   onPreset: (preset: DatePreset) => void;
   onClear: () => void;
@@ -21,7 +23,15 @@ interface Props {
 const fieldClass =
   "h-9 w-full rounded-lg border border-border bg-surface px-3 text-sm text-foreground outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
 
-export function DashboardFilters({ filters, setters, onChange, onPreset, onClear }: Props) {
+export function DashboardFilters({
+  filters,
+  setters,
+  closers,
+  origins,
+  onChange,
+  onPreset,
+  onClear,
+}: Props) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4 shadow-card">
       <div className="flex flex-wrap items-center gap-2">
@@ -92,6 +102,28 @@ export function DashboardFilters({ filters, setters, onChange, onPreset, onClear
             ))}
           </select>
         </label>
+        {(
+          [
+            { key: "vslOrigen", label: "VSL Origen", options: origins },
+            { key: "closer", label: "Asignado / Closer", options: closers },
+          ] as const
+        ).map(({ key, label, options }) => (
+          <label key={key} className="block">
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
+            <select
+              className={fieldClass}
+              value={filters[key]}
+              onChange={(e) => onChange({ [key]: e.target.value })}
+            >
+              <option value="">Todos</option>
+              {options.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
         <div className="flex items-end">
           <button
             onClick={onClear}
