@@ -57,6 +57,8 @@ export interface SetterRow {
 }
 
 export interface VslClosersReport {
+  sales: SalesReport;
+  salesAvailable: boolean;
   leadType: LeadType;
   report: "VSL | CLOSERS";
   updatedAt: string;
@@ -72,6 +74,33 @@ export interface VslClosersReport {
   detail?: LeadDetailRow[];
   detailTotal: number;
   detailPage: number;
+}
+
+export const SALES_STAGES = [
+  "Reserva / Deposito",
+  "Venta - Pagando a Cuotas",
+  "Venta Cerrada (Pago De Contado)",
+  "Venta Cerrada (Cuotas Pagadas)",
+] as const;
+
+export interface SalesStageSummary {
+  stage: string;
+  count: number;
+}
+
+export interface SaleRow {
+  setterAsignado: string;
+  closerAsignado: string;
+  nombreContacto: string;
+  fase: string;
+  fuente: string;
+  fechaReunion: string;
+}
+
+export interface SalesReport {
+  total: number;
+  byStage: SalesStageSummary[];
+  rows: SaleRow[];
 }
 
 export interface LeadDetailRow {

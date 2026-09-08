@@ -223,3 +223,34 @@ for (const stage of ["POST", "GET"])
         : "La sincronización terminó, pero no se pudo recargar el reporte. Intenta nuevamente.",
     );
   });
+
+test("sales uses the same query data as the setter table across filters and refresh", async () => {
+  const h = harness();
+  h.loaded();
+  const first = { total: 1, byStage: [], rows: [] };
+  h.query.data.sales = first;
+  h.query.data.salesAvailable = true;
+  h.render();
+  assert.equal(h.find("SalesSection").props.sales, first);
+  h.find("DashboardFilters").props.onChange({
+    leadType: "organic",
+    dateFrom: "2026-09-01",
+    dateTo: "2026-09-08",
+    setter: "Ana",
+    closer: "Pedro",
+    estadoAgenda: "No show",
+    vslOrigen: "No agendado",
+  });
+  h.query.isFetching = true;
+  h.render();
+  assert.equal(h.find("LoadingModal").props.open, true);
+  const fresh = { total: 0, byStage: [], rows: [] };
+  h.query.data = { ...h.query.data, sales: fresh, leadType: "organic" };
+  h.query.isFetching = false;
+  h.render();
+  assert.equal(h.find("SalesSection").props.sales, fresh);
+  assert.equal(h.query.options.queryKey[1].estadoAgenda, "No show");
+  await h.find("RefreshButton").props.onClick();
+  h.render();
+  assert.equal(h.find("SalesSection").props.sales, h.query.data.sales);
+});

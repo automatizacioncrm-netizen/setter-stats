@@ -14,6 +14,7 @@ import { triggerVslReconciliation } from "@/services/reconciliation.service";
 import { RefreshButton } from "@/components/reports/RefreshButton";
 import { LoadingModal } from "@/components/reports/LoadingModal";
 import { LeadDetailTable } from "@/components/reports/LeadDetailTable";
+import { SalesSection } from "@/components/reports/SalesSection";
 import type { DatePreset, DetailQuery, ReportFilters } from "@/types/reports";
 
 const EMPTY_FILTERS: ReportFilters = {
@@ -274,6 +275,7 @@ export function VslClosersDashboard() {
               <p>No existen registros para los filtros seleccionados.</p>
             )}
             <SetterStatusTable rows={data.setters} totals={data.kpis} />
+            <SalesSection sales={data.sales} available={data.salesAvailable} />
           </>
         )}
         <label className="flex items-center gap-2 text-sm">

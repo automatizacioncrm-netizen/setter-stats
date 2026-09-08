@@ -10,11 +10,6 @@ export function ConversionSummary({ kpis, leadType }: Props) {
     kpis.conEstadoAgenda ? Math.round((value / kpis.conEstadoAgenda) * 100) : 0;
 
   const steps = [
-    {
-      label: "Agendados / Total",
-      value: kpis.agendadoCRM + kpis.asistio + kpis.reagendado,
-      color: "var(--status-agendado)",
-    },
     { label: "Asistieron", value: kpis.asistio, color: "var(--status-asistio)" },
     {
       label: "No show / Cancelados",

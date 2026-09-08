@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { VslClosersReport } from "../../types/reports";
 import { ApiError } from "../config/env.server";
 import { mapVslKpis } from "./vsl-kpis.mapper";
+import { mapSalesResponse } from "./sales.mapper";
 
 const str = z
   .union([z.string(), z.number()])
@@ -66,6 +67,7 @@ export const vslResponseSchema = z.object({
       })
       .default({}),
     unknownStatusCount: num,
+    sales: z.unknown(),
   }),
 });
 export type AppsScriptReportResponse = z.infer<typeof vslResponseSchema>;
@@ -100,6 +102,8 @@ export function mapVslReportResponse(
         (query.direction === "asc" ? 1 : -1),
     );
   return {
+    sales: mapSalesResponse(d.sales),
+    salesAvailable: d.sales != null,
     report: d.report,
     leadType: d.leadType,
     updatedAt: d.updatedAt,

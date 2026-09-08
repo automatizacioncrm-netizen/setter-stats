@@ -125,6 +125,9 @@ export function mapSheetRowsToVslReport(
   const pageSize = Math.max(1, Math.min(100, detailQuery.pageSize));
   const page = Math.max(1, Math.min(detailQuery.page, Math.ceil(detail.length / pageSize) || 1));
   return {
+    // This legacy row mapper has no sales aggregate supplied by Apps Script.
+    sales: { total: 0, byStage: [], rows: [] },
+    salesAvailable: false,
     report: "VSL | CLOSERS",
     leadType: filters.leadType === "organic" ? "organic" : "paid",
     updatedAt,

@@ -498,3 +498,118 @@ test("central adapter forwards only allowed params and sanitizes upstream failur
     else process.env.APPS_SCRIPT_SECRET = previousSecret;
   }
 });
+const { mapSalesResponse } = require("../src/server/mappers/sales.mapper.ts");
+const { SALES_STAGES } = require("../src/types/reports.ts");
+const sale = (fase, name = "Contacto repetido") => ({
+  fase,
+  nombreContacto: name,
+  setterAsignado: "Setter",
+  closerAsignado: "Closer",
+  fuente: "VSL FUNNEL",
+  fechaReunion: "2026-09-08",
+});
+function salesFixture() {
+  return {
+    total: "5",
+    byStage: [...SALES_STAGES]
+      .reverse()
+      .map((stage) => ({ stage, count: stage === SALES_STAGES[0] ? "2" : "1" })),
+    rows: [...SALES_STAGES.map((stage) => sale(stage)), sale(SALES_STAGES[0])],
+  };
+}
+test("sales preserves opportunities with repeated names, normalizes and orders stages", () => {
+  const result = mapSalesResponse(salesFixture());
+  assert.equal(result.total, 5);
+  assert.deepEqual(
+    result.byStage.map((r) => r.stage),
+    SALES_STAGES,
+  );
+  assert.equal(
+    result.byStage.reduce((sum, r) => sum + r.count, 0),
+    result.total,
+  );
+  assert.equal(result.rows.length, result.total);
+  assert.equal(result.rows[0].setterAsignado, "Setter");
+  assert.equal(result.rows[0].closerAsignado, "Closer");
+  assert.equal(result.rows.filter((r) => r.nombreContacto === "Contacto repetido").length, 5);
+  const sparse = mapSalesResponse({
+    total: 1,
+    byStage: [{ stage: SALES_STAGES[0], count: 1 }],
+    rows: [{ fase: SALES_STAGES[0], nombreContacto: null }],
+  });
+  assert.equal(sparse.rows[0].nombreContacto, "");
+  assert.equal(sparse.rows[0].fuente, "");
+  assert.equal(sparse.byStage.length, 4);
+});
+test("sales rejects inconsistent counts, invalid phases and duplicate summaries", () => {
+  for (const update of [
+    { total: 6 },
+    { rows: [] },
+    { byStage: [{ stage: SALES_STAGES[0], count: 5 }] },
+    {
+      byStage: [
+        { stage: SALES_STAGES[0], count: 2 },
+        { stage: SALES_STAGES[0], count: 3 },
+      ],
+    },
+    { rows: [sale("Asistió")] },
+    { total: -1 },
+    { total: 1.5 },
+  ])
+    assert.throws(
+      () => mapSalesResponse({ ...salesFixture(), ...update }),
+      (e) => e.status === 502,
+    );
+  assert.equal(mapSalesResponse(undefined).total, 0);
+  assert.deepEqual(mapSalesResponse({ total: 0, byStage: [], rows: [] }).rows, []);
+});
+test("report and endpoint carry sales through the same filtered GET, independent of detail page", async () => {
+  const { reportApi } = require("../src/server/api/report.api.server.ts");
+  const savedFetch = global.fetch,
+    savedUrl = process.env.APPS_SCRIPT_URL,
+    savedSecret = process.env.APPS_SCRIPT_SECRET;
+  const base = {
+    report: "VSL | CLOSERS",
+    leadType: "paid",
+    leadTypeKpis: { totalLeads: 5, attended: 0, attendanceRate: 0 },
+  };
+  assert.equal(mapVslReportResponse({ ok: true, data: base }, query).salesAvailable, false);
+  try {
+    process.env.APPS_SCRIPT_URL = "https://example.com/exec";
+    process.env.APPS_SCRIPT_SECRET = "test-only";
+    for (const leadType of ["paid", "organic"]) {
+      let calls = 0;
+      global.fetch = async (url) => {
+        calls++;
+        for (const [key, value] of Object.entries({
+          leadType,
+          dateFrom: "2026-09-01",
+          dateTo: "2026-09-08",
+          setter: "Setter",
+          closer: "Closer",
+          status: "No show",
+          vslOrigin: "No agendado",
+        }))
+          assert.equal(url.searchParams.get(key), value);
+        return Response.json({ ok: true, data: { ...base, leadType, sales: salesFixture() } });
+      };
+      const response = await reportApi(
+        new Request(
+          `https://local.test/api/reports/vsl-closers?leadType=${leadType}&dateFrom=2026-09-01&dateTo=2026-09-08&setter=Setter&closer=Closer&status=No%20show&vslOrigin=No%20agendado&pageSize=1&includeDetail=false`,
+        ),
+      );
+      assert.equal(response.status, 200);
+      const report = await response.json();
+      assert.equal(calls, 1);
+      assert.equal(report.sales.total, 5);
+      assert.equal(report.sales.rows.length, 5);
+      assert.equal(report.salesAvailable, true);
+    }
+  } finally {
+    global.fetch = savedFetch;
+    if (savedUrl === undefined) delete process.env.APPS_SCRIPT_URL;
+    else process.env.APPS_SCRIPT_URL = savedUrl;
+    if (savedSecret === undefined) delete process.env.APPS_SCRIPT_SECRET;
+    else process.env.APPS_SCRIPT_SECRET = savedSecret;
+  }
+});
