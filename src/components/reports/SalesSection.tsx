@@ -3,6 +3,8 @@ import { ArrowUpDown } from "lucide-react";
 import type { SaleRow, SalesReport } from "@/types/reports";
 import { KpiCard } from "./KpiCard";
 import { formatCurrency } from "@/lib/currency";
+import { getSalesStageStyle } from "@/lib/sales-stage-style";
+import { SalesCollectionTable } from "./SalesCollectionTable";
 
 const columns: { key: keyof SaleRow; label: string }[] = [
   { key: "setterAsignado", label: "Setter asignado" },
@@ -49,17 +51,24 @@ export function SalesSection({ sales, available }: { sales: SalesReport; availab
         </p>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <KpiCard label="Total de ventas" value={sales.total} accent="var(--status-asistio)" />
             {sales.byStage.map((item) => (
-              <KpiCard
+              <div
                 key={item.stage}
-                label={item.stage}
-                value={item.count}
-                hint={item.count === 1 ? "venta" : "ventas"}
-              />
+                className="rounded-xl border-t-4"
+                style={{ borderColor: getSalesStageStyle(item.stage).accent }}
+              >
+                <KpiCard
+                  label={item.stage}
+                  value={item.count}
+                  accent={getSalesStageStyle(item.stage).accent}
+                  hint={item.count === 1 ? "venta" : "ventas"}
+                />
+              </div>
             ))}
           </div>
+          <SalesCollectionTable sales={sales} />
           {sales.cashByCurrency.length > 0 && (
             <div className="space-y-3">
               <h3 className="text-sm font-semibold">Cash colectado</h3>
@@ -112,9 +121,17 @@ export function SalesSection({ sales, available }: { sales: SalesReport; availab
                     <tr key={index} className="border-t border-border hover:bg-accent/50">
                       {columns.map((col) => (
                         <td key={col.key} className="px-4 py-3">
-                          {col.key === "montoUltimoPago"
-                            ? formatCurrency(row.montoUltimoPago, row.moneda)
-                            : row[col.key] || "—"}
+                          {col.key === "montoUltimoPago" ? (
+                            formatCurrency(row.montoUltimoPago, row.moneda)
+                          ) : col.key === "fase" ? (
+                            <span
+                              className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${getSalesStageStyle(row.fase).badge}`}
+                            >
+                              {row.fase || "—"}
+                            </span>
+                          ) : (
+                            row[col.key] || "—"
+                          )}
                         </td>
                       ))}
                     </tr>

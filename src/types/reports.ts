@@ -81,6 +81,7 @@ export const SALES_STAGES = [
   "Venta - Pagando a Cuotas",
   "Venta Cerrada (Pago De Contado)",
   "Venta Cerrada (Cuotas Pagadas)",
+  "Perdida",
 ] as const;
 
 export interface SalesStageSummary {
@@ -101,10 +102,28 @@ export interface SaleRow {
 }
 
 export interface SalesReport {
+  productSummary: SalesProductSummary[];
+  salesValueByCurrency: SalesValueByCurrency[];
   cashByCurrency: { currency: string; amount: number }[];
   total: number;
   byStage: SalesStageSummary[];
   rows: SaleRow[];
+}
+
+export interface SalesProductSummary {
+  producto: string;
+  cantidad: number;
+  moneda: string;
+  ticket: number;
+  valorVenta: number;
+  cashRecaudado: number;
+  porcentajeRecaudado: number;
+}
+export interface SalesValueByCurrency {
+  currency: string;
+  salesValue: number;
+  cashCollected: number;
+  collectedRate: number;
 }
 
 export interface LeadDetailRow {

@@ -511,10 +511,10 @@ const sale = (fase, name = "Contacto repetido") => ({
 function salesFixture() {
   return {
     total: "5",
-    byStage: [...SALES_STAGES]
+    byStage: [...SALES_STAGES.slice(0, 4)]
       .reverse()
       .map((stage) => ({ stage, count: stage === SALES_STAGES[0] ? "2" : "1" })),
-    rows: [...SALES_STAGES.map((stage) => sale(stage)), sale(SALES_STAGES[0])],
+    rows: [...SALES_STAGES.slice(0, 4).map((stage) => sale(stage)), sale(SALES_STAGES[0])],
   };
 }
 test("sales preserves opportunities with repeated names, normalizes and orders stages", () => {
@@ -539,7 +539,7 @@ test("sales preserves opportunities with repeated names, normalizes and orders s
   });
   assert.equal(sparse.rows[0].nombreContacto, "");
   assert.equal(sparse.rows[0].fuente, "");
-  assert.equal(sparse.byStage.length, 4);
+  assert.equal(sparse.byStage.length, 5);
 });
 test("sales rejects inconsistent counts, invalid phases and duplicate summaries", () => {
   for (const update of [
@@ -655,4 +655,67 @@ test("currency formatter handles USD, soles, zero and missing currency", () => {
   );
   assert.equal(formatCurrency(0, "USD"), "$0.00");
   assert.equal(formatCurrency(1500, ""), "—");
+});
+
+test("Perdida is included and finance values come from backend with separate currency totals", () => {
+  const payload = {
+    total: 1,
+    byStage: [{ stage: "Perdida", count: 1 }],
+    rows: [sale("Perdida")],
+    productSummary: [
+      {
+        producto: "Producto variable",
+        cantidad: "2",
+        moneda: "USD",
+        ticket: "123.45",
+        valorVenta: "246.90",
+        cashRecaudado: "100",
+        porcentajeRecaudado: 40.5,
+      },
+    ],
+    salesValueByCurrency: [
+      { currency: "USD", salesValue: 246.9, cashCollected: 100, collectedRate: 40.5 },
+      { currency: "PEN", salesValue: 200, cashCollected: 50, collectedRate: 25 },
+    ],
+    cashByCurrency: [{ currency: "USD", amount: 999 }],
+  };
+  const result = mapSalesResponse(payload);
+  assert.equal(result.total, 1);
+  assert.equal(result.byStage[4].stage, "Perdida");
+  assert.equal(result.byStage[4].count, 1);
+  assert.equal(result.productSummary[0].ticket, 123.45);
+  assert.deepEqual(result.cashByCurrency, [
+    { currency: "USD", amount: 100 },
+    { currency: "PEN", amount: 50 },
+  ]);
+  assert.equal(result.salesValueByCurrency.length, 2);
+  assert.throws(() =>
+    mapSalesResponse({
+      ...payload,
+      productSummary: [{ ...payload.productSummary[0], valorVenta: 1 }],
+    }),
+  );
+  assert.throws(() =>
+    mapSalesResponse({
+      ...payload,
+      salesValueByCurrency: [
+        { currency: "USD", salesValue: 100, cashCollected: 50, collectedRate: 75 },
+      ],
+    }),
+  );
+  assert.equal(
+    mapSalesResponse({
+      salesValueByCurrency: [
+        { currency: "USD", salesValue: 0, cashCollected: 0, collectedRate: 0 },
+      ],
+    }).salesValueByCurrency[0].collectedRate,
+    0,
+  );
+  const { getSalesStageStyle } = require("../src/lib/sales-stage-style.ts");
+  assert.equal(getSalesStageStyle("Perdida").accent, "#dc2626");
+  assert.equal(getSalesStageStyle("Reserva / Deposito").accent, "#a16207");
+  assert.equal(
+    getSalesStageStyle(SALES_STAGES[1]).accent,
+    getSalesStageStyle(SALES_STAGES[3]).accent,
+  );
 });

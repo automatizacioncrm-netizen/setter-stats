@@ -18,6 +18,30 @@ const amount = z
   .transform((value) => (value == null || value === "" ? 0 : Number(value)))
   .pipe(z.number().finite());
 const schema = z.object({
+  productSummary: z
+    .array(
+      z.object({
+        producto: text,
+        cantidad: count,
+        moneda: text,
+        ticket: amount,
+        valorVenta: amount,
+        cashRecaudado: amount,
+        porcentajeRecaudado: amount,
+      }),
+    )
+    .nullish()
+    .transform((value) => value ?? []),
+  salesValueByCurrency: z
+    .array(
+      z.object({
+        currency: text,
+        salesValue: amount,
+        cashCollected: amount,
+        collectedRate: amount,
+      }),
+    )
+    .nullish(),
   cashByCurrency: z
     .array(z.object({ currency: text, amount }))
     .nullish()
@@ -52,6 +76,23 @@ export function mapSalesResponse(raw: unknown): SalesReport {
       "Apps Script devolvió ventas con formato inválido. Revisa las fases y cantidades del reporte.",
     );
   const sales = parsed.data;
+  const close = (a: number, b: number) => Number.isFinite(b) && Math.abs(a - b) <= 0.011;
+  const rate = (cash: number, value: number) => (value === 0 ? 0 : (cash / value) * 100);
+  for (const product of sales.productSummary) {
+    if (
+      !close(product.valorVenta, product.cantidad * product.ticket) ||
+      !close(product.porcentajeRecaudado, rate(product.cashRecaudado, product.valorVenta))
+    )
+      throw new ApiError(
+        "El resumen de recaudación de Apps Script contiene valores o porcentajes inconsistentes.",
+      );
+  }
+  for (const currency of sales.salesValueByCurrency ?? []) {
+    if (!close(currency.collectedRate, rate(currency.cashCollected, currency.salesValue)))
+      throw new ApiError(
+        "El porcentaje recaudado por moneda de Apps Script no coincide con sus importes.",
+      );
+  }
   const stages = new Map(sales.byStage.map((item) => [item.stage, item.count]));
   if (stages.size !== sales.byStage.length)
     throw new ApiError("Apps Script devolvió fases de venta duplicadas.");
@@ -75,6 +116,14 @@ export function mapSalesResponse(raw: unknown): SalesReport {
     total: sales.total,
     byStage: SALES_STAGES.map((name) => ({ stage: name, count: stages.get(name) ?? 0 })),
     rows: sales.rows,
-    cashByCurrency: sales.cashByCurrency,
+    productSummary: sales.productSummary,
+    salesValueByCurrency: sales.salesValueByCurrency ?? [],
+    cashByCurrency:
+      sales.salesValueByCurrency != null
+        ? sales.salesValueByCurrency.map((item) => ({
+            currency: item.currency,
+            amount: item.cashCollected,
+          }))
+        : sales.cashByCurrency,
   };
 }
