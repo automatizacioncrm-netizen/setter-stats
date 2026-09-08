@@ -4,7 +4,7 @@ import type { SaleRow, SalesReport } from "@/types/reports";
 import { KpiCard } from "./KpiCard";
 import { formatCurrency } from "@/lib/currency";
 import { getSalesStageStyle } from "@/lib/sales-stage-style";
-import { SalesCollectionTable } from "./SalesCollectionTable";
+import { SalesFinancialCards } from "./SalesFinancialCards";
 
 const columns: { key: keyof SaleRow; label: string }[] = [
   { key: "setterAsignado", label: "Setter asignado" },
@@ -68,21 +68,7 @@ export function SalesSection({ sales, available }: { sales: SalesReport; availab
               </div>
             ))}
           </div>
-          <SalesCollectionTable sales={sales} />
-          {sales.cashByCurrency.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold">Cash colectado</h3>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {sales.cashByCurrency.map((item, index) => (
-                  <KpiCard
-                    key={index}
-                    label={item.currency || "Sin moneda"}
-                    value={formatCurrency(item.amount, item.currency)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+          <SalesFinancialCards values={sales.salesValueByCurrency} />
           <div className="overflow-hidden rounded-lg border border-border">
             <h3 className="border-b border-border px-4 py-3 text-sm font-semibold">
               Detalle de ventas
