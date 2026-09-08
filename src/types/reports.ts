@@ -89,6 +89,9 @@ export interface SalesStageSummary {
 }
 
 export interface SaleRow {
+  productoEvento: string;
+  moneda: string;
+  montoUltimoPago: number;
   setterAsignado: string;
   closerAsignado: string;
   nombreContacto: string;
@@ -98,6 +101,7 @@ export interface SaleRow {
 }
 
 export interface SalesReport {
+  cashByCurrency: { currency: string; amount: number }[];
   total: number;
   byStage: SalesStageSummary[];
   rows: SaleRow[];

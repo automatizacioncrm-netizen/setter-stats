@@ -2,14 +2,16 @@ import { useMemo, useState } from "react";
 import { ArrowUpDown } from "lucide-react";
 import type { SaleRow, SalesReport } from "@/types/reports";
 import { KpiCard } from "./KpiCard";
+import { formatCurrency } from "@/lib/currency";
 
 const columns: { key: keyof SaleRow; label: string }[] = [
   { key: "setterAsignado", label: "Setter asignado" },
-  { key: "closerAsignado", label: "Closer asignado" },
+  { key: "closerAsignado", label: "Closer" },
   { key: "nombreContacto", label: "Nombre del contacto" },
   { key: "fase", label: "Fase" },
   { key: "fuente", label: "Fuente" },
-  { key: "fechaReunion", label: "Fecha de reunión" },
+  { key: "productoEvento", label: "Producto" },
+  { key: "montoUltimoPago", label: "Precio / Cobrado" },
 ];
 
 export function SalesSection({ sales, available }: { sales: SalesReport; available: boolean }) {
@@ -19,7 +21,10 @@ export function SalesSection({ sales, available }: { sales: SalesReport; availab
       sort
         ? [...sales.rows].sort(
             (a, b) =>
-              a[sort.key].localeCompare(b[sort.key], "es", { numeric: true }) * (sort.asc ? 1 : -1),
+              (sort.key === "montoUltimoPago"
+                ? a.moneda.localeCompare(b.moneda) || a.montoUltimoPago - b.montoUltimoPago
+                : String(a[sort.key]).localeCompare(String(b[sort.key]), "es", { numeric: true })) *
+              (sort.asc ? 1 : -1),
           )
         : sales.rows,
     [sales.rows, sort],
@@ -55,6 +60,20 @@ export function SalesSection({ sales, available }: { sales: SalesReport; availab
               />
             ))}
           </div>
+          {sales.cashByCurrency.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Cash colectado</h3>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {sales.cashByCurrency.map((item, index) => (
+                  <KpiCard
+                    key={index}
+                    label={item.currency || "Sin moneda"}
+                    value={formatCurrency(item.amount, item.currency)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
           <div className="overflow-hidden rounded-lg border border-border">
             <h3 className="border-b border-border px-4 py-3 text-sm font-semibold">
               Detalle de ventas
@@ -93,7 +112,9 @@ export function SalesSection({ sales, available }: { sales: SalesReport; availab
                     <tr key={index} className="border-t border-border hover:bg-accent/50">
                       {columns.map((col) => (
                         <td key={col.key} className="px-4 py-3">
-                          {row[col.key] || "—"}
+                          {col.key === "montoUltimoPago"
+                            ? formatCurrency(row.montoUltimoPago, row.moneda)
+                            : row[col.key] || "—"}
                         </td>
                       ))}
                     </tr>

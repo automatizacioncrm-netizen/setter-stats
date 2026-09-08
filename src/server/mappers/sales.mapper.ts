@@ -12,7 +12,16 @@ const text = z
   .nullish()
   .transform((value) => (value == null ? "" : String(value).replace(/\s+/g, " ").trim()));
 const stage = z.enum(SALES_STAGES);
+const amount = z
+  .union([z.string(), z.number()])
+  .nullish()
+  .transform((value) => (value == null || value === "" ? 0 : Number(value)))
+  .pipe(z.number().finite());
 const schema = z.object({
+  cashByCurrency: z
+    .array(z.object({ currency: text, amount }))
+    .nullish()
+    .transform((value) => value ?? []),
   total: count,
   byStage: z
     .array(z.object({ stage, count }))
@@ -26,6 +35,9 @@ const schema = z.object({
         nombreContacto: text,
         fase: stage,
         fuente: text,
+        productoEvento: text,
+        moneda: text,
+        montoUltimoPago: amount,
         fechaReunion: text,
       }),
     )
@@ -63,5 +75,6 @@ export function mapSalesResponse(raw: unknown): SalesReport {
     total: sales.total,
     byStage: SALES_STAGES.map((name) => ({ stage: name, count: stages.get(name) ?? 0 })),
     rows: sales.rows,
+    cashByCurrency: sales.cashByCurrency,
   };
 }

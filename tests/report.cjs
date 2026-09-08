@@ -613,3 +613,46 @@ test("report and endpoint carry sales through the same filtered GET, independent
     else process.env.APPS_SCRIPT_SECRET = savedSecret;
   }
 });
+
+test("sales maps last payment and backend cash per currency without deriving totals", () => {
+  const payload = salesFixture();
+  payload.rows[0] = {
+    ...payload.rows[0],
+    productoEvento: "Programa",
+    moneda: "USD",
+    montoUltimoPago: "1500.25",
+    montoTotalAcordado: 99999,
+  };
+  payload.cashByCurrency = [
+    { currency: "USD", amount: "15148.50" },
+    { currency: "PEN", amount: 325.75 },
+  ];
+  const mapped = mapSalesResponse(payload);
+  assert.equal(mapped.rows[0].productoEvento, "Programa");
+  assert.equal(mapped.rows[0].montoUltimoPago, 1500.25);
+  assert.deepEqual(mapped.cashByCurrency, [
+    { currency: "USD", amount: 15148.5 },
+    { currency: "PEN", amount: 325.75 },
+  ]);
+  assert.equal(mapped.rows[1].montoUltimoPago, 0);
+  assert.equal(mapped.rows[1].moneda, "");
+  assert.deepEqual(mapSalesResponse(undefined).cashByCurrency, []);
+  assert.throws(() =>
+    mapSalesResponse({ ...payload, cashByCurrency: [{ currency: "USD", amount: "invalid" }] }),
+  );
+});
+test("currency formatter handles USD, soles, zero and missing currency", () => {
+  const { formatCurrency } = require("../src/lib/currency.ts");
+  assert.equal(formatCurrency(1500, "USD"), "$1,500.00");
+  assert.equal(
+    formatCurrency(1500, "PEN"),
+    new Intl.NumberFormat("es-PE", {
+      style: "currency",
+      currency: "PEN",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(1500),
+  );
+  assert.equal(formatCurrency(0, "USD"), "$0.00");
+  assert.equal(formatCurrency(1500, ""), "—");
+});
