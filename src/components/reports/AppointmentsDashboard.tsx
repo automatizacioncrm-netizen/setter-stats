@@ -303,6 +303,7 @@ export function AppointmentsDashboard() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>CLOSER</TableHead>
+                    <TableHead className="text-right">TOTAL AGENDAMIENTOS</TableHead>
                     <TableHead className="text-right">SESIONES EFECTIVAS</TableHead>
                     <TableHead className="text-right">% ASISTENCIA</TableHead>
                   </TableRow>
@@ -312,7 +313,7 @@ export function AppointmentsDashboard() {
                     <Fragment key={row.closer}>
                       <TableRow className="bg-muted/40">
                         <TableHead
-                          colSpan={3}
+                          colSpan={4}
                           scope="rowgroup"
                           className="font-semibold text-foreground"
                         >
@@ -324,6 +325,9 @@ export function AppointmentsDashboard() {
                           <TableCell className="pl-8 text-xs">
                             {calendar.label} SESIONES EFECTIVAS
                           </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {row.categories[i]?.totalAppointments ?? 0}
+                          </TableCell>
                           <TableCell className="text-right tabular-nums">{row.counts[i]}</TableCell>
                           <TableCell className="text-right tabular-nums">
                             {(row.categories[i]?.attendanceRate ?? 0).toFixed(2)}%
@@ -332,6 +336,7 @@ export function AppointmentsDashboard() {
                       ))}
                       <TableRow className="font-semibold">
                         <TableCell>Total {row.closer}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.totalAppointments}</TableCell>
                         <TableCell className="text-right tabular-nums">{row.total}</TableCell>
                         <TableCell className="text-right tabular-nums">{row.attendanceRate.toFixed(2)}%</TableCell>
                       </TableRow>
@@ -341,6 +346,7 @@ export function AppointmentsDashboard() {
                 <TableFooter>
                   <TableRow>
                     <TableCell>TOTAL GENERAL</TableCell>
+                    <TableCell className="text-right tabular-nums">{report.total}</TableCell>
                     <TableCell className="text-right tabular-nums">{report.effective}</TableCell>
                     <TableCell className="text-right tabular-nums">{report.attendance.toFixed(2)}%</TableCell>
                   </TableRow>
