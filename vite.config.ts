@@ -19,7 +19,7 @@ export default defineConfig({
         configResolved(config) {
           if (config.command !== "serve") return;
           const env = loadEnv(config.mode, config.envDir, ["APPS_SCRIPT_", "CRON_SECRET"]);
-          for (const key of ["APPS_SCRIPT_URL", "APPS_SCRIPT_SECRET", "CRON_SECRET"]) {
+          for (const key of ["APPS_SCRIPT_URL", "APPS_SCRIPT_SECRET", "CRON_SECRET", "APPS_SCRIPT_CITAS_URL"]) {
             if (process.env[key] === undefined && env[key]) process.env[key] = env[key];
           }
         },

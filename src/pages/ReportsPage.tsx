@@ -21,6 +21,12 @@ export function ReportsPage() {
             to="/reports/vsl-closers"
           />
           <ReportCard
+            title="VSL | CITAS Y CALENDARIOS"
+            description="Seguimiento de agendamientos y sesiones efectivas por closer"
+            available
+            to="/reports/vsl-citas"
+          />
+          <ReportCard
             title="LANZAMIENTO PAGADO OEI"
             description="Reporte en construcción"
             available={false}
