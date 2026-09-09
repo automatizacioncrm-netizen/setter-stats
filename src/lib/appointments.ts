@@ -25,6 +25,7 @@ export const appointmentsPayload = z.object({
 });
 export type AppointmentRow = z.infer<typeof appointmentsPayload>["rows"][number];
 export interface Appointment {
+  Calendario?: string | null;
   id: string;
   date: string;
   closer: string;
@@ -32,6 +33,7 @@ export interface Appointment {
   showed: boolean;
 }
 export interface AppointmentFilters {
+  leadType: "" | "pagado" | "organico";
   dateFrom: string;
   dateTo: string;
   closer: string;
@@ -49,7 +51,16 @@ const normalized = (value: unknown) =>
 export function appointmentDate(value: unknown): string | null {
   const text = str(value);
   let date = "";
-  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}.*(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)) {
+  const sheetDate = text.match(
+    /^([a-z]{3})\s+(\d{1,2})\s+(\d{4})(?:\s+(?:0?[1-9]|1[0-2]):[0-5]\d(?:\:[0-5]\d)?\s+[ap]m)?$/i,
+  );
+  if (sheetDate) {
+    const months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+    const month = months.indexOf(sheetDate[1]!.toLowerCase()) + 1;
+    if (!month) return null;
+    // Sheets displays a local Lima date. Do not convert the English date/time to UTC.
+    date = `${sheetDate[3]}-${String(month).padStart(2, "0")}-${sheetDate[2]!.padStart(2, "0")}`;
+  } else if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}.*(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)) {
     const instant = new Date(text);
     if (Number.isNaN(instant.getTime())) return null;
     const parts = new Intl.DateTimeFormat("en-US", {
@@ -67,20 +78,34 @@ export function appointmentDate(value: unknown): string | null {
     const match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:$| \d{2}:\d{2}(?::\d{2})?$)/);
     if (match) date = `${match[3]}-${match[2]!.padStart(2, "0")}-${match[1]!.padStart(2, "0")}`;
   }
-  const parsed = new Date(`${date}T12:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7));
+  const day = Number(date.slice(8, 10));
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return year > 0 && month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth[month - 1]!
     ? date
     : null;
+}
+
+export function getAppointmentDateKey(row: AppointmentRow): string | null {
+  return appointmentDate(row["Hora solicitada"]) ?? appointmentDate(row["FECHA CITA"]);
 }
 
 export function normalizeAppointments(rows: AppointmentRow[]) {
   // Resolve duplicates before filtering: latest _Updated At wins; ties use the last row.
   const unique = new Map<string, { row: AppointmentRow; updated: number }>();
   let invalid = 0;
+  let missingId = 0;
+  let invalidDate = 0;
+  let duplicates = 0;
+  let unmonitoredCalendar = 0;
   for (const row of rows) {
     const id = str(row["Id. de cita"]);
     if (!id) {
       invalid++;
+      missingId++;
       continue;
     }
     const timestamp = str(row["_Updated At"]);
@@ -89,6 +114,7 @@ export function normalizeAppointments(rows: AppointmentRow[]) {
         timestamp +
           (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?$/.test(timestamp) ? "-05:00" : ""),
       ) || 0;
+    if (unique.has(id)) duplicates++;
     if (!unique.has(id) || updated >= unique.get(id)!.updated) unique.set(id, { row, updated });
   }
   const appointments: Appointment[] = [];
@@ -99,10 +125,14 @@ export function normalizeAppointments(rows: AppointmentRow[]) {
       : CALENDARS.find((c) =>
           [c.name, c.label].some((name) => normalized(name) === normalized(row.Calendario)),
         );
-    if (!calendar) continue;
-    const date = appointmentDate(row["FECHA CITA"]) ?? appointmentDate(row["Hora solicitada"]);
+    if (!calendar) {
+      unmonitoredCalendar++;
+      continue;
+    }
+    const date = getAppointmentDateKey(row);
     if (!date) {
       invalid++;
+      invalidDate++;
       continue;
     }
     appointments.push({
@@ -113,7 +143,21 @@ export function normalizeAppointments(rows: AppointmentRow[]) {
       showed: str(row.Resultado).toLowerCase() === "showed",
     });
   }
+  if (import.meta.env.DEV) {
+    console.info("[vsl-citas] normalización", {
+      received: rows.length,
+      valid: appointments.length,
+      missingId,
+      invalidDate,
+      duplicates,
+      unmonitoredCalendar,
+    });
+  }
   return { appointments, invalid };
+}
+
+export function getLeadType(calendarName: unknown): "organico" | "pagado" {
+  return String(calendarName || "").toUpperCase().includes("ORG") ? "organico" : "pagado";
 }
 
 export function aggregateAppointments(appointments: Appointment[], filters: AppointmentFilters) {
@@ -126,16 +170,30 @@ export function aggregateAppointments(appointments: Appointment[], filters: Appo
       (!filters.dateFrom || a.date >= filters.dateFrom) &&
       (!filters.dateTo || a.date <= filters.dateTo) &&
       (!filters.closer || a.closer === filters.closer) &&
-      (!filters.calendar || a.calendarId === filters.calendar),
+      (!filters.calendar || a.calendarId === filters.calendar) &&
+      (!filters.leadType ||
+        getLeadType(a.Calendario ?? CALENDARS.find((c) => c.id === a.calendarId)?.name) === filters.leadType),
   );
   const effective = rows.filter((a) => a.showed).length;
   const closers = [...new Set(rows.map((a) => a.closer))].sort((a, b) => a.localeCompare(b, "es"));
   const table = closers.map((closer) => {
-    const counts = CALENDARS.map(
-      (calendar) =>
-        rows.filter((a) => a.closer === closer && a.calendarId === calendar.id && a.showed).length,
-    );
-    return { closer, counts, total: counts.reduce((sum, n) => sum + n, 0) };
+    const categories = CALENDARS.map((calendar) => {
+      const appointments = rows.filter((a) => a.closer === closer && a.calendarId === calendar.id);
+      const totalAppointments = appointments.length;
+      const effectiveSessions = appointments.filter((a) => a.showed).length;
+      return {
+        totalAppointments,
+        effectiveSessions,
+        attendanceRate: totalAppointments ? (effectiveSessions / totalAppointments) * 100 : 0,
+      };
+    });
+    const counts = categories.map((category) => category.effectiveSessions);
+    const total = counts.reduce((sum, n) => sum + n, 0);
+    const totalAppointments = categories.reduce((sum, category) => sum + category.totalAppointments, 0);
+    return {
+      closer, counts, categories, total, totalAppointments,
+      attendanceRate: totalAppointments ? (total / totalAppointments) * 100 : 0,
+    };
   });
   const days = new Map<string, { date: string; appointments: number; effective: number }>();
   const dates = rows.map((row) => row.date).sort();

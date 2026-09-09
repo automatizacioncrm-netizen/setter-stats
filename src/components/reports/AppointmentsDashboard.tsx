@@ -38,6 +38,7 @@ export function AppointmentsDashboard() {
     dateTo: "",
     closer: "",
     calendar: "",
+    leadType: "",
   });
   const [syncing, setSyncing] = useState(false);
   const lock = useRef(false);
@@ -119,7 +120,7 @@ export function AppointmentsDashboard() {
         </div>
         <section
           aria-label="Filtros de citas"
-          className={`${panel} grid gap-3 sm:grid-cols-2 lg:grid-cols-4`}
+          className={`${panel} grid gap-3 sm:grid-cols-2 lg:grid-cols-5`}
         >
           <label className="text-xs font-medium text-muted-foreground">
             Fecha desde
@@ -171,6 +172,21 @@ export function AppointmentsDashboard() {
                   {c.label}
                 </option>
               ))}
+            </select>
+          </label>
+          <label className="text-xs font-medium text-muted-foreground">
+            Tipo de lead
+            <select
+              className={`${field} mt-1`}
+              value={filters.leadType}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFilters({ ...filters, leadType: value === "pagado" || value === "organico" ? value : "" });
+              }}
+            >
+              <option value="">Todos</option>
+              <option value="pagado">Pagado</option>
+              <option value="organico">Orgánico</option>
             </select>
           </label>
         </section>
@@ -263,7 +279,7 @@ export function AppointmentsDashboard() {
                       type="linear"
                       dataKey="appointments"
                       name="Agendamientos"
-                      stroke="var(--brand)"
+                      stroke="#F59E0B"
                       strokeWidth={2}
                       dot={false}
                     />
@@ -283,11 +299,12 @@ export function AppointmentsDashboard() {
               <h2 className="mb-4 text-sm font-semibold">
                 SESIONES EFECTIVAS POR CLOSER Y CALENDARIO
               </h2>
-              <Table className="min-w-[480px]">
+              <Table className="min-w-[600px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>CLOSER</TableHead>
                     <TableHead className="text-right">SESIONES EFECTIVAS</TableHead>
+                    <TableHead className="text-right">% ASISTENCIA</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -295,7 +312,7 @@ export function AppointmentsDashboard() {
                     <Fragment key={row.closer}>
                       <TableRow className="bg-muted/40">
                         <TableHead
-                          colSpan={2}
+                          colSpan={3}
                           scope="rowgroup"
                           className="font-semibold text-foreground"
                         >
@@ -308,11 +325,15 @@ export function AppointmentsDashboard() {
                             {calendar.label} SESIONES EFECTIVAS
                           </TableCell>
                           <TableCell className="text-right tabular-nums">{row.counts[i]}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {(row.categories[i]?.attendanceRate ?? 0).toFixed(2)}%
+                          </TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="font-semibold">
                         <TableCell>Total {row.closer}</TableCell>
                         <TableCell className="text-right tabular-nums">{row.total}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.attendanceRate.toFixed(2)}%</TableCell>
                       </TableRow>
                     </Fragment>
                   ))}
@@ -321,6 +342,7 @@ export function AppointmentsDashboard() {
                   <TableRow>
                     <TableCell>TOTAL GENERAL</TableCell>
                     <TableCell className="text-right tabular-nums">{report.effective}</TableCell>
+                    <TableCell className="text-right tabular-nums">{report.attendance.toFixed(2)}%</TableCell>
                   </TableRow>
                 </TableFooter>
               </Table>
