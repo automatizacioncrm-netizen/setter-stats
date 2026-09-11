@@ -234,7 +234,7 @@ export function AppointmentsDashboard() {
             <section aria-label="Indicadores de citas" className="grid gap-3 sm:grid-cols-3">
               <KpiCard label="TOTAL AGENDAMIENTOS" value={report.total} />
               <KpiCard
-                label="SESIONES EFECTIVAS"
+                label="ASISTIDOS"
                 value={report.effective}
                 accent="var(--status-asistio)"
               />
@@ -297,15 +297,15 @@ export function AppointmentsDashboard() {
             </section>
             <section className={panel}>
               <h2 className="mb-4 text-sm font-semibold">
-                SESIONES EFECTIVAS POR CLOSER Y CALENDARIO
+                ASISTENCIA POR CLOSER Y CALENDARIO
               </h2>
               <Table className="min-w-[600px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>CLOSER</TableHead>
-                    <TableHead className="text-right">TOTAL AGENDAMIENTOS</TableHead>
-                    <TableHead className="text-right">SESIONES EFECTIVAS</TableHead>
+                    <TableHead>CLOSER / CALENDARIO</TableHead>
+                    <TableHead className="text-right">ASISTIDOS</TableHead>
                     <TableHead className="text-right">% ASISTENCIA</TableHead>
+                    <TableHead className="text-right">TOTAL AGENDAMIENTOS</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -323,22 +323,22 @@ export function AppointmentsDashboard() {
                       {CALENDARS.map((calendar, i) => (
                         <TableRow key={calendar.id}>
                           <TableCell className="pl-8 text-xs">
-                            {calendar.label} SESIONES EFECTIVAS
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {row.categories[i]?.totalAppointments ?? 0}
+                            {calendar.label}
                           </TableCell>
                           <TableCell className="text-right tabular-nums">{row.counts[i]}</TableCell>
                           <TableCell className="text-right tabular-nums">
                             {(row.categories[i]?.attendanceRate ?? 0).toFixed(2)}%
                           </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {row.categories[i]?.totalAppointments ?? 0}
+                          </TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="font-semibold">
                         <TableCell>Total {row.closer}</TableCell>
-                        <TableCell className="text-right tabular-nums">{row.totalAppointments}</TableCell>
                         <TableCell className="text-right tabular-nums">{row.total}</TableCell>
                         <TableCell className="text-right tabular-nums">{row.attendanceRate.toFixed(2)}%</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.totalAppointments}</TableCell>
                       </TableRow>
                     </Fragment>
                   ))}
@@ -346,9 +346,9 @@ export function AppointmentsDashboard() {
                 <TableFooter>
                   <TableRow>
                     <TableCell>TOTAL GENERAL</TableCell>
-                    <TableCell className="text-right tabular-nums">{report.total}</TableCell>
                     <TableCell className="text-right tabular-nums">{report.effective}</TableCell>
                     <TableCell className="text-right tabular-nums">{report.attendance.toFixed(2)}%</TableCell>
+                    <TableCell className="text-right tabular-nums">{report.total}</TableCell>
                   </TableRow>
                 </TableFooter>
               </Table>

@@ -2,19 +2,24 @@ import { useMemo, useState } from "react";
 import { ArrowUpDown } from "lucide-react";
 import type { SetterRow, ReportKpis } from "@/types/reports";
 
-type SortKey = keyof SetterRow;
+type SortKey = keyof SetterRow | "attendanceRate";
 
 const COLUMNS: { key: SortKey; label: string }[] = [
-  { key: "agendadoCRM", label: "Agendado CRM" },
   { key: "asistio", label: "Asistió" },
+  { key: "attendanceRate", label: "% Asistió" },
   { key: "cancelado", label: "Cancelado" },
   { key: "noShow", label: "No show" },
-  { key: "pendienteAgenda", label: "Pendiente de agenda" },
   { key: "reagendado", label: "Reagendado" },
   { key: "total", label: "Total general" },
 ];
 
 const n = (value: number | undefined | null) => (typeof value === "number" ? value : 0);
+const attendanceRate = (attended: number, total: number) => {
+  const rate = total > 0 ? (attended / total) * 100 : 0;
+  return Number.isFinite(rate) ? rate : 0;
+};
+const sortValue = (row: SetterRow, key: Exclude<SortKey, "setter">) =>
+  key === "attendanceRate" ? attendanceRate(row.asistio, row.total) : n(row[key]);
 
 export function SetterStatusTable({ rows, totals }: { rows: SetterRow[]; totals: ReportKpis }) {
   const [sortKey, setSortKey] = useState<SortKey>("total");
@@ -26,8 +31,8 @@ export function SetterStatusTable({ rows, totals }: { rows: SetterRow[]; totals:
       if (sortKey === "setter")
         return asc ? a.setter.localeCompare(b.setter) : b.setter.localeCompare(a.setter);
       return asc
-        ? n(a[sortKey] as number) - n(b[sortKey] as number)
-        : n(b[sortKey] as number) - n(a[sortKey] as number);
+        ? sortValue(a, sortKey) - sortValue(b, sortKey)
+        : sortValue(b, sortKey) - sortValue(a, sortKey);
     });
     return copy;
   }, [rows, sortKey, asc]);
@@ -87,7 +92,9 @@ export function SetterStatusTable({ rows, totals }: { rows: SetterRow[]; totals:
                         : "text-muted-foreground"
                     }`}
                   >
-                    {n(row[col.key] as number)}
+                    {col.key === "attendanceRate"
+                      ? `${attendanceRate(row.asistio, row.total).toFixed(2)}%`
+                      : n(row[col.key] as number)}
                   </td>
                 ))}
               </tr>
@@ -98,7 +105,9 @@ export function SetterStatusTable({ rows, totals }: { rows: SetterRow[]; totals:
               <td className="sticky left-0 bg-brand-soft px-4 py-2">Total general</td>
               {COLUMNS.map((col) => (
                 <td key={col.key} className="px-4 py-2 text-right tabular-nums">
-                  {n(
+                  {col.key === "attendanceRate"
+                    ? `${attendanceRate(totals.asistio, totals.conEstadoAgenda).toFixed(2)}%`
+                    : n(
                     col.key === "total"
                       ? totals.conEstadoAgenda
                       : totals[col.key as keyof typeof totals],

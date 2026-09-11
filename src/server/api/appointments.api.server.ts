@@ -22,7 +22,7 @@ export async function appointmentsReconcileApi(request: Request) {
   try {
     if (request.headers.get("origin") !== new URL(request.url).origin)
       throw new ApiError("Solicitud no permitida.", 403);
-    const result = z.object({ ok: z.literal(true) }).safeParse(await reconcileAppointments());
+    const result = z.object({ ok: z.literal(true) }).passthrough().safeParse(await reconcileAppointments());
     if (!result.success) throw new ApiError("No se pudo completar la actualización de citas.");
     return Response.json(result.data, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

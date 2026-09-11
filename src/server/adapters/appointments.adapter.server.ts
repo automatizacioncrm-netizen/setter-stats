@@ -67,8 +67,48 @@ export async function fetchAppointments(): Promise<unknown> {
   }
 }
 export async function reconcileAppointments(): Promise<unknown> {
-  throw new ApiError(
-    "La actualización de citas todavía no está conectada. Contacta al administrador.",
-    503,
-  );
+  const baseUrl = process.env.APPS_SCRIPT_CITAS_URL;
+  if (!baseUrl?.trim()) throw new ApiError("APPS_SCRIPT_CITAS_URL no configurada.", 500);
+
+  let url: URL;
+  try {
+    url = new URL(baseUrl.trim());
+    if (url.protocol !== "https:") throw new Error("Invalid protocol");
+  } catch {
+    throw new ApiError("APPS_SCRIPT_CITAS_URL no válida.", 500);
+  }
+  url.searchParams.set("action", "reconcile");
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120000);
+  try {
+    const response = await fetch(url.toString(), {
+      method: "POST",
+      cache: "no-store",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      console.error("[vsl-citas/reconcile] Apps Script HTTP", response.status);
+      throw new ApiError("No se pudo reconciliar la información de citas.", 502);
+    }
+    try {
+      return JSON.parse(text);
+    } catch {
+      console.error("[vsl-citas/reconcile] respuesta no JSON");
+      throw new ApiError("Apps Script devolvió una respuesta inválida.", 502);
+    }
+  } catch (error) {
+    if (controller.signal.aborted || (error instanceof Error && error.name === "AbortError")) {
+      throw new ApiError("La reconciliación de citas tardó demasiado en responder.", 504);
+    }
+    if (error instanceof ApiError) throw error;
+    console.error("[vsl-citas/reconcile] error de red o de lectura de respuesta");
+    throw new ApiError("No se pudo reconciliar la información de citas.", 502);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }

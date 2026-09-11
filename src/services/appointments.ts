@@ -12,8 +12,21 @@ export async function getAppointments(signal?: AbortSignal) {
   }
 }
 export async function triggerAppointmentsReconciliation() {
-  const result = await readResponse<{ ok: boolean }>(
-    await fetch("/api/reports/vsl-citas/reconcile", { method: "POST" }),
-  );
-  if (result.ok !== true) throw new Error("No se pudo completar la actualización de citas.");
+  const failureMessage = "No se pudieron actualizar los datos de citas.";
+  let response: Response;
+  try {
+    response = await fetch("/api/reports/vsl-citas/reconcile", { method: "POST" });
+  } catch {
+    throw new Error(failureMessage);
+  }
+  if (response.status === 504) {
+    throw new Error("La actualización tardó demasiado. Intenta nuevamente.");
+  }
+  if (!response.ok) throw new Error(failureMessage);
+  try {
+    const result = await response.json();
+    if (result?.ok !== true) throw new Error(failureMessage);
+  } catch {
+    throw new Error(failureMessage);
+  }
 }
