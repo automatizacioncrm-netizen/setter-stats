@@ -30,6 +30,7 @@ export interface Appointment {
   date: string;
   closer: string;
   calendarId: CalendarId;
+  status: string;
   showed: boolean;
 }
 export interface AppointmentFilters {
@@ -135,12 +136,14 @@ export function normalizeAppointments(rows: AppointmentRow[]) {
       invalidDate++;
       continue;
     }
+    const status = str(row["Resultado"]).toLowerCase();
     appointments.push({
       id,
       date,
       calendarId: calendar.id,
       closer: str(row["CLOSER ASIGNADO"]) || "Sin closer asignado",
-      showed: str(row.Resultado).toLowerCase() === "showed",
+      status,
+      showed: status === "showed",
     });
   }
   if (import.meta.env.DEV) {
@@ -174,16 +177,22 @@ export function aggregateAppointments(appointments: Appointment[], filters: Appo
       (!filters.leadType ||
         getLeadType(a.Calendario ?? CALENDARS.find((c) => c.id === a.calendarId)?.name) === filters.leadType),
   );
-  const effective = rows.filter((a) => a.showed).length;
+  const effective = rows.filter((a) => a.status === "showed").length;
+  const confirmed = rows.filter((a) => a.status === "confirmed").length;
+  const noshow = rows.filter((a) => a.status === "noshow").length;
+  const cancelled = rows.filter((a) => a.status === "cancelled").length;
   const closers = [...new Set(rows.map((a) => a.closer))].sort((a, b) => a.localeCompare(b, "es"));
   const table = closers.map((closer) => {
     const categories = CALENDARS.map((calendar) => {
       const appointments = rows.filter((a) => a.closer === closer && a.calendarId === calendar.id);
       const totalAppointments = appointments.length;
-      const effectiveSessions = appointments.filter((a) => a.showed).length;
+      const effectiveSessions = appointments.filter((a) => a.status === "showed").length;
       return {
         totalAppointments,
         effectiveSessions,
+        confirmed: appointments.filter((a) => a.status === "confirmed").length,
+        noshow: appointments.filter((a) => a.status === "noshow").length,
+        cancelled: appointments.filter((a) => a.status === "cancelled").length,
         attendanceRate: totalAppointments ? (effectiveSessions / totalAppointments) * 100 : 0,
       };
     });
@@ -192,6 +201,9 @@ export function aggregateAppointments(appointments: Appointment[], filters: Appo
     const totalAppointments = categories.reduce((sum, category) => sum + category.totalAppointments, 0);
     return {
       closer, counts, categories, total, totalAppointments,
+      confirmed: categories.reduce((sum, category) => sum + category.confirmed, 0),
+      noshow: categories.reduce((sum, category) => sum + category.noshow, 0),
+      cancelled: categories.reduce((sum, category) => sum + category.cancelled, 0),
       attendanceRate: totalAppointments ? (total / totalAppointments) * 100 : 0,
     };
   });
@@ -217,6 +229,9 @@ export function aggregateAppointments(appointments: Appointment[], filters: Appo
   return {
     total: rows.length,
     effective,
+    confirmed,
+    noshow,
+    cancelled,
     attendance: rows.length ? (effective / rows.length) * 100 : 0,
     table,
     days: [...days.values()].sort((a, b) => a.date.localeCompare(b.date)),

@@ -299,11 +299,14 @@ export function AppointmentsDashboard() {
               <h2 className="mb-4 text-sm font-semibold">
                 ASISTENCIA POR CLOSER Y CALENDARIO
               </h2>
-              <Table className="min-w-[600px]">
+              <Table className="min-w-[900px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>CLOSER / CALENDARIO</TableHead>
                     <TableHead className="text-right">ASISTIDOS</TableHead>
+                    <TableHead className="text-right">CONFIRMADOS</TableHead>
+                    <TableHead className="text-right">NO ASISTIÓ</TableHead>
+                    <TableHead className="text-right">CANCELADOS</TableHead>
                     <TableHead className="text-right">% ASISTENCIA</TableHead>
                     <TableHead className="text-right">TOTAL AGENDAMIENTOS</TableHead>
                   </TableRow>
@@ -313,7 +316,7 @@ export function AppointmentsDashboard() {
                     <Fragment key={row.closer}>
                       <TableRow className="bg-muted/40">
                         <TableHead
-                          colSpan={4}
+                          colSpan={7}
                           scope="rowgroup"
                           className="font-semibold text-foreground"
                         >
@@ -327,6 +330,15 @@ export function AppointmentsDashboard() {
                           </TableCell>
                           <TableCell className="text-right tabular-nums">{row.counts[i]}</TableCell>
                           <TableCell className="text-right tabular-nums">
+                            {row.categories[i]?.confirmed ?? 0}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {row.categories[i]?.noshow ?? 0}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {row.categories[i]?.cancelled ?? 0}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
                             {(row.categories[i]?.attendanceRate ?? 0).toFixed(2)}%
                           </TableCell>
                           <TableCell className="text-right tabular-nums">
@@ -337,6 +349,9 @@ export function AppointmentsDashboard() {
                       <TableRow className="font-semibold">
                         <TableCell>Total {row.closer}</TableCell>
                         <TableCell className="text-right tabular-nums">{row.total}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.confirmed}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.noshow}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.cancelled}</TableCell>
                         <TableCell className="text-right tabular-nums">{row.attendanceRate.toFixed(2)}%</TableCell>
                         <TableCell className="text-right tabular-nums">{row.totalAppointments}</TableCell>
                       </TableRow>
@@ -347,6 +362,9 @@ export function AppointmentsDashboard() {
                   <TableRow>
                     <TableCell>TOTAL GENERAL</TableCell>
                     <TableCell className="text-right tabular-nums">{report.effective}</TableCell>
+                    <TableCell className="text-right tabular-nums">{report.confirmed}</TableCell>
+                    <TableCell className="text-right tabular-nums">{report.noshow}</TableCell>
+                    <TableCell className="text-right tabular-nums">{report.cancelled}</TableCell>
                     <TableCell className="text-right tabular-nums">{report.attendance.toFixed(2)}%</TableCell>
                     <TableCell className="text-right tabular-nums">{report.total}</TableCell>
                   </TableRow>
