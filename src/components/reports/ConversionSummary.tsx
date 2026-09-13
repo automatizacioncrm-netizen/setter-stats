@@ -1,18 +1,17 @@
-import type { ReportKpis, LeadType } from "@/types/reports";
+import type { ReportKpis } from "@/types/reports";
 
 interface Props {
   kpis: ReportKpis;
-  leadType: LeadType;
 }
 
-export function ConversionSummary({ kpis, leadType }: Props) {
+export function ConversionSummary({ kpis }: Props) {
   const pct = (value: number) =>
     kpis.conEstadoAgenda ? Math.round((value / kpis.conEstadoAgenda) * 100) : 0;
 
   const steps = [
     { label: "Asistieron", value: kpis.asistio, color: "var(--status-asistio)" },
     {
-      label: "No show / Cancelados",
+      label: "No asistió / Cancelados",
       value: kpis.noShow + kpis.cancelado,
       color: "var(--status-cancelado)",
     },
@@ -22,8 +21,7 @@ export function ConversionSummary({ kpis, leadType }: Props) {
     <div className="rounded-xl border border-border bg-surface p-4 shadow-card">
       <h3 className="text-sm font-semibold text-foreground">Efectividad de la agenda</h3>
       <p className="text-xs text-muted-foreground">
-        Sobre {kpis.conEstadoAgenda} leads {leadType === "organic" ? "orgánicos" : "VSL pagados"}{" "}
-        con estado de agenda
+        Sobre {kpis.conEstadoAgenda} leads con estado de agendamiento
       </p>
 
       <div className="mt-4 space-y-3">

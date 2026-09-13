@@ -2,7 +2,7 @@ import { ApiError } from "../config/env.server";
 
 // Independent, server-side read integration. This Apps Script does not use a secret.
 export async function fetchAppointments(): Promise<unknown> {
-  const baseUrl = process.env.APPS_SCRIPT_CITAS_URL;
+  const baseUrl = process.env["APPS_SCRIPT_CITAS_URL"];
   if (!baseUrl?.trim()) throw new ApiError("APPS_SCRIPT_CITAS_URL no configurada", 500);
 
   let url: URL;
@@ -44,7 +44,8 @@ export async function fetchAppointments(): Promise<unknown> {
     }
     return body;
   } catch (error) {
-    const aborted = controller.signal.aborted || (error instanceof Error && error.name === "AbortError");
+    const aborted =
+      controller.signal.aborted || (error instanceof Error && error.name === "AbortError");
     // Never log raw errors or response bodies: they may include URLs or credentials.
     const cause = error instanceof Error ? error.cause : undefined;
     const code = cause && typeof cause === "object" && "code" in cause ? cause.code : undefined;
@@ -67,7 +68,7 @@ export async function fetchAppointments(): Promise<unknown> {
   }
 }
 export async function reconcileAppointments(): Promise<unknown> {
-  const baseUrl = process.env.APPS_SCRIPT_CITAS_URL;
+  const baseUrl = process.env["APPS_SCRIPT_CITAS_URL"];
   if (!baseUrl?.trim()) throw new ApiError("APPS_SCRIPT_CITAS_URL no configurada.", 500);
 
   let url: URL;

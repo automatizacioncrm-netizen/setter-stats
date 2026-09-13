@@ -82,7 +82,7 @@ export function mapSheetRowsToVslReport(
       fase: text(r["Fase"]),
       fuente: text(r["Fuente"]),
     }));
-  const options = (key: keyof LeadDetailRow) =>
+  const options = (key: "setterAsignado" | "closerAsignado" | "vslOrigen") =>
     [...new Set(leads.map((r) => r[key]).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
   const filtered = leads.filter((r) => {
     const day = meetingDay(r.fechaReunion);

@@ -7,8 +7,10 @@ export const MOCK_UPDATED_AT = "2026-09-06T15:42:00Z";
 // Distribución aproximada por estado (pesos) para generar registros de ejemplo.
 const ESTADO_WEIGHTS: Record<EstadoAgenda, number> = {
   "Agendado CRM": 33,
+  Confirmado: 0,
   Asistió: 36,
   Cancelado: 23,
+  "No asistió": 0,
   "No show": 7,
   "Pendiente de agenda": 2,
   Reagendado: 1,

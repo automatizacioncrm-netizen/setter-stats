@@ -2,16 +2,21 @@ import { ApiError, getServerEnv } from "../config/env.server";
 export const REPORT_TIMEOUT_MS = 15_000;
 export const RECONCILE_TIMEOUT_MS = 60_000;
 export interface ReportRequest {
-  leadType: "paid" | "organic";
+  pipeline: "all" | "vsl" | "oei";
+  leadType: "all" | "paid" | "organic";
+  calendar: string;
   dateFrom: string;
   dateTo: string;
   setter: string;
   status: string;
   vslOrigin: string;
   closer: string;
+  includeDetail: boolean;
   search: string;
   page: number;
   pageSize: number;
+  sort: string;
+  direction: "asc" | "desc";
 }
 
 async function requestScript(action: "vsl_report" | "vsl_reconciliar", filters?: ReportRequest) {
@@ -21,17 +26,23 @@ async function requestScript(action: "vsl_report" | "vsl_reconciliar", filters?:
   url.searchParams.set("key", env.APPS_SCRIPT_SECRET);
   if (filters)
     for (const key of [
+      "pipeline",
       "leadType",
+      "calendar",
       "dateFrom",
       "dateTo",
       "setter",
       "status",
       "vslOrigin",
       "closer",
+      "includeDetail",
       "search",
       "page",
       "pageSize",
+      "sort",
+      "direction",
     ] as const) {
+      if (key === "leadType" && filters.pipeline !== "vsl") continue;
       url.searchParams.set(key, String(filters[key]));
     }
   const controller = new AbortController();

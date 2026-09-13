@@ -11,7 +11,9 @@ export async function getVslClosersReport(
 ): Promise<VslClosersReport> {
   const { estadoAgenda: status, vslOrigen: vslOrigin, preset: _preset, ...rest } = filters;
   const params = new URLSearchParams(
-    Object.entries({ ...rest, status, vslOrigin, ...detail }).map(([k, v]) => [k, String(v)]),
+    Object.entries({ ...rest, pipeline: filters.pipeline ?? "all", status, vslOrigin, ...detail })
+      .filter(([key]) => key !== "leadType" || filters.pipeline === "vsl")
+      .map(([k, v]) => [k, String(v)]),
   );
   return readResponse(
     await fetch(`/api/reports/vsl-closers?${params}`, {

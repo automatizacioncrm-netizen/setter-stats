@@ -15,6 +15,8 @@ interface Props {
   setters: string[];
   closers: string[];
   origins: string[];
+  calendars: string[];
+  statuses: string[];
   onChange: (next: Partial<ReportFilters>) => void;
   onPreset: (preset: DatePreset) => void;
   onClear: () => void;
@@ -28,30 +30,49 @@ export function DashboardFilters({
   setters,
   closers,
   origins,
+  calendars,
+  statuses,
   onChange,
   onPreset,
   onClear,
 }: Props) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4 shadow-card">
-      <label className="mb-4 block max-w-xs">
-        <span className="mb-1 block text-xs font-medium uppercase text-muted-foreground">
-          Tipo de lead
-        </span>
-        <select
-          className={fieldClass}
-          value={filters.leadType}
-          onChange={(e) =>
-            onChange({ leadType: e.target.value === "organic" ? "organic" : "paid" })
-          }
-        >
-          <option value="paid">Pagados</option>
-          <option value="organic">Orgánicos</option>
-        </select>
-      </label>
+      <div className="mb-4 flex flex-wrap gap-3">
+        <label className="block w-full max-w-xs">
+          <span className="mb-1 block text-xs font-medium uppercase text-muted-foreground">
+            Embudo
+          </span>
+          <select
+            className={fieldClass}
+            value={filters.pipeline ?? "all"}
+            onChange={(e) => onChange({ pipeline: e.target.value as "all" | "vsl" | "oei" })}
+          >
+            <option value="all">Todos los embudos</option>
+            <option value="vsl">VSL | CLOSERS</option>
+            <option value="oei">OEI</option>
+          </select>
+        </label>
+        {filters.pipeline === "vsl" && (
+          <label className="block w-full max-w-xs">
+            <span className="mb-1 block text-xs font-medium uppercase text-muted-foreground">
+              Tipo
+            </span>
+            <select
+              className={fieldClass}
+              value={filters.leadType}
+              onChange={(e) => onChange({ leadType: e.target.value as "all" | "paid" | "organic" })}
+            >
+              <option value="all">Todos</option>
+              <option value="paid">Pagados</option>
+              <option value="organic">Orgánicos</option>
+            </select>
+          </label>
+        )}
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="mr-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Fecha de reunión
+          Fecha de agendamiento
         </span>
         {PRESETS.map((preset) => (
           <button
@@ -106,18 +127,20 @@ export function DashboardFilters({
           </select>
         </label>
         <label className="block">
-          <span className="mb-1 block text-xs text-muted-foreground">Estado de agenda</span>
+          <span className="mb-1 block text-xs text-muted-foreground">Estado de agendamiento</span>
           <select
             value={filters.estadoAgenda}
             onChange={(e) => onChange({ estadoAgenda: e.target.value })}
             className={fieldClass}
           >
             <option value="">Todos</option>
-            {ESTADOS_AGENDA.map((estado) => (
-              <option key={estado} value={estado}>
-                {estado}
-              </option>
-            ))}
+            {(statuses.length ? statuses : [...ESTADOS_AGENDA])
+              .filter((estado) => estado !== "No show")
+              .map((estado) => (
+                <option key={estado} value={estado}>
+                  {estado}
+                </option>
+              ))}
           </select>
         </label>
         {(
@@ -145,6 +168,21 @@ export function DashboardFilters({
             </select>
           </label>
         ))}
+        <label className="block">
+          <span className="mb-1 block text-xs text-muted-foreground">Calendario</span>
+          <select
+            value={filters.calendar ?? ""}
+            onChange={(e) => onChange({ calendar: e.target.value })}
+            className={fieldClass}
+          >
+            <option value="">Todos</option>
+            {calendars.map((calendar) => (
+              <option key={calendar} value={calendar}>
+                {calendar}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="flex items-end">
           <button
             onClick={onClear}

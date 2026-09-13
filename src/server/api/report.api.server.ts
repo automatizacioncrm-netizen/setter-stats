@@ -13,7 +13,9 @@ const date = z
         new Date(v).toISOString().slice(0, 10) === v),
   );
 const schema = z.object({
-  leadType: z.enum(["paid", "organic"]).catch("paid"),
+  pipeline: z.enum(["all", "vsl", "oei"]).default("all"),
+  leadType: z.enum(["all", "paid", "organic"]).default("all"),
+  calendar: z.string().max(300).default(""),
   dateFrom: date.default(""),
   dateTo: date.default(""),
   setter: z.string().max(300).default(""),
@@ -48,6 +50,7 @@ export async function reportApi(request: Request) {
     const parsed = schema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
     if (!parsed.success) throw new ApiError("Los filtros o la paginación no son válidos.", 400);
     const q = parsed.data;
+    if (q.pipeline !== "vsl") q.leadType = "all";
     if (q.dateFrom && q.dateTo && q.dateFrom > q.dateTo)
       throw new ApiError("La fecha Desde debe ser anterior o igual a Hasta.", 400);
     const data = mapVslReportResponse(await fetchVslReport(q), q);

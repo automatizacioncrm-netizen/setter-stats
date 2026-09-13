@@ -1,16 +1,20 @@
 import type { DetailQuery, LeadDetailRow } from "@/types/reports";
 const columns: [keyof LeadDetailRow, string][] = [
+  ["pipeline", "Embudo"],
   ["nombreContacto", "Nombre contacto"],
   ["telefono", "Teléfono"],
   ["correo", "Correo electrónico"],
   ["setterAsignado", "Setter asignado"],
   ["closerAsignado", "Asignado / Closer"],
+  ["calendarioCita", "Calendario"],
   ["vslOrigen", "VSL Origen"],
-  ["estadoAgenda", "Estado de agenda"],
-  ["fechaReunion", "Fecha de reunión"],
+  ["estadoAgenda", "Estado de agendamiento"],
+  ["fechaAgendamiento", "Fecha de agendamiento"],
   ["fase", "Fase"],
   ["fuente", "Fuente"],
 ];
+const isSortable = (key: keyof LeadDetailRow): key is DetailQuery["sort"] =>
+  !["pipeline", "calendarioCita", "fechaAgendamiento"].includes(key);
 export function LeadDetailTable({
   rows,
   total,
@@ -72,17 +76,22 @@ export function LeadDetailTable({
                       : "none"
                   }
                 >
-                  <button
-                    onClick={() =>
-                      onChange({
-                        sort: key,
-                        direction: query.sort === key && query.direction === "asc" ? "desc" : "asc",
-                        page: 1,
-                      })
-                    }
-                  >
-                    {label} ↕
-                  </button>
+                  {isSortable(key) ? (
+                    <button
+                      onClick={() =>
+                        onChange({
+                          sort: key,
+                          direction:
+                            query.sort === key && query.direction === "asc" ? "desc" : "asc",
+                          page: 1,
+                        })
+                      }
+                    >
+                      {label} ↕
+                    </button>
+                  ) : (
+                    label
+                  )}
                 </th>
               ))}
             </tr>

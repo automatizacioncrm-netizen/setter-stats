@@ -15,7 +15,7 @@ export function ReportsPage() {
 
         <div className="mt-6 space-y-3">
           <ReportCard
-            title="VSL | CLOSERS"
+            title="VSL | CLOSERS + OEI"
             description="Seguimiento de agenda y desempeño por Setter"
             available
             to="/reports/vsl-closers"
@@ -25,11 +25,6 @@ export function ReportsPage() {
             description="Seguimiento de agendamientos y sesiones efectivas por closer"
             available
             to="/reports/vsl-citas"
-          />
-          <ReportCard
-            title="LANZAMIENTO PAGADO OEI"
-            description="Reporte en construcción"
-            available={false}
           />
         </div>
       </div>

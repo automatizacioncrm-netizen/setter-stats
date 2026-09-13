@@ -9,7 +9,10 @@ import { loadEnv } from "vite";
 import vercelConfig from "./vercel.json";
 
 // Keep Nitro's prebuilt output and Vercel's project configuration in sync.
-const nitroConfig = { preset: "vercel", vercel: { config: { crons: vercelConfig.crons } } };
+const nitroConfig = {
+  preset: "vercel",
+  vercel: { config: { ...("crons" in vercelConfig ? { crons: vercelConfig.crons } : {}) } },
+};
 
 export default defineConfig({
   vite: {
@@ -19,7 +22,12 @@ export default defineConfig({
         configResolved(config) {
           if (config.command !== "serve") return;
           const env = loadEnv(config.mode, config.envDir, ["APPS_SCRIPT_", "CRON_SECRET"]);
-          for (const key of ["APPS_SCRIPT_URL", "APPS_SCRIPT_SECRET", "CRON_SECRET", "APPS_SCRIPT_CITAS_URL"]) {
+          for (const key of [
+            "APPS_SCRIPT_URL",
+            "APPS_SCRIPT_SECRET",
+            "CRON_SECRET",
+            "APPS_SCRIPT_CITAS_URL",
+          ]) {
             if (process.env[key] === undefined && env[key]) process.env[key] = env[key];
           }
         },

@@ -4,12 +4,12 @@ import { VslClosersDashboard } from "@/pages/VslClosersDashboard";
 export const Route = createFileRoute("/reports/vsl-closers")({
   head: () => ({
     meta: [
-      { title: "Reporte comercial VSL | CLOSERS" },
+      { title: "Reporte comercial VSL | CLOSERS + OEI" },
       {
         name: "description",
-        content: "KPIs, tabla dinámica por Setter y composición de estados de agenda de la secuencia VSL | CLOSERS.",
+        content: "Agenda y desempeño comercial por embudo y Setter.",
       },
-      { property: "og:title", content: "Reporte comercial VSL | CLOSERS" },
+      { property: "og:title", content: "Reporte comercial VSL | CLOSERS + OEI" },
       {
         property: "og:description",
         content: "Seguimiento de agenda y desempeño por Setter.",

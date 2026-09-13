@@ -13,7 +13,8 @@ import type { SetterRow } from "@/types/reports";
 const SERIES = [
   { key: "asistio", label: "Asistió", color: "var(--status-asistio)" },
   { key: "agendadoCRM", label: "Agendado CRM", color: "var(--status-agendado)" },
-  { key: "noShow", label: "No show", color: "var(--status-noshow)" },
+  { key: "confirmado", label: "Confirmado", color: "var(--brand)" },
+  { key: "noShow", label: "No asistió", color: "var(--status-noshow)" },
   { key: "cancelado", label: "Cancelado", color: "var(--status-cancelado)" },
   { key: "pendienteAgenda", label: "Pendiente de agenda", color: "var(--status-pendiente)" },
   { key: "reagendado", label: "Reagendado", color: "var(--status-reagendado)" },
@@ -36,7 +37,7 @@ export function SetterStatusChart({ rows, tasaAsistencia }: Props) {
         </div>
         <div className="shrink-0 rounded-lg bg-brand-soft px-3 py-1.5 text-right">
           <p className="text-[11px] font-medium uppercase tracking-wide text-brand">
-            Asistencia del tipo seleccionado
+            Tasa de asistencia
           </p>
           <p className="text-lg font-semibold tabular-nums text-brand">{tasaAsistencia}%</p>
         </div>

@@ -19,7 +19,9 @@ import type { DatePreset, DetailQuery, ReportFilters, VslClosersReport } from "@
 
 const EMPTY_FILTERS: ReportFilters = {
   preset: "todos",
-  leadType: "paid",
+  pipeline: "all",
+  leadType: "all",
+  calendar: "",
   dateFrom: "",
   dateTo: "",
   setter: "",
@@ -105,7 +107,31 @@ export function VslClosersDashboard() {
   });
 
   const handleChange = useCallback((next: Partial<ReportFilters>) => {
-    setFilters((prev) => ({ ...prev, ...next }));
+    setFilters((prev) => {
+      if (next.pipeline && next.pipeline !== prev.pipeline)
+        return {
+          ...prev,
+          pipeline: next.pipeline,
+          leadType: "all",
+          calendar: "",
+          setter: "",
+          closer: "",
+          estadoAgenda: "",
+          vslOrigen: "",
+        };
+      if (next.leadType && next.leadType !== prev.leadType)
+        return {
+          ...prev,
+          leadType: next.leadType,
+          calendar: "",
+          setter: "",
+          closer: "",
+          estadoAgenda: "",
+        };
+      if (next.calendar !== undefined && next.calendar !== prev.calendar)
+        return { ...prev, calendar: next.calendar, setter: "", closer: "" };
+      return { ...prev, ...next };
+    });
     setDetail((prev) => ({ ...prev, page: 1 }));
   }, []);
 
@@ -156,26 +182,30 @@ export function VslClosersDashboard() {
     if (query.data) lastReport.current = query.data;
   }, [query.data]);
   const data = query.data ?? lastReport.current;
+  const optionData =
+    data?.filters?.pipeline === filters.pipeline &&
+    (filters.pipeline !== "vsl" || data?.leadType === filters.leadType)
+      ? data
+      : undefined;
   const initialLoading = !data && query.isLoading;
   const backgroundRefreshing = !!data && query.isFetching && !syncing;
-  const kpis = data?.leadTypeKpis;
-  const leadLabel =
-    (data?.leadType ?? filters.leadType) === "organic" ? "orgánicos" : "VSL pagados";
+  const kpis = data?.kpis;
 
   const kpiCards = useMemo(
     () =>
       kpis
         ? [
-            { label: `Leads ${leadLabel}`, value: kpis.totalLeads },
+            { label: "Leads", value: kpis.total },
             {
-              label: "Asistieron",
-              value: kpis.attended,
+              label: "Asistió",
+              value: kpis.asistio,
               accent: "var(--status-asistio)",
-              hint: `${kpis.attendanceRate.toFixed(2)}% de leads ${leadLabel}`,
+              hint: `${(kpis.tasaAsistencia ?? 0).toFixed(2)}% de asistencia`,
             },
+            { label: "Confirmado", value: kpis.confirmado ?? 0 },
           ]
         : [],
-    [kpis, leadLabel],
+    [kpis],
   );
 
   return (
@@ -186,7 +216,7 @@ export function VslClosersDashboard() {
         description={
           syncing
             ? "Sincronizando las oportunidades con GoHighLevel. Esto puede tardar unos segundos."
-            : "Obteniendo la información del reporte VSL | CLOSERS."
+            : "Obteniendo la información del reporte comercial."
         }
       />
       <div className="mx-auto w-full max-w-[1400px] space-y-4">
@@ -199,10 +229,10 @@ export function VslClosersDashboard() {
               <ArrowLeft className="h-3.5 w-3.5" /> Volver a reportes
             </Link>
             <h1 className="mt-2 text-lg font-semibold tracking-tight text-foreground sm:text-xl">
-              REPORTE COMERCIAL — VSL | CLOSERS
+              REPORTE COMERCIAL — VSL | CLOSERS + OEI
             </h1>
             <p className="text-sm text-muted-foreground">
-              Leads {leadLabel} · Agenda y desempeño por Setter
+              Agenda y desempeño comercial por embudo y Setter
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Última actualización: {data ? formatUpdatedAt(data.updatedAt) : "—"}
@@ -235,13 +265,19 @@ export function VslClosersDashboard() {
         )}
         <DashboardFilters
           filters={filters}
-          setters={data?.availableSetters ?? []}
-          closers={data?.availableClosers ?? []}
-          origins={data?.availableOrigins ?? []}
+          setters={optionData?.availableSetters ?? []}
+          closers={optionData?.availableClosers ?? []}
+          origins={optionData?.availableOrigins ?? []}
+          calendars={optionData?.availableCalendars ?? []}
+          statuses={optionData?.availableStatuses ?? []}
           onChange={handleChange}
           onPreset={handlePreset}
           onClear={() => {
-            setFilters({ ...EMPTY_FILTERS, leadType: filters.leadType });
+            setFilters({
+              ...EMPTY_FILTERS,
+              pipeline: filters.pipeline ?? "all",
+              leadType: filters.pipeline === "vsl" ? filters.leadType : "all",
+            });
             setDetail((prev) => ({ ...prev, page: 1 }));
           }}
         />
@@ -274,23 +310,18 @@ export function VslClosersDashboard() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {kpiCards.map((card) => (
                 <KpiCard key={card.label} {...card} />
               ))}
             </div>
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-              <SetterStatusChart
-                rows={data.setters}
-                tasaAsistencia={data.leadTypeKpis.attendanceRate}
-              />
-              <ConversionSummary kpis={data.kpis} leadType={data.leadType} />
+              <SetterStatusChart rows={data.setters} tasaAsistencia={data.kpis.tasaAsistencia} />
+              <ConversionSummary kpis={data.kpis} />
             </div>
 
-            {data.kpis.totalLeads === 0 && (
-              <p>No existen registros para los filtros seleccionados.</p>
-            )}
+            {data.kpis.total === 0 && <p>No existen registros para los filtros seleccionados.</p>}
             <SetterStatusTable rows={data.setters} totals={data.kpis} />
             <SalesSection sales={data.sales} available={data.salesAvailable} />
           </>

@@ -116,10 +116,13 @@ test("initial loading closes on success or error; retry remains available", () =
   assert.ok(h.find("SetterStatusTable"));
 });
 
-test("lead type changes retain filters, reset page, show loading and survive reconciliation", async () => {
+test("lead type changes reset incompatible filters and survive reconciliation", async () => {
   const h = harness();
   h.loaded();
-  assert.equal(h.query.options.queryKey[1].leadType, "paid");
+  assert.equal(h.query.options.queryKey[1].pipeline, "all");
+  assert.equal(h.query.options.queryKey[1].leadType, "all");
+  h.find("DashboardFilters").props.onChange({ pipeline: "vsl" });
+  h.render();
   h.find("DashboardFilters").props.onChange({
     dateFrom: "2026-08-01",
     dateTo: "2026-08-31",
@@ -135,7 +138,8 @@ test("lead type changes retain filters, reset page, show loading and survive rec
   const filters = h.query.options.queryKey[1];
   assert.equal(filters.dateFrom, "2026-08-01");
   assert.equal(filters.dateTo, "2026-08-31");
-  assert.equal(filters.setter, "Jose Luis");
+  assert.equal(filters.setter, "");
+  assert.equal(filters.pipeline, "vsl");
   assert.equal(filters.leadType, "organic");
   assert.equal(h.query.options.queryKey[2].page, 1);
   h.query.isFetching = true;
@@ -144,11 +148,12 @@ test("lead type changes retain filters, reset page, show loading and survive rec
   h.query.isFetching = false;
   h.query.data.leadType = "organic";
   h.render();
-  assert.equal(h.find("KpiCard").props.label, "Leads orgánicos");
+  assert.equal(h.find("KpiCard").props.label, "Leads");
   assert.equal(h.find("SetterStatusTable").props.rows, h.find("SetterStatusChart").props.rows);
   await h.find("RefreshButton").props.onClick();
   h.render();
   assert.equal(h.query.options.queryKey[1].leadType, "organic");
+  assert.equal(h.query.options.queryKey[1].pipeline, "vsl");
 });
 
 test("one continuous modal spans POST and GET, blocks duplicate calls, and renders fresh data", async () => {
@@ -234,13 +239,16 @@ test("sales uses the same query data as the setter table across filters and refr
   h.query.data.salesAvailable = true;
   h.render();
   assert.equal(h.find("SalesSection").props.sales, first);
+  h.find("DashboardFilters").props.onChange({ pipeline: "vsl" });
+  h.render();
+  h.find("DashboardFilters").props.onChange({ leadType: "organic" });
+  h.render();
   h.find("DashboardFilters").props.onChange({
-    leadType: "organic",
     dateFrom: "2026-09-01",
     dateTo: "2026-09-08",
     setter: "Ana",
     closer: "Pedro",
-    estadoAgenda: "No show",
+    estadoAgenda: "No asistió",
     vslOrigen: "No agendado",
   });
   h.query.isFetching = true;
@@ -251,7 +259,7 @@ test("sales uses the same query data as the setter table across filters and refr
   h.query.isFetching = false;
   h.render();
   assert.equal(h.find("SalesSection").props.sales, fresh);
-  assert.equal(h.query.options.queryKey[1].estadoAgenda, "No show");
+  assert.equal(h.query.options.queryKey[1].estadoAgenda, "No asistió");
   await h.find("RefreshButton").props.onClick();
   h.render();
   assert.equal(h.find("SalesSection").props.sales, h.query.data.sales);
