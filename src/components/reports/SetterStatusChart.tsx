@@ -11,13 +11,10 @@ import {
 import type { SetterRow } from "@/types/reports";
 
 const SERIES = [
-  { key: "asistio", label: "Asistió", color: "var(--status-asistio)" },
-  { key: "agendadoCRM", label: "Agendado CRM", color: "var(--status-agendado)" },
   { key: "confirmado", label: "Confirmado", color: "var(--brand)" },
+  { key: "asistio", label: "Asistió", color: "var(--status-asistio)" },
   { key: "noShow", label: "No asistió", color: "var(--status-noshow)" },
   { key: "cancelado", label: "Cancelado", color: "var(--status-cancelado)" },
-  { key: "pendienteAgenda", label: "Pendiente de agenda", color: "var(--status-pendiente)" },
-  { key: "reagendado", label: "Reagendado", color: "var(--status-reagendado)" },
 ] as const;
 
 interface Props {
@@ -33,13 +30,15 @@ export function SetterStatusChart({ rows, tasaAsistencia }: Props) {
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="min-w-0">
           <h3 className="truncate text-sm font-semibold text-foreground">Composición por Setter</h3>
-          <p className="text-xs text-muted-foreground">Barras apiladas por estado de agenda</p>
+          <p className="text-xs text-muted-foreground">Barras apiladas por estado de Calendar</p>
         </div>
         <div className="shrink-0 rounded-lg bg-brand-soft px-3 py-1.5 text-right">
           <p className="text-[11px] font-medium uppercase tracking-wide text-brand">
             Tasa de asistencia
           </p>
-          <p className="text-lg font-semibold tabular-nums text-brand">{tasaAsistencia}%</p>
+          <p className="text-lg font-semibold tabular-nums text-brand">
+            {Math.round(tasaAsistencia)}%
+          </p>
         </div>
       </div>
 
@@ -79,7 +78,7 @@ export function SetterStatusChart({ rows, tasaAsistencia }: Props) {
                 name={serie.label}
                 stackId="estado"
                 fill={serie.color}
-                radius={serie.key === "reagendado" ? [0, 4, 4, 0] : 0}
+                radius={serie.key === "cancelado" ? [0, 4, 4, 0] : 0}
               />
             ))}
           </BarChart>

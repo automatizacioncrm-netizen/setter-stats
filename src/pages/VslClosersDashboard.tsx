@@ -191,9 +191,25 @@ export function VslClosersDashboard() {
   const initialLoading = !data && query.isLoading;
   const backgroundRefreshing = !!data && query.isFetching && !syncing;
   const cardMetrics = useMemo(
-    () => getPipelineCardMetrics(data?.pipelineSummary, filters.pipeline ?? "all"),
-    [data?.pipelineSummary, filters.pipeline],
+    () => getPipelineCardMetrics(data?.pipelineSummary, data?.filters?.pipeline ?? filters.pipeline ?? "all"),
+    [data?.pipelineSummary, data?.filters?.pipeline, filters.pipeline],
   );
+  const attendanceRate = data?.kpis.total
+    ? Math.round((data.kpis.asistio / data.kpis.total) * 100)
+    : 0;
+  useEffect(() => {
+    const cardTotal = cardMetrics.totalAppointments;
+    const tableTotal = data?.kpis.total;
+    if (
+      import.meta.env.DEV &&
+      data &&
+      data.filters?.pipeline === filters.pipeline &&
+      cardTotal != null &&
+      cardTotal !== tableTotal
+    ) {
+      console.warn("CALENDAR TOTAL MISMATCH", { cardTotal, tableTotal });
+    }
+  }, [data, cardMetrics.totalAppointments, filters.pipeline]);
 
   const kpiCards = useMemo(
     () =>
@@ -209,15 +225,13 @@ export function VslClosersDashboard() {
             },
             {
               label: "Asistió",
-              value: cardMetrics.attended ?? "—",
+              value: data.kpis.asistio,
               accent: "var(--status-asistio)",
-              ...(cardMetrics.attendanceRate == null
-                ? {}
-                : { hint: `${cardMetrics.attendanceRate}% de asistencia` }),
+              hint: `${attendanceRate}% de asistencia`,
             },
           ]
         : [],
-    [data, cardMetrics],
+    [data, cardMetrics, attendanceRate],
   );
 
   return (
@@ -281,7 +295,6 @@ export function VslClosersDashboard() {
           closers={optionData?.availableClosers ?? []}
           origins={optionData?.availableOrigins ?? []}
           calendars={optionData?.availableCalendars ?? []}
-          statuses={optionData?.availableStatuses ?? []}
           onChange={handleChange}
           onPreset={handlePreset}
           onClear={() => {
@@ -327,9 +340,8 @@ export function VslClosersDashboard() {
                 <KpiCard key={card.label} {...card} />
               ))}
             </div>
-
             <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-              <SetterStatusChart rows={data.setters} tasaAsistencia={data.kpis.tasaAsistencia} />
+              <SetterStatusChart rows={data.setters} tasaAsistencia={attendanceRate} />
               <ConversionSummary kpis={data.kpis} />
             </div>
 

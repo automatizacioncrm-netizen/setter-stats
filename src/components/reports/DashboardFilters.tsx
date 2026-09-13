@@ -1,5 +1,5 @@
 import { RotateCcw } from "lucide-react";
-import { ESTADOS_AGENDA, type DatePreset, type ReportFilters } from "@/types/reports";
+import { type DatePreset, type ReportFilters } from "@/types/reports";
 
 const PRESETS: { value: DatePreset; label: string }[] = [
   { value: "todos", label: "Todo" },
@@ -9,6 +9,7 @@ const PRESETS: { value: DatePreset; label: string }[] = [
   { value: "mes", label: "Este mes" },
   { value: "custom", label: "Rango personalizado" },
 ];
+const CALENDAR_STATUSES = ["Confirmado", "Asistió", "No asistió", "Cancelado"];
 
 interface Props {
   filters: ReportFilters;
@@ -16,7 +17,6 @@ interface Props {
   closers: string[];
   origins: string[];
   calendars: string[];
-  statuses: string[];
   onChange: (next: Partial<ReportFilters>) => void;
   onPreset: (preset: DatePreset) => void;
   onClear: () => void;
@@ -31,7 +31,6 @@ export function DashboardFilters({
   closers,
   origins,
   calendars,
-  statuses,
   onChange,
   onPreset,
   onClear,
@@ -134,9 +133,7 @@ export function DashboardFilters({
             className={fieldClass}
           >
             <option value="">Todos</option>
-            {(statuses.length ? statuses : [...ESTADOS_AGENDA])
-              .filter((estado) => estado !== "No show")
-              .map((estado) => (
+            {CALENDAR_STATUSES.map((estado) => (
                 <option key={estado} value={estado}>
                   {estado}
                 </option>

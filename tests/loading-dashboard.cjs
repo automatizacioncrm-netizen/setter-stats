@@ -28,7 +28,7 @@ function harness() {
   const exports = {};
   const source = ts.transpileModule(fs.readFileSync("src/pages/VslClosersDashboard.tsx", "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
-  }).outputText;
+  }).outputText.replaceAll("import.meta.env.DEV", "false");
   vm.runInNewContext(source, {
     exports,
     require(name) {
@@ -90,6 +90,16 @@ function harness() {
       .map((child) => (child ? find(type, child) : undefined))
       .find(Boolean);
   }
+  function findAll(type, node = tree) {
+    if (!node || typeof node !== "object") return [];
+    const children = node.props?.children;
+    return [
+      ...(node.type === type ? [node] : []),
+      ...(Array.isArray(children) ? children.flat(Infinity) : [children]).flatMap((child) =>
+        child ? findAll(type, child) : [],
+      ),
+    ];
+  }
   function loaded() {
     query.isLoading = false;
     query.data = {
@@ -102,8 +112,72 @@ function harness() {
     render();
   }
   render();
-  return { query, api, notices, render, find, loaded };
+  return { query, api, notices, render, find, findAll, loaded };
 }
+
+test("cards y secciones de agenda consumen los agregados Calendar de la misma respuesta", () => {
+  const h = harness();
+  h.loaded();
+  const setters = [{ setter: "Ana", confirmado: 150, asistio: 92, cancelado: 10, noShow: 15,
+    total: 267, agendadoCRM: 20, pendienteAgenda: 3, reagendado: 2 }];
+  const kpis = { total: 783, confirmado: 300, asistio: 357, cancelado: 50, noShow: 76,
+    tasaAsistencia: 45.59 };
+  h.query.data = {
+    ...h.query.data,
+    pipelineSummary: {
+      vsl: { totalLeads: 1000, conCitaCalendar: 500 },
+      oei: { totalLeads: 828, conCitaCalendar: 283 },
+    },
+    kpis,
+    setters,
+  };
+  h.render();
+  const cards = h.findAll("KpiCard").map((card) => card.props);
+  assert.deepEqual(cards.map((card) => card.value), [1828, 783, 357]);
+  assert.equal(cards[1].hint, "43% de los leads agendaron");
+  assert.equal(cards[2].hint, "46% de asistencia");
+  assert.equal(h.find("SetterStatusTable").props.rows, setters);
+  assert.equal(h.find("SetterStatusTable").props.totals, kpis);
+  assert.equal(h.find("SetterStatusChart").props.rows, setters);
+  assert.equal(h.find("SetterStatusChart").props.tasaAsistencia, 46);
+  assert.equal(h.find("ConversionSummary").props.kpis, kpis);
+});
+
+test("el pie de Desempeño por Setter usa kpis.total aunque los setters discrepen", () => {
+  const exports = {};
+  const jsx = (type, props) => ({ type, props });
+  const source = ts.transpileModule(fs.readFileSync("src/components/reports/SetterStatusTable.tsx", "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText;
+  vm.runInNewContext(source, {
+    exports,
+    require(name) {
+      if (name === "react/jsx-runtime") return { jsx, jsxs: jsx };
+      if (name === "react") return { useState: (value) => [value, () => {}], useMemo: (fn) => fn() };
+      if (name === "lucide-react") return { ArrowUpDown: "ArrowUpDown" };
+      throw new Error(name);
+    },
+  });
+  const tree = exports.SetterStatusTable({
+    rows: [{ setter: "Ana", confirmado: 300, asistio: 344, cancelado: 100, noShow: 202, total: 946 }],
+    totals: { confirmado: 250, asistio: 344, cancelado: 75, noShow: 74, total: 743,
+      tasaAsistencia: 36.4 },
+  });
+  const visit = (node, type) => {
+    if (!node || typeof node !== "object") return undefined;
+    if (node.type === type) return node;
+    const children = node.props?.children;
+    return (Array.isArray(children) ? children.flat(Infinity) : [children])
+      .map((child) => visit(child, type))
+      .find(Boolean);
+  };
+  const text = (node) =>
+    node == null ? "" : typeof node === "object"
+      ? (Array.isArray(node.props?.children) ? node.props.children.flat(Infinity) : [node.props?.children])
+          .map(text).join("")
+      : String(node);
+  assert.equal(text(visit(tree, "tfoot")), "Total general25034446%7574743");
+});
 function deferred() {
   let resolve;
   const promise = new Promise((done) => {
