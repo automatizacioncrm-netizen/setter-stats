@@ -14,6 +14,7 @@ require.extensions[".ts"] = (module, filename) => {
 
 const { reportApi } = require("../src/server/api/report.api.server.ts");
 const { getVslClosersReport } = require("../src/services/reports.ts");
+const { getPipelineCardMetrics } = require("../src/lib/pipeline-summary.ts");
 
 const vslCalendars = [
   "Llamada de Claridad CM [A]",
@@ -22,6 +23,45 @@ const vslCalendars = [
   "Sesión Equipo Millonario (ORG)",
 ];
 const oeiCalendar = "Equipo Millonario | OEI";
+
+test("las tres cards distinguen leads, agendamientos y asistencia por embudo", () => {
+  const summary = {
+    vsl: { totalLeads: 1200, conCitaCalendar: 300, estados: { asistio: 100 } },
+    oei: { totalLeads: 826, conCitaCalendar: 42, estados: { asistio: 13 } },
+  };
+  assert.deepEqual(getPipelineCardMetrics(summary, "oei"), {
+    totalLeads: 826,
+    totalAppointments: 42,
+    attended: 13,
+    bookingRate: 5,
+    attendanceRate: 31,
+  });
+  assert.deepEqual(getPipelineCardMetrics(summary, "all"), {
+    totalLeads: 2026,
+    totalAppointments: 342,
+    attended: 113,
+    bookingRate: 17,
+    attendanceRate: 33,
+  });
+  assert.deepEqual(getPipelineCardMetrics(summary, "vsl"), {
+    totalLeads: 1200,
+    totalAppointments: 300,
+    attended: 100,
+    bookingRate: 25,
+    attendanceRate: 33,
+  });
+});
+
+test("VSL usa el resumen ya filtrado por tipo y no inventa totales si falta", () => {
+  const filteredVsl = (totalLeads, conCitaCalendar, asistio) => ({
+    vsl: { totalLeads, conCitaCalendar, estados: { asistio } },
+  });
+  assert.equal(getPipelineCardMetrics(filteredVsl(900, 250, 80), "vsl").totalAppointments, 250);
+  assert.equal(getPipelineCardMetrics(filteredVsl(400, 100, 25), "vsl").totalAppointments, 100);
+  assert.equal(getPipelineCardMetrics(filteredVsl(500, 150, 55), "vsl").totalAppointments, 150);
+  assert.equal(getPipelineCardMetrics(filteredVsl(0, 0, 0), "vsl").attendanceRate, 0);
+  assert.equal(getPipelineCardMetrics(undefined, "oei").totalLeads, null);
+});
 
 test("el proxy reenvía los cinco modos y acepta KPIs consolidados sin leadTypeKpis", async () => {
   process.env.APPS_SCRIPT_URL = "https://example.com/script";

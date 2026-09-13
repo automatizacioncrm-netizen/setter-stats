@@ -15,6 +15,7 @@ import { RefreshButton } from "@/components/reports/RefreshButton";
 import { LoadingModal } from "@/components/reports/LoadingModal";
 import { LeadDetailTable } from "@/components/reports/LeadDetailTable";
 import { SalesSection } from "@/components/reports/SalesSection";
+import { getPipelineCardMetrics } from "@/lib/pipeline-summary";
 import type { DatePreset, DetailQuery, ReportFilters, VslClosersReport } from "@/types/reports";
 
 const EMPTY_FILTERS: ReportFilters = {
@@ -189,23 +190,34 @@ export function VslClosersDashboard() {
       : undefined;
   const initialLoading = !data && query.isLoading;
   const backgroundRefreshing = !!data && query.isFetching && !syncing;
-  const kpis = data?.kpis;
+  const cardMetrics = useMemo(
+    () => getPipelineCardMetrics(data?.pipelineSummary, filters.pipeline ?? "all"),
+    [data?.pipelineSummary, filters.pipeline],
+  );
 
   const kpiCards = useMemo(
     () =>
-      kpis
+      data
         ? [
-            { label: "Leads", value: kpis.total },
+            { label: "Total de leads", value: cardMetrics.totalLeads ?? "—" },
+            {
+              label: "Total de agendamientos",
+              value: cardMetrics.totalAppointments ?? "—",
+              ...(cardMetrics.bookingRate == null
+                ? {}
+                : { hint: `${cardMetrics.bookingRate}% de los leads agendaron` }),
+            },
             {
               label: "Asistió",
-              value: kpis.asistio,
+              value: cardMetrics.attended ?? "—",
               accent: "var(--status-asistio)",
-              hint: `${(kpis.tasaAsistencia ?? 0).toFixed(2)}% de asistencia`,
+              ...(cardMetrics.attendanceRate == null
+                ? {}
+                : { hint: `${cardMetrics.attendanceRate}% de asistencia` }),
             },
-            { label: "Confirmado", value: kpis.confirmado ?? 0 },
           ]
         : [],
-    [kpis],
+    [data, cardMetrics],
   );
 
   return (
@@ -321,7 +333,9 @@ export function VslClosersDashboard() {
               <ConversionSummary kpis={data.kpis} />
             </div>
 
-            {data.kpis.total === 0 && <p>No existen registros para los filtros seleccionados.</p>}
+            {cardMetrics.totalLeads === 0 && (
+              <p>No existen registros para los filtros seleccionados.</p>
+            )}
             <SetterStatusTable rows={data.setters} totals={data.kpis} />
             <SalesSection sales={data.sales} available={data.salesAvailable} />
           </>

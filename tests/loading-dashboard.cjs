@@ -3,6 +3,14 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const ts = require("typescript");
+require.extensions[".ts"] = (module, filename) => {
+  module._compile(
+    ts.transpileModule(fs.readFileSync(filename, "utf8"), {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    }).outputText,
+    filename,
+  );
+};
 
 // Exercise the actual page handlers with controlled query responses and hook state.
 function harness() {
@@ -65,6 +73,7 @@ function harness() {
         };
       if (name.includes("reconciliation.service"))
         return { triggerVslReconciliation: () => api.post() };
+      if (name.includes("pipeline-summary")) return require("../src/lib/pipeline-summary.ts");
       return new Proxy({}, { get: (_, key) => component(key) });
     },
   });
@@ -148,7 +157,7 @@ test("lead type changes reset incompatible filters and survive reconciliation", 
   h.query.isFetching = false;
   h.query.data.leadType = "organic";
   h.render();
-  assert.equal(h.find("KpiCard").props.label, "Leads");
+  assert.equal(h.find("KpiCard").props.label, "Total de leads");
   assert.equal(h.find("SetterStatusTable").props.rows, h.find("SetterStatusChart").props.rows);
   await h.find("RefreshButton").props.onClick();
   h.render();
