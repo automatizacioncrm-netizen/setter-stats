@@ -15,6 +15,71 @@ require.extensions[".ts"] = (module, filename) => {
 const { reportApi } = require("../src/server/api/report.api.server.ts");
 const { getVslClosersReport } = require("../src/services/reports.ts");
 const { getPipelineCardMetrics } = require("../src/lib/pipeline-summary.ts");
+const { mapVslReportResponse } = require("../src/server/mappers/vsl-response.mapper.ts");
+
+test("date contract preserves independent API totals and creation metadata without filtering rows", () => {
+  const dateSemantics = {
+    leads: "Creado el",
+    appointments: "Fecha cita",
+    appointmentsFallback: "Fecha de reunión",
+    sales: "Fecha de primer pago",
+  };
+  const query = {
+    pipeline: "oei",
+    dateFrom: "2026-09-01",
+    dateTo: "2026-09-30",
+    includeDetail: true,
+    pageSize: 25,
+    sort: "nombreContacto",
+    direction: "asc",
+  };
+  for (const [leads, appointments, sales] of [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+    [1, 1, 1],
+  ]) {
+    const raw = {
+      ok: true,
+      data: {
+        dateSemantics,
+        leadTypeKpis: { totalLeads: leads },
+        kpis: { total: appointments, asistio: appointments, tasaAsistencia: appointments * 100 },
+        sales: {
+          total: sales,
+          rows: sales
+            ? [
+                {
+                  fechaPrimerPago: "2026-09-12",
+                  fase: "Ventas Confirmadas",
+                  fechaCita: "2026-08-10",
+                },
+              ]
+            : [],
+        },
+        detail: {
+          rows: leads
+            ? [
+                {
+                  nombreContacto: "Test",
+                  fechaCreacionOportunidad: "2026-09-11T16:42:56.549Z",
+                  fechaCita: appointments ? "2026-09-10" : "",
+                },
+              ]
+            : [],
+        },
+      },
+    };
+    const result = mapVslReportResponse(raw, query);
+    assert.equal(result.leadTypeKpis.totalLeads, leads);
+    assert.equal(result.kpis.total, appointments);
+    assert.equal(result.sales.total, sales);
+    assert.equal(result.detail.length, leads);
+    assert.deepEqual(result.dateSemantics, dateSemantics);
+    if (leads) assert.equal(result.detail[0].fechaCreacionOportunidad, "2026-09-11T16:42:56.549Z");
+    if (sales) assert.equal(result.sales.rows[0].fechaPrimerPago, "2026-09-12");
+  }
+});
 
 const vslCalendars = [
   "Llamada de Claridad CM [A]",

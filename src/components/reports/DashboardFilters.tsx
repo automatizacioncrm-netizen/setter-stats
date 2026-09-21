@@ -90,7 +90,7 @@ export function DashboardFilters({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="mr-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Fecha de agendamiento
+          Período
         </span>
         {PRESETS.map((preset) => (
           <button
@@ -112,8 +112,15 @@ export function DashboardFilters({
           <span className="mb-1 block text-xs text-muted-foreground">Desde</span>
           <input
             type="date"
-            value={filters.dateFrom}
-            onChange={(e) => onChange({ dateFrom: e.target.value, preset: "custom" })}
+            key={`from-${filters.dateFrom}`}
+            defaultValue={filters.dateFrom}
+            onBlur={(e) => {
+              if (e.target.validity.valid && e.target.value !== filters.dateFrom)
+                onChange({ dateFrom: e.target.value, preset: "custom" });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
             className={fieldClass}
           />
         </label>
@@ -121,8 +128,15 @@ export function DashboardFilters({
           <span className="mb-1 block text-xs text-muted-foreground">Hasta</span>
           <input
             type="date"
-            value={filters.dateTo}
-            onChange={(e) => onChange({ dateTo: e.target.value, preset: "custom" })}
+            key={`to-${filters.dateTo}`}
+            defaultValue={filters.dateTo}
+            onBlur={(e) => {
+              if (e.target.validity.valid && e.target.value !== filters.dateTo)
+                onChange({ dateTo: e.target.value, preset: "custom" });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
             className={fieldClass}
           />
         </label>
@@ -138,7 +152,9 @@ export function DashboardFilters({
             >
               <option value="">Todos</option>
               {filters.setter && !setters.includes(filters.setter) && (
-                <option value={filters.setter}>{filters.setter} (sin registros de este tipo)</option>
+                <option value={filters.setter}>
+                  {filters.setter} (sin registros de este tipo)
+                </option>
               )}
               {setters.map((s) => (
                 <option key={s} value={s}>
@@ -179,10 +195,10 @@ export function DashboardFilters({
           >
             <option value="">Todos</option>
             {CALENDAR_STATUSES.map((estado) => (
-                <option key={estado} value={estado}>
-                  {estado}
-                </option>
-              ))}
+              <option key={estado} value={estado}>
+                {estado}
+              </option>
+            ))}
           </select>
         </label>
         {filters.pipeline !== "oei" && (

@@ -108,55 +108,107 @@ export function VslClosersDashboard() {
     refetchOnReconnect: !syncing,
   });
 
-  const handleChange = useCallback((next: Partial<ReportFilters>) => {
-    setFilters((prev) => {
-      if (next.pipeline && next.pipeline !== prev.pipeline)
-        return {
-          ...prev,
-          pipeline: next.pipeline,
-          leadType: "all",
-          calendar: "",
-          setter: "",
-          booker: "",
-          closer: "",
-          estadoAgenda: "",
-          vslOrigen: "",
-        };
-      if (next.leadType && next.leadType !== prev.leadType)
-        return {
-          ...prev,
-          leadType: next.leadType,
-          calendar: "",
-          setter: "",
-          booker: "",
-          closer: "",
-          estadoAgenda: "",
-        };
-      if (next.calendar !== undefined && next.calendar !== prev.calendar)
-        return { ...prev, calendar: next.calendar, setter: "", booker: "", closer: "" };
-      if (
-        Object.keys(next).length === 1 &&
-        next.setter !== undefined &&
-        next.setter !== prev.setter
-      )
-        return { ...prev, setter: next.setter, closer: "" };
-      if (
-        Object.keys(next).length === 1 &&
-        next.booker !== undefined &&
-        next.booker !== prev.booker
-      )
-        return { ...prev, booker: next.booker, closer: "" };
-      return { ...prev, ...next };
-    });
-    setDetail((prev) => ({ ...prev, page: 1 }));
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [filterDelayDone, setFilterDelayDone] = useState(false);
+  const filterFrame = useRef<number | undefined>(undefined);
+  const filterTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const filterVersion = useRef(0);
+  const cancelFilterTransition = useCallback(() => {
+    if (filterFrame.current !== undefined) cancelAnimationFrame(filterFrame.current);
+    if (filterTimer.current !== undefined) clearTimeout(filterTimer.current);
   }, []);
+  useEffect(
+    () => () => {
+      filterVersion.current++;
+      cancelFilterTransition();
+    },
+    [cancelFilterTransition],
+  );
 
-  const handlePreset = useCallback((preset: DatePreset) => {
-    setDetail((prev) => ({ ...prev, page: 1 }));
-    setFilters((prev) =>
-      preset === "custom" ? { ...prev, preset } : { ...prev, preset, ...rangeForPreset(preset) },
-    );
-  }, []);
+  const runFilterTransition = useCallback(
+    (apply: () => void) => {
+      cancelFilterTransition();
+      const version = ++filterVersion.current;
+      setIsFiltering(true);
+      setFilterDelayDone(false);
+      // Allow the existing modal to paint before changing cascading controls.
+      filterFrame.current = requestAnimationFrame(() => {
+        filterFrame.current = requestAnimationFrame(() => {
+          if (version !== filterVersion.current) return;
+          apply();
+          filterTimer.current = setTimeout(() => {
+            if (version === filterVersion.current) setFilterDelayDone(true);
+          }, 350);
+        });
+      });
+    },
+    [cancelFilterTransition],
+  );
+  useEffect(() => {
+    if (filterDelayDone && !query.isFetching) setIsFiltering(false);
+  }, [filterDelayDone, query.isFetching]);
+
+  const handleChange = useCallback(
+    (next: Partial<ReportFilters>) => {
+      runFilterTransition(() => {
+        setFilters((prev) => {
+          if (next.pipeline && next.pipeline !== prev.pipeline)
+            return {
+              ...prev,
+              pipeline: next.pipeline,
+              leadType: "all",
+              calendar: "",
+              setter: "",
+              booker: "",
+              closer: "",
+              estadoAgenda: "",
+              vslOrigen: "",
+            };
+          if (next.leadType && next.leadType !== prev.leadType)
+            return {
+              ...prev,
+              leadType: next.leadType,
+              calendar: "",
+              setter: "",
+              booker: "",
+              closer: "",
+              estadoAgenda: "",
+            };
+          if (next.calendar !== undefined && next.calendar !== prev.calendar)
+            return { ...prev, calendar: next.calendar, setter: "", booker: "", closer: "" };
+          if (
+            Object.keys(next).length === 1 &&
+            next.setter !== undefined &&
+            next.setter !== prev.setter
+          )
+            return { ...prev, setter: next.setter, closer: "" };
+          if (
+            Object.keys(next).length === 1 &&
+            next.booker !== undefined &&
+            next.booker !== prev.booker
+          )
+            return { ...prev, booker: next.booker, closer: "" };
+          return { ...prev, ...next };
+        });
+        setDetail((prev) => ({ ...prev, page: 1 }));
+      });
+    },
+    [runFilterTransition],
+  );
+
+  const handlePreset = useCallback(
+    (preset: DatePreset) => {
+      runFilterTransition(() => {
+        setDetail((prev) => ({ ...prev, page: 1 }));
+        setFilters((prev) =>
+          preset === "custom"
+            ? { ...prev, preset }
+            : { ...prev, preset, ...rangeForPreset(preset) },
+        );
+      });
+    },
+    [runFilterTransition],
+  );
 
   const handleSync = useCallback(async () => {
     if (syncInFlight.current) return;
@@ -206,13 +258,16 @@ export function VslClosersDashboard() {
   const initialLoading = !data && query.isLoading;
   const backgroundRefreshing = !!data && query.isFetching && !syncing;
   const cardMetrics = useMemo(
-    () => getPipelineCardMetrics(data?.pipelineSummary, data?.filters?.pipeline ?? filters.pipeline ?? "all"),
+    () =>
+      getPipelineCardMetrics(
+        data?.pipelineSummary,
+        data?.filters?.pipeline ?? filters.pipeline ?? "all",
+      ),
     [data?.pipelineSummary, data?.filters?.pipeline, filters.pipeline],
   );
-  const attendanceRate = data?.kpis.total
-    ? Math.round((data.kpis.asistio / data.kpis.total) * 100)
-    : 0;
-  const peopleMode = filters.pipeline === "oei" ? "booker" : filters.pipeline === "vsl" ? "setter" : "general";
+  const attendanceRate = data?.kpis.tasaAsistencia ?? 0;
+  const peopleMode =
+    filters.pipeline === "oei" ? "booker" : filters.pipeline === "vsl" ? "setter" : "general";
   const peopleRows = useMemo(
     () =>
       peopleMode === "booker"
@@ -248,13 +303,15 @@ export function VslClosersDashboard() {
     () =>
       data
         ? [
-            { label: "Total de leads", value: cardMetrics.totalLeads ?? "—" },
+            { label: "Total de leads", value: data.leadTypeKpis.totalLeads },
             {
               label: "Total de agendamientos",
-              value: cardMetrics.totalAppointments ?? "—",
-              ...(cardMetrics.bookingRate == null
-                ? {}
-                : { hint: `${cardMetrics.bookingRate}% de los leads agendaron` }),
+              value: data.kpis.total,
+              ...(data.filters?.dateFrom || data.filters?.dateTo
+                ? { hint: `${data.kpis.total} citas en el período` }
+                : cardMetrics.bookingRate == null
+                  ? {}
+                  : { hint: `${cardMetrics.bookingRate}% de los leads agendaron` }),
             },
             {
               label: "Asistió",
@@ -268,9 +325,12 @@ export function VslClosersDashboard() {
   );
 
   return (
-    <div className="min-h-screen w-full bg-background px-4 py-6">
+    <div
+      className="min-h-screen w-full bg-background px-4 py-6"
+      aria-busy={syncing || initialLoading || isFiltering}
+    >
       <LoadingModal
-        open={syncing || initialLoading}
+        open={syncing || initialLoading || isFiltering}
         title={syncing ? "Actualizando datos..." : "Cargando reporte..."}
         description={
           syncing
@@ -331,14 +391,16 @@ export function VslClosersDashboard() {
           calendars={optionData?.availableCalendars ?? []}
           onChange={handleChange}
           onPreset={handlePreset}
-          onClear={() => {
-            setFilters({
-              ...EMPTY_FILTERS,
-              pipeline: filters.pipeline ?? "all",
-              leadType: filters.pipeline === "vsl" ? filters.leadType : "all",
-            });
-            setDetail((prev) => ({ ...prev, page: 1 }));
-          }}
+          onClear={() =>
+            runFilterTransition(() => {
+              setFilters({
+                ...EMPTY_FILTERS,
+                pipeline: filters.pipeline ?? "all",
+                leadType: filters.pipeline === "vsl" ? filters.leadType : "all",
+              });
+              setDetail((prev) => ({ ...prev, page: 1 }));
+            })
+          }
         />
 
         {query.isError && data && !syncing && (
@@ -386,11 +448,7 @@ export function VslClosersDashboard() {
             {cardMetrics.totalLeads === 0 && (
               <p>No existen registros para los filtros seleccionados.</p>
             )}
-            <SetterStatusTable
-              rows={peopleRows}
-              totals={data.kpis}
-              mode={peopleMode}
-            />
+            <SetterStatusTable rows={peopleRows} totals={data.kpis} mode={peopleMode} />
             <SalesSection
               sales={data.sales}
               available={data.salesAvailable}

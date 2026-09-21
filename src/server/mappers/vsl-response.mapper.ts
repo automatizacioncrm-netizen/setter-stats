@@ -135,10 +135,8 @@ export function mapVslReportResponse(
   const conEstadoAgenda =
     num(rawKpis["conEstadoAgenda"]) ||
     Object.values(kpiCounts).reduce((sum, value) => sum + value, 0);
-  const total = num(
-    rawKpis["total"] ?? rawKpis["totalLeads"] ?? object(d["leadTypeKpis"])["totalLeads"],
-  );
-  const totalLeads = num(rawKpis["totalLeads"] ?? legacyKpis["totalLeads"] ?? total);
+  const total = num(rawKpis["total"] ?? legacyKpis["totalAppointments"]);
+  const totalLeads = num(legacyKpis["totalLeads"] ?? rawKpis["totalLeads"]);
   const kpis: ReportKpis = {
     ...kpiCounts,
     total,
@@ -156,6 +154,7 @@ export function mapVslReportResponse(
       pipeline: str(row["pipeline"]),
       secuencia: str(row["secuencia"]),
       nombreContacto: str(row["nombreContacto"]),
+      fechaCreacionOportunidad: str(row["fechaCreacionOportunidad"]),
       telefono: str(row["telefono"]),
       correo: str(row["correo"]),
       setterAsignado: str(row["setterAsignado"]),
@@ -209,6 +208,16 @@ export function mapVslReportResponse(
   const appointmentClosers = namedCounts(appointmentPeople["closers"], "closer");
   return {
     report: str(d["report"]),
+    ...(d["dateSemantics"]
+      ? {
+          dateSemantics: {
+            leads: str(object(d["dateSemantics"])["leads"]),
+            appointments: str(object(d["dateSemantics"])["appointments"]),
+            appointmentsFallback: str(object(d["dateSemantics"])["appointmentsFallback"]),
+            sales: str(object(d["dateSemantics"])["sales"]),
+          },
+        }
+      : {}),
     updatedAt: str(d["updatedAt"]),
     source: "sheet",
     leadType,
@@ -226,7 +235,7 @@ export function mapVslReportResponse(
     },
     kpis,
     leadTypeKpis: {
-      totalLeads: num(legacyKpis["totalLeads"] ?? total),
+      totalLeads: num(legacyKpis["totalLeads"] ?? rawKpis["totalLeads"]),
       attended: num(legacyKpis["attended"] ?? kpis.asistio),
       attendanceRate: num(legacyKpis["attendanceRate"] ?? kpis.tasaAsistencia),
     },

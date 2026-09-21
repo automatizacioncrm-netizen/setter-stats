@@ -13,7 +13,16 @@ require.extensions[".ts"] = (module, filename) => {
 };
 
 // Exercise the actual page handlers with controlled query responses and hook state.
-function harness() {
+function harness(autoFrames = true) {
+  let clock = 0,
+    nextId = 0;
+  const frames = new Map(),
+    timers = new Map();
+  const paint = () => {
+    const pending = [...frames.values()];
+    frames.clear();
+    pending.forEach((fn) => fn());
+  };
   const state = [];
   let cursor = 0;
   const notices = [];
@@ -26,11 +35,25 @@ function harness() {
   };
   const jsx = (type, props) => ({ type, props });
   const exports = {};
-  const source = ts.transpileModule(fs.readFileSync("src/pages/VslClosersDashboard.tsx", "utf8"), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
-  }).outputText.replaceAll("import.meta.env.DEV", "false");
+  const source = ts
+    .transpileModule(fs.readFileSync("src/pages/VslClosersDashboard.tsx", "utf8"), {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+    })
+    .outputText.replaceAll("import.meta.env.DEV", "false");
   vm.runInNewContext(source, {
     exports,
+    requestAnimationFrame: (fn) => {
+      const id = ++nextId;
+      frames.set(id, fn);
+      return id;
+    },
+    cancelAnimationFrame: (id) => frames.delete(id),
+    setTimeout: (fn, delay) => {
+      const id = ++nextId;
+      timers.set(id, { fn, at: clock + delay });
+      return id;
+    },
+    clearTimeout: (id) => timers.delete(id),
     require(name) {
       if (name === "react/jsx-runtime") return { jsx, jsxs: jsx, Fragment: "Fragment" };
       if (name === "react")
@@ -51,6 +74,7 @@ function harness() {
           },
           useEffect(fn, deps) {
             if (deps.length === 1 && deps[0] === query.data) fn();
+            if (deps.length === 2 && deps.every((value) => typeof value === "boolean")) fn();
           },
           useMemo: (fn) => fn(),
           useCallback: (fn) => fn,
@@ -79,6 +103,12 @@ function harness() {
   });
   let tree;
   function render() {
+    if (autoFrames) {
+      paint();
+      paint();
+    }
+    cursor = 0;
+    tree = exports.VslClosersDashboard();
     cursor = 0;
     tree = exports.VslClosersDashboard();
   }
@@ -112,16 +142,42 @@ function harness() {
     render();
   }
   render();
-  return { query, api, notices, render, find, findAll, loaded };
+  const advance = (ms) => {
+    clock += ms;
+    for (const [id, timer] of timers)
+      if (timer.at <= clock) {
+        timers.delete(id);
+        timer.fn();
+      }
+    render();
+  };
+  return { query, api, notices, render, find, findAll, loaded, paint, advance };
 }
 
 test("cards y secciones de agenda consumen los agregados Calendar de la misma respuesta", () => {
   const h = harness();
   h.loaded();
-  const setters = [{ setter: "Ana", confirmado: 150, asistio: 92, cancelado: 10, noShow: 15,
-    total: 267, agendadoCRM: 20, pendienteAgenda: 3, reagendado: 2 }];
-  const kpis = { total: 783, confirmado: 300, asistio: 357, cancelado: 50, noShow: 76,
-    tasaAsistencia: 45.59 };
+  const setters = [
+    {
+      setter: "Ana",
+      confirmado: 150,
+      asistio: 92,
+      cancelado: 10,
+      noShow: 15,
+      total: 267,
+      agendadoCRM: 20,
+      pendienteAgenda: 3,
+      reagendado: 2,
+    },
+  ];
+  const kpis = {
+    total: 783,
+    confirmado: 300,
+    asistio: 357,
+    cancelado: 50,
+    noShow: 76,
+    tasaAsistencia: 45.59,
+  };
   h.query.data = {
     ...h.query.data,
     pipelineSummary: {
@@ -130,38 +186,115 @@ test("cards y secciones de agenda consumen los agregados Calendar de la misma re
     },
     kpis,
     setters,
+    leadTypeKpis: { totalLeads: 1828 },
   };
   h.render();
   const cards = h.findAll("KpiCard").map((card) => card.props);
-  assert.deepEqual(cards.map((card) => card.value), [1828, 783, 357]);
+  assert.deepEqual(
+    cards.map((card) => card.value),
+    [1828, 783, 357],
+  );
   assert.equal(cards[1].hint, "43% de los leads agendaron");
-  assert.equal(cards[2].hint, "46% de asistencia");
+  assert.equal(cards[2].hint, "45.59% de asistencia");
   assert.equal(h.find("SetterStatusTable").props.rows, setters);
   assert.equal(h.find("SetterStatusTable").props.totals, kpis);
   assert.equal(h.find("SetterStatusChart").props.rows, setters);
-  assert.equal(h.find("SetterStatusChart").props.tasaAsistencia, 46);
+  assert.equal(h.find("SetterStatusChart").props.tasaAsistencia, 45.59);
   assert.equal(h.find("ConversionSummary").props.kpis, kpis);
+});
+
+test("period cards preserve the four independent API cohorts", () => {
+  const h = harness();
+  h.loaded();
+  // Expected API results: new lead without appointment; old lead with current
+  // appointment; old lead with only a current payment; all three in period.
+  for (const [leads, appointments, sales] of [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+    [1, 1, 1],
+  ]) {
+    h.query.data = {
+      ...h.query.data,
+      filters: { dateFrom: "2026-09-01", dateTo: "2026-09-30" },
+      leadTypeKpis: { totalLeads: leads },
+      kpis: { total: appointments, asistio: appointments, tasaAsistencia: appointments * 100 },
+      sales: { total: sales, byStage: [], rows: [] },
+      detail: [],
+      pipelineSummary: { vsl: { totalLeads: 999, conCitaCalendar: 999 } },
+    };
+    h.render();
+    const cards = h.findAll("KpiCard").map((card) => card.props);
+    assert.deepEqual(
+      cards.map((card) => card.value),
+      [leads, appointments, appointments],
+    );
+    assert.equal(cards[1].hint, `${appointments} citas en el período`);
+    assert.equal(h.find("SalesSection").props.sales.total, sales);
+    assert.equal(h.find("ConversionSummary").props.kpis.total, appointments);
+  }
+});
+
+test("period presets keep Peru dates, seven inclusive days, and empty Todo bounds", () => {
+  const h = harness();
+  h.loaded();
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Lima",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const day = (offset) => {
+    const date = new Date(`${today}T12:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + offset);
+    return date.toISOString().slice(0, 10);
+  };
+  for (const [preset, from, to] of [
+    ["hoy", today, today],
+    ["ayer", day(-1), day(-1)],
+    ["7dias", day(-6), today],
+    ["mes", `${today.slice(0, 7)}-01`, today],
+    ["todos", "", ""],
+  ]) {
+    h.find("DashboardFilters").props.onPreset(preset);
+    h.render();
+    const filters = h.query.options.queryKey[1];
+    assert.equal(filters.dateFrom, from);
+    assert.equal(filters.dateTo, to);
+  }
 });
 
 test("el pie de Desempeño por Setter usa kpis.total aunque los setters discrepen", () => {
   const exports = {};
   const jsx = (type, props) => ({ type, props });
-  const source = ts.transpileModule(fs.readFileSync("src/components/reports/SetterStatusTable.tsx", "utf8"), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
-  }).outputText;
+  const source = ts.transpileModule(
+    fs.readFileSync("src/components/reports/SetterStatusTable.tsx", "utf8"),
+    {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+    },
+  ).outputText;
   vm.runInNewContext(source, {
     exports,
     require(name) {
       if (name === "react/jsx-runtime") return { jsx, jsxs: jsx };
-      if (name === "react") return { useState: (value) => [value, () => {}], useMemo: (fn) => fn() };
+      if (name === "react")
+        return { useState: (value) => [value, () => {}], useMemo: (fn) => fn() };
       if (name === "lucide-react") return { ArrowUpDown: "ArrowUpDown" };
       throw new Error(name);
     },
   });
   const tree = exports.SetterStatusTable({
-    rows: [{ setter: "Ana", confirmado: 300, asistio: 344, cancelado: 100, noShow: 202, total: 946 }],
-    totals: { confirmado: 250, asistio: 344, cancelado: 75, noShow: 74, total: 743,
-      tasaAsistencia: 36.4 },
+    rows: [
+      { setter: "Ana", confirmado: 300, asistio: 344, cancelado: 100, noShow: 202, total: 946 },
+    ],
+    totals: {
+      confirmado: 250,
+      asistio: 344,
+      cancelado: 75,
+      noShow: 74,
+      total: 743,
+      tasaAsistencia: 36.4,
+    },
   });
   const visit = (node, type) => {
     if (!node || typeof node !== "object") return undefined;
@@ -172,10 +305,16 @@ test("el pie de Desempeño por Setter usa kpis.total aunque los setters discrepe
       .find(Boolean);
   };
   const text = (node) =>
-    node == null ? "" : typeof node === "object"
-      ? (Array.isArray(node.props?.children) ? node.props.children.flat(Infinity) : [node.props?.children])
-          .map(text).join("")
-      : String(node);
+    node == null
+      ? ""
+      : typeof node === "object"
+        ? (Array.isArray(node.props?.children)
+            ? node.props.children.flat(Infinity)
+            : [node.props?.children]
+          )
+            .map(text)
+            .join("")
+        : String(node);
   assert.equal(text(visit(tree, "tfoot")), "Total general25034446%7574743");
 });
 function deferred() {
@@ -227,7 +366,7 @@ test("lead type changes reset incompatible filters and survive reconciliation", 
   assert.equal(h.query.options.queryKey[2].page, 1);
   h.query.isFetching = true;
   h.render();
-  assert.equal(h.find("LoadingModal").props.open, false);
+  assert.equal(h.find("LoadingModal").props.open, true);
   h.query.isFetching = false;
   h.query.data.leadType = "organic";
   h.render();
@@ -336,7 +475,7 @@ test("sales uses the same query data as the setter table across filters and refr
   });
   h.query.isFetching = true;
   h.render();
-  assert.equal(h.find("LoadingModal").props.open, false);
+  assert.equal(h.find("LoadingModal").props.open, true);
   const fresh = { total: 0, byStage: [], rows: [] };
   h.query.data = { ...h.query.data, sales: fresh, leadType: "organic" };
   h.query.isFetching = false;
@@ -348,7 +487,85 @@ test("sales uses the same query data as the setter table across filters and refr
   assert.equal(h.find("SalesSection").props.sales, h.query.data.sales);
 });
 
-test("focus refresh and failed filter refresh retain loaded data without a modal", () => {
+test("all filter handlers show the cached-data modal for 350ms without reconciliation", () => {
+  const h = harness(false);
+  h.loaded();
+  let posts = 0;
+  h.api.post = () => {
+    posts++;
+  };
+  const changes = [
+    { pipeline: "vsl" },
+    { pipeline: "oei" },
+    { pipeline: "all" },
+    { leadType: "paid" },
+    { leadType: "organic" },
+    { calendar: "Calendar A" },
+    { calendar: "Calendar B" },
+    { setter: "Setter" },
+    { booker: "Booker" },
+    { estadoAgenda: "Asistió" },
+    { vslOrigen: "Origen" },
+    { closer: "Closer" },
+    { dateFrom: "2026-09-01", preset: "custom" },
+    { dateTo: "2026-09-21", preset: "custom" },
+  ];
+  const actions = [
+    ...changes.map((change) => () => h.find("DashboardFilters").props.onChange(change)),
+    ...["todos", "hoy", "ayer", "7dias", "mes", "custom"].map(
+      (preset) => () => h.find("DashboardFilters").props.onPreset(preset),
+    ),
+    () => h.find("DashboardFilters").props.onClear(),
+  ];
+  for (const action of actions) {
+    const previousFilters = h.query.options.queryKey[1];
+    action();
+    h.render();
+    assert.equal(h.find("LoadingModal").props.open, true);
+    assert.equal(h.query.options.queryKey[1], previousFilters, "modal precedes filter application");
+    h.paint();
+    h.paint();
+    h.render();
+    h.advance(349);
+    assert.equal(h.find("LoadingModal").props.open, true);
+    h.advance(1);
+    assert.equal(h.find("LoadingModal").props.open, false);
+  }
+  assert.equal(posts, 0);
+});
+
+test("latest filter wins and the modal waits for a pending GET, including failure", () => {
+  const h = harness(false);
+  h.loaded();
+  const change = (pipeline) => h.find("DashboardFilters").props.onChange({ pipeline });
+  change("vsl");
+  change("oei");
+  change("vsl");
+  h.render();
+  h.paint();
+  h.paint();
+  h.render();
+  assert.equal(h.query.options.queryKey[1].pipeline, "vsl");
+  h.advance(200);
+  change("oei");
+  h.render();
+  h.paint();
+  h.paint();
+  h.render();
+  h.advance(150);
+  assert.equal(h.find("LoadingModal").props.open, true);
+  h.query.isFetching = true;
+  h.advance(200);
+  assert.equal(h.find("LoadingModal").props.open, true);
+  h.query.isFetching = false;
+  h.query.isError = true;
+  h.render();
+  assert.equal(h.find("LoadingModal").props.open, false);
+  assert.equal(h.query.options.queryKey[1].pipeline, "oei");
+  assert.ok(h.find("KpiCard"));
+});
+
+test("focus refresh retains loaded data without starting a filter transition", () => {
   const h = harness();
   h.loaded();
   const previous = h.query.data;

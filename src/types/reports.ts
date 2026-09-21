@@ -65,6 +65,12 @@ export interface SetterRow {
 }
 
 export interface VslClosersReport {
+  dateSemantics?: {
+    leads: string;
+    appointments: string;
+    appointmentsFallback: string;
+    sales: string;
+  };
   sales: SalesReport;
   salesAvailable: boolean;
   leadType: LeadType;
@@ -162,6 +168,7 @@ export interface SalesValueByCurrency {
 }
 
 export interface LeadDetailRow {
+  fechaCreacionOportunidad?: string;
   pipeline?: string;
   secuencia?: string;
   nombreContacto: string;
