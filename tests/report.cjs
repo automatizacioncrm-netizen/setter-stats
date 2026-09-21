@@ -466,7 +466,7 @@ test("central adapter forwards only allowed params and sanitizes upstream failur
         assert.equal(url.searchParams.get("status"), "Asistió");
         assert.equal(url.searchParams.get("page"), "2");
         assert.equal(url.searchParams.has("sort"), false);
-      } else assert.equal(url.searchParams.get("action"), "vsl_reconciliar");
+      } else assert.equal(url.searchParams.get("action"), "reconcile_all");
       assert.ok(options.signal);
       return Response.json({ ok: true });
     };
@@ -736,7 +736,7 @@ test("cron authenticates before upstream call and shares manual reconciliation s
     global.fetch = async (url, options) => {
       calls++;
       assert.equal(options.method, "POST");
-      assert.equal(url.searchParams.get("action"), "vsl_reconciliar");
+      assert.equal(url.searchParams.get("action"), "reconcile_all");
       return Response.json({
         ok: true,
         resultado: {
