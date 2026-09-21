@@ -20,16 +20,23 @@ const SERIES = [
 interface Props {
   rows: SetterRow[];
   tasaAsistencia: number;
+  mode: "setter" | "booker" | "general";
 }
 
-export function SetterStatusChart({ rows, tasaAsistencia }: Props) {
+export function SetterStatusChart({ rows, tasaAsistencia, mode }: Props) {
   const height = Math.max(240, rows.length * 52 + 60);
+  const title =
+    mode === "booker"
+      ? "Composición por Agendador"
+      : mode === "setter"
+        ? "Composición por Setter"
+        : "Composición general de citas";
 
   return (
     <div className="rounded-xl border border-border bg-surface p-4 shadow-card">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="min-w-0">
-          <h3 className="truncate text-sm font-semibold text-foreground">Composición por Setter</h3>
+          <h3 className="truncate text-sm font-semibold text-foreground">{title}</h3>
           <p className="text-xs text-muted-foreground">Barras apiladas por estado de Calendar</p>
         </div>
         <div className="shrink-0 rounded-lg bg-brand-soft px-3 py-1.5 text-right">
@@ -71,16 +78,20 @@ export function SetterStatusChart({ rows, tasaAsistencia }: Props) {
               }}
             />
             <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-            {SERIES.map((serie) => (
-              <Bar
-                key={serie.key}
-                dataKey={serie.key}
-                name={serie.label}
-                stackId="estado"
-                fill={serie.color}
-                radius={serie.key === "cancelado" ? [0, 4, 4, 0] : 0}
-              />
-            ))}
+            {mode === "booker" ? (
+              <Bar dataKey="total" name="Agendamientos" fill="var(--brand)" radius={[0, 4, 4, 0]} />
+            ) : (
+              SERIES.map((serie) => (
+                <Bar
+                  key={serie.key}
+                  dataKey={serie.key}
+                  name={serie.label}
+                  stackId="estado"
+                  fill={serie.color}
+                  radius={serie.key === "cancelado" ? [0, 4, 4, 0] : 0}
+                />
+              ))
+            )}
           </BarChart>
         </ResponsiveContainer>
       </div>

@@ -19,6 +19,7 @@ const schema = z.object({
   dateFrom: date.default(""),
   dateTo: date.default(""),
   setter: z.string().max(300).default(""),
+  booker: z.string().max(300).default(""),
   status: z.string().max(100).default(""),
   closer: z.string().max(300).default(""),
   vslOrigin: z.string().max(300).default(""),

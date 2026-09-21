@@ -14,6 +14,7 @@ const CALENDAR_STATUSES = ["Confirmado", "Asistió", "No asistió", "Cancelado"]
 interface Props {
   filters: ReportFilters;
   setters: string[];
+  bookers: string[];
   closers: string[];
   origins: string[];
   calendars: string[];
@@ -28,6 +29,7 @@ const fieldClass =
 export function DashboardFilters({
   filters,
   setters,
+  bookers,
   closers,
   origins,
   calendars,
@@ -68,6 +70,23 @@ export function DashboardFilters({
             </select>
           </label>
         )}
+        <label className="block w-full max-w-xs">
+          <span className="mb-1 block text-xs font-medium uppercase text-muted-foreground">
+            Calendario
+          </span>
+          <select
+            value={filters.calendar ?? ""}
+            onChange={(e) => onChange({ calendar: e.target.value })}
+            className={fieldClass}
+          >
+            <option value="">Todos</option>
+            {calendars.map((calendar) => (
+              <option key={calendar} value={calendar}>
+                {calendar}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="mr-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -107,24 +126,50 @@ export function DashboardFilters({
             className={fieldClass}
           />
         </label>
-        <label className="block">
-          <span className="mb-1 block text-xs text-muted-foreground">Setter asignado</span>
-          <select
-            value={filters.setter}
-            onChange={(e) => onChange({ setter: e.target.value })}
-            className={fieldClass}
-          >
-            <option value="">Todos</option>
-            {filters.setter && !setters.includes(filters.setter) && (
-              <option value={filters.setter}>{filters.setter} (sin registros de este tipo)</option>
-            )}
-            {setters.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
+        {filters.pipeline !== "oei" && (
+          <label className="block">
+            <span className="mb-1 block text-xs text-muted-foreground">
+              {filters.pipeline === "all" ? "Setter VSL" : "Setter asignado"}
+            </span>
+            <select
+              value={filters.setter}
+              onChange={(e) => onChange({ setter: e.target.value })}
+              className={fieldClass}
+            >
+              <option value="">Todos</option>
+              {filters.setter && !setters.includes(filters.setter) && (
+                <option value={filters.setter}>{filters.setter} (sin registros de este tipo)</option>
+              )}
+              {setters.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {filters.pipeline !== "vsl" && (
+          <label className="block">
+            <span className="mb-1 block text-xs text-muted-foreground">
+              {filters.pipeline === "all" ? "Agendador OEI" : "Agendador"}
+            </span>
+            <select
+              value={filters.booker}
+              onChange={(e) => onChange({ booker: e.target.value })}
+              className={fieldClass}
+            >
+              <option value="">Todos</option>
+              {filters.booker && !bookers.includes(filters.booker) && (
+                <option value={filters.booker}>{filters.booker} (sin registros)</option>
+              )}
+              {bookers.map((booker) => (
+                <option key={booker} value={booker}>
+                  {booker}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="block">
           <span className="mb-1 block text-xs text-muted-foreground">Estado de agendamiento</span>
           <select
@@ -140,42 +185,40 @@ export function DashboardFilters({
               ))}
           </select>
         </label>
-        {(
-          [
-            { key: "vslOrigen", label: "VSL Origen", options: origins },
-            { key: "closer", label: "Asignado / Closer", options: closers },
-          ] as const
-        ).map(({ key, label, options }) => (
-          <label key={key} className="block">
-            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
+        {filters.pipeline !== "oei" && (
+          <label className="block">
+            <span className="mb-1 block text-xs text-muted-foreground">VSL Origen</span>
             <select
               className={fieldClass}
-              value={filters[key]}
-              onChange={(e) => onChange({ [key]: e.target.value })}
+              value={filters.vslOrigen}
+              onChange={(e) => onChange({ vslOrigen: e.target.value })}
             >
               <option value="">Todos</option>
-              {filters[key] && !options.includes(filters[key]) && (
-                <option value={filters[key]}>{filters[key]} (sin registros de este tipo)</option>
+              {filters.vslOrigen && !origins.includes(filters.vslOrigen) && (
+                <option value={filters.vslOrigen}>{filters.vslOrigen} (sin registros)</option>
               )}
-              {options.map((value) => (
+              {origins.map((value) => (
                 <option key={value} value={value}>
                   {value}
                 </option>
               ))}
             </select>
           </label>
-        ))}
+        )}
         <label className="block">
-          <span className="mb-1 block text-xs text-muted-foreground">Calendario</span>
+          <span className="mb-1 block text-xs text-muted-foreground">Closer</span>
           <select
-            value={filters.calendar ?? ""}
-            onChange={(e) => onChange({ calendar: e.target.value })}
             className={fieldClass}
+            value={filters.closer}
+            onChange={(e) => onChange({ closer: e.target.value })}
           >
             <option value="">Todos</option>
-            {calendars.map((calendar) => (
-              <option key={calendar} value={calendar}>
-                {calendar}
+            {filters.closer && !closers.includes(filters.closer) && (
+              <option value={filters.closer}>{filters.closer} (sin registros)</option>
+            )}
+            {closers.map((closer) => (
+              <option key={closer} value={closer}>
+                {closer}
               </option>
             ))}
           </select>

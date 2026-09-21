@@ -54,14 +54,28 @@ const schema = z.object({
   rows: z
     .array(
       z.object({
+        pipeline: text,
+        secuencia: text,
+        calendarioCita: text,
         setterAsignado: text,
+        agendadorCita: text,
+        createdByUserName: text,
         closerAsignado: text,
+        closerCita: text,
         nombreContacto: text,
         fase: stage,
         fuente: text,
         productoEvento: text,
+        fechaPrimerPago: text,
+        planPagos: text,
+        numeroCuotasPactadas: count,
         moneda: text,
+        montoTotalAcordado: amount,
         montoUltimoPago: amount,
+        fechaCita: text,
+        fechaAgendamiento: text,
+        estadoAgenda: text,
+        estadoCita: text,
         fechaReunion: text,
       }),
     )

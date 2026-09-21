@@ -23,6 +23,13 @@ const num = (value: unknown): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 const strings = (value: unknown): string[] => array(value).map(str).filter(Boolean);
+const namedCounts = (value: unknown, key: "agendador" | "closer") =>
+  array(value)
+    .map((item) => {
+      const row = object(item);
+      return { name: str(row[key]), total: num(row["total"]) };
+    })
+    .filter((item) => item.name);
 const status = (value: unknown): string => (str(value) === "No show" ? "No asistió" : str(value));
 const counts = (row: Record<string, unknown>) => ({
   agendadoCRM: num(row["agendadoCRM"]),
@@ -70,14 +77,28 @@ function salesReport(value: unknown): SalesReport {
     rows: array(sales["rows"]).map((item) => {
       const row = object(item);
       return {
+        pipeline: str(row["pipeline"]),
+        secuencia: str(row["secuencia"]),
+        calendarioCita: str(row["calendarioCita"]),
         productoEvento: str(row["productoEvento"]),
+        fechaPrimerPago: str(row["fechaPrimerPago"]),
+        planPagos: str(row["planPagos"]),
+        numeroCuotasPactadas: num(row["numeroCuotasPactadas"]),
         moneda: str(row["moneda"]),
+        montoTotalAcordado: num(row["montoTotalAcordado"]),
         montoUltimoPago: num(row["montoUltimoPago"]),
         setterAsignado: str(row["setterAsignado"]),
+        agendadorCita: str(row["agendadorCita"]),
+        createdByUserName: str(row["createdByUserName"]),
         closerAsignado: str(row["closerAsignado"]),
+        closerCita: str(row["closerCita"]),
         nombreContacto: str(row["nombreContacto"]),
         fase: str(row["fase"]),
         fuente: str(row["fuente"]),
+        fechaCita: str(row["fechaCita"]),
+        fechaAgendamiento: str(row["fechaAgendamiento"]),
+        estadoAgenda: status(row["estadoAgenda"]),
+        estadoCita: str(row["estadoCita"]),
         fechaReunion: str(row["fechaReunion"]),
       };
     }),
@@ -93,6 +114,7 @@ export function mapVslReportResponse(
     dateFrom: string;
     dateTo: string;
     setter: string;
+    booker?: string;
     status: string;
     closer: string;
     vslOrigin: string;
@@ -108,6 +130,7 @@ export function mapVslReportResponse(
   const d = parsed.data.data;
   const available = object(object(d["filters"])["available"]);
   const rawKpis = object(d["kpis"]);
+  const legacyKpis = object(d["leadTypeKpis"]);
   const kpiCounts = counts(rawKpis);
   const conEstadoAgenda =
     num(rawKpis["conEstadoAgenda"]) ||
@@ -115,10 +138,11 @@ export function mapVslReportResponse(
   const total = num(
     rawKpis["total"] ?? rawKpis["totalLeads"] ?? object(d["leadTypeKpis"])["totalLeads"],
   );
+  const totalLeads = num(rawKpis["totalLeads"] ?? legacyKpis["totalLeads"] ?? total);
   const kpis: ReportKpis = {
     ...kpiCounts,
     total,
-    totalLeads: total,
+    totalLeads,
     conEstadoAgenda,
     tasaAsistencia: num(rawKpis["tasaAsistencia"]),
     tasaNoShow: num(rawKpis["tasaNoShow"]),
@@ -135,6 +159,8 @@ export function mapVslReportResponse(
       telefono: str(row["telefono"]),
       correo: str(row["correo"]),
       setterAsignado: str(row["setterAsignado"]),
+      agendadorCita: str(row["agendadorCita"]),
+      createdByUserName: str(row["createdByUserName"]),
       closerAsignado: str(row["closerAsignado"]),
       closerOpportunity: str(row["closerOpportunity"]),
       closerCita: str(row["closerCita"]),
@@ -150,7 +176,11 @@ export function mapVslReportResponse(
       fase: str(row["fase"]),
       fuente: str(row["fuente"]),
       productoEvento: str(row["productoEvento"]),
+      fechaPrimerPago: str(row["fechaPrimerPago"]),
+      planPagos: str(row["planPagos"]),
+      numeroCuotasPactadas: num(row["numeroCuotasPactadas"]),
       moneda: str(row["moneda"]),
+      montoTotalAcordado: num(row["montoTotalAcordado"]),
       montoUltimoPago: num(row["montoUltimoPago"]),
       leadType: str(row["leadType"]),
     };
@@ -166,8 +196,17 @@ export function mapVslReportResponse(
     const row = object(item);
     return { setter: str(row["setter"]), ...counts(row), total: num(row["total"]) };
   });
-  const leadType = query.pipeline === "vsl" ? (query.leadType ?? "all") : "all";
-  const legacyKpis = object(d["leadTypeKpis"]);
+  const responseLeadType = str(d["leadType"]);
+  const leadType = query.pipeline
+    ? query.pipeline === "vsl"
+      ? (query.leadType ?? "all")
+      : "all"
+    : responseLeadType === "organic" || responseLeadType === "paid"
+      ? responseLeadType
+      : (query.leadType ?? "paid");
+  const appointmentPeople = object(d["appointmentPeople"]);
+  const oeiBookers = namedCounts(appointmentPeople["oeiBookers"], "agendador");
+  const appointmentClosers = namedCounts(appointmentPeople["closers"], "closer");
   return {
     report: str(d["report"]),
     updatedAt: str(d["updatedAt"]),
@@ -180,6 +219,7 @@ export function mapVslReportResponse(
       dateFrom: query.dateFrom,
       dateTo: query.dateTo,
       setter: query.setter,
+      booker: query.booker ?? "",
       estadoAgenda: query.status,
       closer: query.closer,
       vslOrigen: query.vslOrigin,
@@ -194,11 +234,17 @@ export function mapVslReportResponse(
     sales: salesReport(d["sales"]),
     salesAvailable: d["sales"] != null,
     availableSetters: strings(available["setters"]),
-    availableClosers: strings(available["closers"]),
+    availableBookers:
+      oeiBookers.length > 0 ? oeiBookers.map((item) => item.name) : strings(available["bookers"]),
+    availableClosers:
+      appointmentClosers.length > 0
+        ? appointmentClosers.map((item) => item.name)
+        : strings(available["closers"]),
     availableOrigins: strings(available["vslOrigins"]),
     availableCalendars: strings(available["calendars"]),
     availableStatuses: strings(available["statuses"]).map(status),
     pipelineSummary: object(d["pipelineSummary"]),
+    appointmentPeople: { oeiBookers, closers: appointmentClosers },
     unknownStatusCount: num(d["unknownStatusCount"]),
     detail: query.includeDetail ? sorted : [],
     detailTotal: num(pagination["totalRecords"] ?? detail["totalRecords"] ?? detail["total"]),

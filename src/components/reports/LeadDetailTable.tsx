@@ -5,7 +5,8 @@ const columns: [keyof LeadDetailRow, string][] = [
   ["telefono", "Teléfono"],
   ["correo", "Correo electrónico"],
   ["setterAsignado", "Setter asignado"],
-  ["closerAsignado", "Asignado / Closer"],
+  ["agendadorCita", "Agendador cita"],
+  ["closerCita", "Closer cita"],
   ["calendarioCita", "Calendario"],
   ["vslOrigen", "VSL Origen"],
   ["estadoAgenda", "Estado de agendamiento"],
@@ -14,7 +15,28 @@ const columns: [keyof LeadDetailRow, string][] = [
   ["fuente", "Fuente"],
 ];
 const isSortable = (key: keyof LeadDetailRow): key is DetailQuery["sort"] =>
-  !["pipeline", "calendarioCita", "fechaAgendamiento"].includes(key);
+  ![
+    "pipeline",
+    "secuencia",
+    "agendadorCita",
+    "createdByUserName",
+    "closerCita",
+    "closerOpportunity",
+    "calendarioCita",
+    "estadoCita",
+    "estadoAgendaOriginal",
+    "fuenteEstadoAgendamiento",
+    "fechaAgendamiento",
+    "fechaCita",
+    "productoEvento",
+    "fechaPrimerPago",
+    "planPagos",
+    "numeroCuotasPactadas",
+    "moneda",
+    "montoTotalAcordado",
+    "montoUltimoPago",
+    "leadType",
+  ].includes(key);
 export function LeadDetailTable({
   rows,
   total,

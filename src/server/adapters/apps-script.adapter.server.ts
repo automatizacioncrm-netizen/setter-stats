@@ -8,6 +8,7 @@ export interface ReportRequest {
   dateFrom: string;
   dateTo: string;
   setter: string;
+  booker?: string;
   status: string;
   vslOrigin: string;
   closer: string;
@@ -32,6 +33,7 @@ async function requestScript(action: "vsl_report" | "vsl_reconciliar", filters?:
       "dateFrom",
       "dateTo",
       "setter",
+      "booker",
       "status",
       "vslOrigin",
       "closer",
@@ -42,7 +44,8 @@ async function requestScript(action: "vsl_report" | "vsl_reconciliar", filters?:
       "sort",
       "direction",
     ] as const) {
-      if (key === "leadType" && filters.pipeline !== "vsl") continue;
+      if (key === "leadType" && filters.pipeline && filters.pipeline !== "vsl") continue;
+      if (filters[key] === undefined) continue;
       url.searchParams.set(key, String(filters[key]));
     }
   const controller = new AbortController();

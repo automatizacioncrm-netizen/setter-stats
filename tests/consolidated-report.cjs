@@ -181,6 +181,86 @@ test("la petición inicial usa pipeline=all y omite leadType", async () => {
   }
 });
 
+test("OEI reenvía booker y conserva personas, campos de cita y campos financieros", async () => {
+  process.env.APPS_SCRIPT_URL = "https://example.com/script";
+  process.env.APPS_SCRIPT_SECRET = "test-secret";
+  const originalFetch = global.fetch;
+  try {
+    global.fetch = async (url) => {
+      const upstream = new URL(url);
+      assert.equal(upstream.searchParams.get("pipeline"), "oei");
+      assert.equal(upstream.searchParams.get("booker"), "Jose Luis Botto Garcia");
+      assert.equal(upstream.searchParams.get("closer"), "Amaranta Alfonso Krasnova");
+      assert.equal(upstream.searchParams.has("leadType"), false);
+      return Response.json({
+        ok: true,
+        data: {
+          filters: {
+            available: {
+              bookers: ["Jose Luis Botto Garcia"],
+              closers: ["0otMYLyUM0BjGXao6W0k"],
+            },
+          },
+          appointmentPeople: {
+            oeiBookers: [{ agendador: "Jose Luis Botto Garcia", total: 1 }],
+            closers: [{ closer: "Amaranta Alfonso Krasnova", total: 1 }],
+          },
+          kpis: { total: 1, confirmado: 1 },
+          setters: [],
+          sales: {
+            total: 1,
+            byStage: [{ stage: "Ventas Confirmadas", count: 1 }],
+            rows: [
+              {
+                nombreContacto: "Cliente",
+                pipeline: "oei",
+                secuencia: "Lanzamiento I. Pagado OEI - EM",
+                calendarioCita: "Equipo Millonario | OEI",
+                agendadorCita: "Jose Luis Botto Garcia",
+                closerCita: "Amaranta Alfonso Krasnova",
+                fase: "Ventas Confirmadas",
+                montoTotalAcordado: 1497,
+                montoUltimoPago: 597,
+                moneda: "USD",
+              },
+            ],
+          },
+          detail: {
+            rows: [
+              {
+                nombreContacto: "Cliente",
+                agendadorCita: "Jose Luis Botto Garcia",
+                createdByUserName: "Jose Luis Botto Garcia",
+                closerCita: "Amaranta Alfonso Krasnova",
+                montoTotalAcordado: 1497,
+              },
+            ],
+            pagination: { totalRecords: 1, page: 1 },
+          },
+        },
+      });
+    };
+    const params = new URLSearchParams({
+      pipeline: "oei",
+      booker: "Jose Luis Botto Garcia",
+      closer: "Amaranta Alfonso Krasnova",
+      includeDetail: "true",
+    });
+    const response = await reportApi(
+      new Request(`https://local.test/api/reports/vsl-closers?${params}`),
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.deepEqual(body.availableBookers, ["Jose Luis Botto Garcia"]);
+    assert.deepEqual(body.availableClosers, ["Amaranta Alfonso Krasnova"]);
+    assert.equal(body.detail[0].agendadorCita, "Jose Luis Botto Garcia");
+    assert.equal(body.detail[0].montoTotalAcordado, 1497);
+    assert.equal(body.sales.rows[0].montoTotalAcordado, 1497);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test("el fetcher conserva la ruta y solo envía leadType para VSL", async () => {
   const originalFetch = global.fetch;
   const urls = [];

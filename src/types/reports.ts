@@ -24,6 +24,7 @@ export interface ReportFilters {
   dateFrom: string;
   dateTo: string;
   setter: string;
+  booker: string;
   estadoAgenda: string;
   vslOrigen: string;
   closer: string;
@@ -74,16 +75,26 @@ export interface VslClosersReport {
   leadTypeKpis: LeadTypeKpis;
   setters: SetterRow[];
   availableSetters: string[];
+  availableBookers: string[];
   availableClosers: string[];
   availableOrigins: string[];
   availableCalendars?: string[];
   availableStatuses?: string[];
   pipelineSummary?: Record<string, unknown>;
+  appointmentPeople?: {
+    oeiBookers: AppointmentPersonCount[];
+    closers: AppointmentPersonCount[];
+  };
   unknownStatusCount: number;
   source: "development" | "sheet";
   detail?: LeadDetailRow[];
   detailTotal: number;
   detailPage: number;
+}
+
+export interface AppointmentPersonCount {
+  name: string;
+  total: number;
 }
 
 export const SALES_STAGES = [
@@ -100,14 +111,28 @@ export interface SalesStageSummary {
 }
 
 export interface SaleRow {
+  pipeline: string;
+  secuencia: string;
+  calendarioCita: string;
   productoEvento: string;
+  fechaPrimerPago: string;
+  planPagos: string;
+  numeroCuotasPactadas: number;
   moneda: string;
+  montoTotalAcordado: number;
   montoUltimoPago: number;
   setterAsignado: string;
+  agendadorCita: string;
+  createdByUserName: string;
   closerAsignado: string;
+  closerCita: string;
   nombreContacto: string;
   fase: string;
   fuente: string;
+  fechaCita: string;
+  fechaAgendamiento: string;
+  estadoAgenda: string;
+  estadoCita: string;
   fechaReunion: string;
 }
 
@@ -143,6 +168,8 @@ export interface LeadDetailRow {
   telefono: string;
   correo: string;
   setterAsignado: string;
+  agendadorCita?: string;
+  createdByUserName?: string;
   closerAsignado: string;
   closerOpportunity?: string;
   closerCita?: string;
@@ -158,7 +185,11 @@ export interface LeadDetailRow {
   fase: string;
   fuente: string;
   productoEvento?: string;
+  fechaPrimerPago?: string;
+  planPagos?: string;
+  numeroCuotasPactadas?: number;
   moneda?: string;
+  montoTotalAcordado?: number;
   montoUltimoPago?: number;
   leadType?: string;
 }

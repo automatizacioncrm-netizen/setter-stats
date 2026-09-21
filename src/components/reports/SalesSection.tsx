@@ -6,25 +6,54 @@ import { formatCurrency } from "@/lib/currency";
 import { getSalesStageStyle } from "@/lib/sales-stage-style";
 import { SalesFinancialCards } from "./SalesFinancialCards";
 
-const columns: { key: keyof SaleRow; label: string }[] = [
-  { key: "setterAsignado", label: "Setter asignado" },
-  { key: "closerAsignado", label: "Closer" },
+const baseColumns: { key: keyof SaleRow; label: string }[] = [
+  { key: "pipeline", label: "Embudo" },
+  { key: "secuencia", label: "Secuencia" },
+  { key: "calendarioCita", label: "Calendario" },
   { key: "nombreContacto", label: "Nombre del contacto" },
+  { key: "closerCita", label: "Closer cita" },
   { key: "fase", label: "Fase" },
-  { key: "fuente", label: "Fuente" },
   { key: "productoEvento", label: "Producto" },
-  { key: "montoUltimoPago", label: "Precio / Cobrado" },
+  { key: "fechaPrimerPago", label: "Primer pago" },
+  { key: "planPagos", label: "Plan de pagos" },
+  { key: "numeroCuotasPactadas", label: "Cuotas" },
+  { key: "montoTotalAcordado", label: "Monto acordado" },
+  { key: "montoUltimoPago", label: "Último pago" },
+  { key: "fechaCita", label: "Fecha cita" },
+  { key: "fechaAgendamiento", label: "Fecha agendamiento" },
+  { key: "estadoAgenda", label: "Estado" },
 ];
 
-export function SalesSection({ sales, available }: { sales: SalesReport; available: boolean }) {
+export function SalesSection({
+  sales,
+  available,
+  pipeline,
+}: {
+  sales: SalesReport;
+  available: boolean;
+  pipeline: "all" | "vsl" | "oei";
+}) {
   const [sort, setSort] = useState<{ key: keyof SaleRow; asc: boolean } | null>(null);
+  const columns = useMemo(
+    () => [
+      ...baseColumns.slice(0, 4),
+      ...(pipeline !== "oei"
+        ? [{ key: "setterAsignado" as const, label: "Setter asignado" }]
+        : []),
+      ...(pipeline !== "vsl"
+        ? [{ key: "agendadorCita" as const, label: "Agendador" }]
+        : []),
+      ...baseColumns.slice(4),
+    ],
+    [pipeline],
+  );
   const rows = useMemo(
     () =>
       sort
         ? [...sales.rows].sort(
             (a, b) =>
-              (sort.key === "montoUltimoPago"
-                ? a.moneda.localeCompare(b.moneda) || a.montoUltimoPago - b.montoUltimoPago
+              (sort.key === "montoUltimoPago" || sort.key === "montoTotalAcordado"
+                ? a.moneda.localeCompare(b.moneda) || a[sort.key] - b[sort.key]
                 : String(a[sort.key]).localeCompare(String(b[sort.key]), "es", { numeric: true })) *
               (sort.asc ? 1 : -1),
           )
@@ -71,7 +100,7 @@ export function SalesSection({ sales, available }: { sales: SalesReport; availab
           <SalesFinancialCards values={sales.salesValueByCurrency} />
           <div className="overflow-hidden rounded-lg border border-border">
             <h3 className="border-b border-border px-4 py-3 text-sm font-semibold">
-              Detalle de ventas por Setter y Closer
+              Detalle de ventas filtradas
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[850px] text-sm">
@@ -107,8 +136,8 @@ export function SalesSection({ sales, available }: { sales: SalesReport; availab
                     <tr key={index} className="border-t border-border hover:bg-accent/50">
                       {columns.map((col) => (
                         <td key={col.key} className="px-4 py-3">
-                          {col.key === "montoUltimoPago" ? (
-                            formatCurrency(row.montoUltimoPago, row.moneda)
+                          {col.key === "montoUltimoPago" || col.key === "montoTotalAcordado" ? (
+                            formatCurrency(row[col.key], row.moneda)
                           ) : col.key === "fase" ? (
                             <span
                               className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${getSalesStageStyle(row.fase).badge}`}

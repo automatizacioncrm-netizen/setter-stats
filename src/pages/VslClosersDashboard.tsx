@@ -26,6 +26,7 @@ const EMPTY_FILTERS: ReportFilters = {
   dateFrom: "",
   dateTo: "",
   setter: "",
+  booker: "",
   estadoAgenda: "",
   closer: "",
   vslOrigen: "",
@@ -116,6 +117,7 @@ export function VslClosersDashboard() {
           leadType: "all",
           calendar: "",
           setter: "",
+          booker: "",
           closer: "",
           estadoAgenda: "",
           vslOrigen: "",
@@ -126,11 +128,24 @@ export function VslClosersDashboard() {
           leadType: next.leadType,
           calendar: "",
           setter: "",
+          booker: "",
           closer: "",
           estadoAgenda: "",
         };
       if (next.calendar !== undefined && next.calendar !== prev.calendar)
-        return { ...prev, calendar: next.calendar, setter: "", closer: "" };
+        return { ...prev, calendar: next.calendar, setter: "", booker: "", closer: "" };
+      if (
+        Object.keys(next).length === 1 &&
+        next.setter !== undefined &&
+        next.setter !== prev.setter
+      )
+        return { ...prev, setter: next.setter, closer: "" };
+      if (
+        Object.keys(next).length === 1 &&
+        next.booker !== undefined &&
+        next.booker !== prev.booker
+      )
+        return { ...prev, booker: next.booker, closer: "" };
       return { ...prev, ...next };
     });
     setDetail((prev) => ({ ...prev, page: 1 }));
@@ -197,6 +212,24 @@ export function VslClosersDashboard() {
   const attendanceRate = data?.kpis.total
     ? Math.round((data.kpis.asistio / data.kpis.total) * 100)
     : 0;
+  const peopleMode = filters.pipeline === "oei" ? "booker" : filters.pipeline === "vsl" ? "setter" : "general";
+  const peopleRows = useMemo(
+    () =>
+      peopleMode === "booker"
+        ? (data?.appointmentPeople?.oeiBookers ?? []).map((person) => ({
+            setter: person.name,
+            agendadoCRM: 0,
+            confirmado: 0,
+            asistio: 0,
+            cancelado: 0,
+            noShow: 0,
+            pendienteAgenda: 0,
+            reagendado: 0,
+            total: person.total,
+          }))
+        : (data?.setters ?? []),
+    [data?.appointmentPeople?.oeiBookers, data?.setters, peopleMode],
+  );
   useEffect(() => {
     const cardTotal = cardMetrics.totalAppointments;
     const tableTotal = data?.kpis.total;
@@ -292,6 +325,7 @@ export function VslClosersDashboard() {
         <DashboardFilters
           filters={filters}
           setters={optionData?.availableSetters ?? []}
+          bookers={optionData?.availableBookers ?? []}
           closers={optionData?.availableClosers ?? []}
           origins={optionData?.availableOrigins ?? []}
           calendars={optionData?.availableCalendars ?? []}
@@ -341,15 +375,27 @@ export function VslClosersDashboard() {
               ))}
             </div>
             <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-              <SetterStatusChart rows={data.setters} tasaAsistencia={attendanceRate} />
+              <SetterStatusChart
+                rows={peopleRows}
+                tasaAsistencia={attendanceRate}
+                mode={peopleMode}
+              />
               <ConversionSummary kpis={data.kpis} />
             </div>
 
             {cardMetrics.totalLeads === 0 && (
               <p>No existen registros para los filtros seleccionados.</p>
             )}
-            <SetterStatusTable rows={data.setters} totals={data.kpis} />
-            <SalesSection sales={data.sales} available={data.salesAvailable} />
+            <SetterStatusTable
+              rows={peopleRows}
+              totals={data.kpis}
+              mode={peopleMode}
+            />
+            <SalesSection
+              sales={data.sales}
+              available={data.salesAvailable}
+              pipeline={filters.pipeline ?? "all"}
+            />
           </>
         )}
         <label className="flex items-center gap-2 text-sm">

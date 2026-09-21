@@ -12,7 +12,9 @@ export async function getVslClosersReport(
   const { estadoAgenda: status, vslOrigen: vslOrigin, preset: _preset, ...rest } = filters;
   const params = new URLSearchParams(
     Object.entries({ ...rest, pipeline: filters.pipeline ?? "all", status, vslOrigin, ...detail })
-      .filter(([key]) => key !== "leadType" || filters.pipeline === "vsl")
+      .filter(
+        ([key]) => key !== "leadType" || filters.pipeline === undefined || filters.pipeline === "vsl",
+      )
       .map(([k, v]) => [k, String(v)]),
   );
   return readResponse(
