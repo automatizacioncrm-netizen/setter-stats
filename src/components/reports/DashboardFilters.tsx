@@ -1,5 +1,5 @@
 import { RotateCcw } from "lucide-react";
-import { type DatePreset, type ReportFilters } from "@/types/reports";
+import { type DatePreset, type LeadType, type ReportFilters } from "@/types/reports";
 
 const PRESETS: { value: DatePreset; label: string }[] = [
   { value: "todos", label: "Todo" },
@@ -9,7 +9,6 @@ const PRESETS: { value: DatePreset; label: string }[] = [
   { value: "mes", label: "Este mes" },
   { value: "custom", label: "Rango personalizado" },
 ];
-const CALENDAR_STATUSES = ["Confirmado", "Asistió", "No asistió", "Cancelado"];
 
 interface Props {
   filters: ReportFilters;
@@ -18,9 +17,12 @@ interface Props {
   closers: string[];
   origins: string[];
   calendars: string[];
+  statuses: string[];
   onChange: (next: Partial<ReportFilters>) => void;
   onPreset: (preset: DatePreset) => void;
   onClear: () => void;
+  vslTipoFiltro: LeadType;
+  onVslTipoChange: (value: LeadType) => void;
 }
 
 const fieldClass =
@@ -33,6 +35,7 @@ export function DashboardFilters({
   closers,
   origins,
   calendars,
+  statuses,
   onChange,
   onPreset,
   onClear,
@@ -47,11 +50,14 @@ export function DashboardFilters({
           <select
             className={fieldClass}
             value={filters.pipeline ?? "all"}
-            onChange={(e) => onChange({ pipeline: e.target.value as "all" | "vsl" | "oei" })}
+            onChange={(e) =>
+              onChange({ pipeline: e.target.value as "all" | "vsl" | "oei" | "lig" })
+            }
           >
             <option value="all">Todos los embudos</option>
             <option value="vsl">VSL | CLOSERS</option>
             <option value="oei">OEI</option>
+            <option value="lig">Lanzamiento Interno Gratuito</option>
           </select>
         </label>
         {filters.pipeline === "vsl" && (
@@ -142,9 +148,7 @@ export function DashboardFilters({
         </label>
         {filters.pipeline !== "oei" && (
           <label className="block">
-            <span className="mb-1 block text-xs text-muted-foreground">
-              {filters.pipeline === "all" ? "Setter VSL" : "Setter asignado"}
-            </span>
+            <span className="mb-1 block text-xs text-muted-foreground">Setter asignado</span>
             <select
               value={filters.setter}
               onChange={(e) => onChange({ setter: e.target.value })}
@@ -166,9 +170,7 @@ export function DashboardFilters({
         )}
         {filters.pipeline !== "vsl" && (
           <label className="block">
-            <span className="mb-1 block text-xs text-muted-foreground">
-              {filters.pipeline === "all" ? "Agendador OEI" : "Agendador"}
-            </span>
+            <span className="mb-1 block text-xs text-muted-foreground">Creado por cita</span>
             <select
               value={filters.booker}
               onChange={(e) => onChange({ booker: e.target.value })}
@@ -194,14 +196,14 @@ export function DashboardFilters({
             className={fieldClass}
           >
             <option value="">Todos</option>
-            {CALENDAR_STATUSES.map((estado) => (
+            {statuses.map((estado) => (
               <option key={estado} value={estado}>
                 {estado}
               </option>
             ))}
           </select>
         </label>
-        {filters.pipeline !== "oei" && (
+        {(filters.pipeline === "vsl" || filters.pipeline === "all") && (
           <label className="block">
             <span className="mb-1 block text-xs text-muted-foreground">VSL Origen</span>
             <select

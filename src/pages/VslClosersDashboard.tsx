@@ -16,7 +16,14 @@ import { LoadingModal } from "@/components/reports/LoadingModal";
 import { LeadDetailTable } from "@/components/reports/LeadDetailTable";
 import { SalesSection } from "@/components/reports/SalesSection";
 import { getPipelineCardMetrics } from "@/lib/pipeline-summary";
-import type { DatePreset, DetailQuery, ReportFilters, VslClosersReport } from "@/types/reports";
+import { filtrarReporteVsl } from "@/lib/vsl-local-filter";
+import type {
+  DatePreset,
+  DetailQuery,
+  LeadType,
+  ReportFilters,
+  VslClosersReport,
+} from "@/types/reports";
 
 const EMPTY_FILTERS: ReportFilters = {
   preset: "todos",
@@ -83,6 +90,7 @@ function formatUpdatedAt(value: string) {
 
 export function VslClosersDashboard() {
   const [filters, setFilters] = useState<ReportFilters>(EMPTY_FILTERS);
+  const [vslTipoFiltro, setVslTipoFiltro] = useState<LeadType>("all");
   const [syncing, setSyncing] = useState(false);
   const syncInFlight = useRef(false);
   const [syncMessage, setSyncMessage] = useState("");
@@ -249,7 +257,11 @@ export function VslClosersDashboard() {
   useEffect(() => {
     if (query.data) lastReport.current = query.data;
   }, [query.data]);
-  const data = query.data ?? lastReport.current;
+  const cachedData = query.data ?? lastReport.current;
+  const data = useMemo(
+    () => (cachedData ? filtrarReporteVsl(cachedData, vslTipoFiltro, detail, search) : undefined),
+    [cachedData, vslTipoFiltro, detail, search],
+  );
   const optionData =
     data?.filters?.pipeline === filters.pipeline &&
     (filters.pipeline !== "vsl" || data?.leadType === filters.leadType)
@@ -267,11 +279,19 @@ export function VslClosersDashboard() {
   );
   const attendanceRate = data?.kpis.tasaAsistencia ?? 0;
   const peopleMode =
-    filters.pipeline === "oei" ? "booker" : filters.pipeline === "vsl" ? "setter" : "general";
+    filters.pipeline === "oei" || filters.pipeline === "lig"
+      ? "booker"
+      : filters.pipeline === "vsl"
+        ? "setter"
+        : "general";
   const peopleRows = useMemo(
     () =>
       peopleMode === "booker"
-        ? (data?.appointmentPeople?.oeiBookers ?? []).map((person) => ({
+        ? (
+            (filters.pipeline === "lig"
+              ? data?.appointmentPeople?.ligBookers
+              : data?.appointmentPeople?.oeiBookers) ?? []
+          ).map((person) => ({
             setter: person.name,
             agendadoCRM: 0,
             confirmado: 0,
@@ -283,7 +303,7 @@ export function VslClosersDashboard() {
             total: person.total,
           }))
         : (data?.setters ?? []),
-    [data?.appointmentPeople?.oeiBookers, data?.setters, peopleMode],
+    [data?.appointmentPeople, data?.setters, peopleMode, filters.pipeline],
   );
   useEffect(() => {
     const cardTotal = cardMetrics.totalAppointments;
@@ -348,7 +368,7 @@ export function VslClosersDashboard() {
               <ArrowLeft className="h-3.5 w-3.5" /> Volver a reportes
             </Link>
             <h1 className="mt-2 text-lg font-semibold tracking-tight text-foreground sm:text-xl">
-              REPORTE COMERCIAL — VSL | CLOSERS + OEI
+              REPORTE COMERCIAL — VSL | CLOSERS + OEI + LIG
             </h1>
             <p className="text-sm text-muted-foreground">
               Agenda y desempeño comercial por embudo y Setter
@@ -384,11 +404,14 @@ export function VslClosersDashboard() {
         )}
         <DashboardFilters
           filters={filters}
+          vslTipoFiltro={vslTipoFiltro}
+          onVslTipoChange={setVslTipoFiltro}
           setters={optionData?.availableSetters ?? []}
           bookers={optionData?.availableBookers ?? []}
           closers={optionData?.availableClosers ?? []}
           origins={optionData?.availableOrigins ?? []}
           calendars={optionData?.availableCalendars ?? []}
+          statuses={optionData?.availableStatuses ?? []}
           onChange={handleChange}
           onPreset={handlePreset}
           onClear={() =>

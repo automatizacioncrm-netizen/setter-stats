@@ -179,7 +179,7 @@ function API_GET_LEAD_TYPE(fuente) {
 }
 
 function API_BUILD_VSL_REPORT(filtros) {
-  filtros = { ...(filtros || {}), leadType: filtros && filtros.leadType === "organic" ? "organic" : "paid" };
+  filtros = { ...(filtros || {}), leadType: ["all", "organic"].includes(filtros && filtros.leadType) ? filtros.leadType : "paid" };
 
   const sheet = SHEET_GET_DATA_SHEET();
 
@@ -229,6 +229,19 @@ function API_BUILD_VSL_REPORT(filtros) {
     fechaReunion: API_HEADER_INDEX(headers, "Fecha de reunión"),
 
     syncedAt: API_HEADER_INDEX_OPTIONAL(headers, "_Synced At"),
+    fechaCreacion: API_HEADER_INDEX_OPTIONAL(headers, "Creado el"),
+    calendario: API_HEADER_INDEX_OPTIONAL(headers, "Calendario cita"),
+    estadoCita: API_HEADER_INDEX_OPTIONAL(headers, "Estado cita"),
+    fechaCita: API_HEADER_INDEX_OPTIONAL(headers, "Fecha cita"),
+    fechaAgendamiento: API_HEADER_INDEX_OPTIONAL(headers, "Fecha agendamiento"),
+    fechaPrimerPago: API_HEADER_INDEX_OPTIONAL(headers, "Fecha primer pago"),
+    creadoPorCita: API_HEADER_INDEX_OPTIONAL(headers, "Creado por cita"),
+    producto: API_HEADER_INDEX_OPTIONAL(headers, "Producto / Evento"),
+    planPago: API_HEADER_INDEX_OPTIONAL(headers, "Plan de pagos"),
+    numeroCuotas: API_HEADER_INDEX_OPTIONAL(headers, "Numero cuotas pactadas"),
+    moneda: API_HEADER_INDEX_OPTIONAL(headers, "Moneda"),
+    montoTotal: API_HEADER_INDEX_OPTIONAL(headers, "Monto total acordado"),
+    montoUltimo: API_HEADER_INDEX_OPTIONAL(headers, "Monto ultimo pago"),
   };
 
   // ==========================================================
@@ -252,7 +265,7 @@ function API_BUILD_VSL_REPORT(filtros) {
 
   const sourceRows = rows.filter((row) =>
     API_CELL_STRING(row[idx.secuencia]).toLowerCase() === APP_CONFIG.PIPELINE_NAME.toLowerCase() &&
-    API_GET_LEAD_TYPE(row[idx.fuente]) === filtros.leadType
+    (filtros.leadType === "all" || API_GET_LEAD_TYPE(row[idx.fuente]) === filtros.leadType)
   );
   sourceRows.forEach((row) => {
     const secuencia = API_CELL_STRING(row[idx.secuencia]);
@@ -322,6 +335,23 @@ function API_BUILD_VSL_REPORT(filtros) {
     }
 
     const registro = {
+      pipeline: secuencia,
+      asignado: closer,
+      fechaCreacionOportunidad: API_CELL_STRING(row[idx.fechaCreacion]),
+      vslCategoria: vslOrigen ? "paid" : "organic",
+      closerCita: closer,
+      creadoPorCita: API_CELL_STRING(row[idx.creadoPorCita]),
+      calendarioCita: API_CELL_STRING(row[idx.calendario]),
+      estadoCita: API_CELL_STRING(row[idx.estadoCita]),
+      fechaCita: API_NORMALIZE_DATE(row[idx.fechaCita]),
+      fechaAgendamiento: API_NORMALIZE_DATE(row[idx.fechaAgendamiento]),
+      fechaPrimerPago: API_NORMALIZE_DATE(row[idx.fechaPrimerPago]),
+      productoEvento: API_CELL_STRING(row[idx.producto]),
+      planPago: API_CELL_STRING(row[idx.planPago]),
+      numeroCuotas: Number(row[idx.numeroCuotas]) || 0,
+      moneda: API_CELL_STRING(row[idx.moneda]),
+      montoTotalAcordado: Number(row[idx.montoTotal]) || 0,
+      montoUltimoPago: Number(row[idx.montoUltimo]) || 0,
       nombreContacto: API_CELL_STRING(row[idx.nombre]),
 
       telefono: API_CELL_STRING(row[idx.telefono]),
@@ -471,6 +501,17 @@ function API_BUILD_VSL_REPORT(filtros) {
       ? Number(((kpis.asistio / registros.length) * 100).toFixed(2))
       : 0,
   };
+  const vslSummary = {};
+  ["all", "paid", "organic"].forEach((tipo) => {
+    const subset = tipo === "all" ? registros : registros.filter((r) => r.vslCategoria === tipo);
+    const citas = subset.filter((r) => ESTADOS.includes(r.estadoAgenda));
+    vslSummary[tipo] = {
+      totalLeads: subset.length,
+      totalCitas: citas.length,
+      asistencias: citas.filter((r) => r.estadoAgenda === "Asistió").length,
+      ventas: subset.filter((r) => ["Reserva / Deposito", "Venta - Pagando a Cuotas", "Venta Cerrada (Pago De Contado)", "Venta Cerrada (Cuotas Pagadas)", "Perdida"].includes(r.fase)).length,
+    };
+  });
 
   // ==========================================================
   // FILTROS DISPONIBLES
@@ -539,6 +580,8 @@ function API_BUILD_VSL_REPORT(filtros) {
 
     kpis: kpis,
     leadTypeKpis: leadTypeKpis,
+    rawRecords: registros,
+    vslSummary: vslSummary,
     unknownStatusCount: registros.length - kpis.total,
 
     setters: setters,
@@ -566,6 +609,12 @@ function API_BUILD_VSL_REPORT(filtros) {
 function API_EMPTY_VSL_REPORT(filtros) {
   filtros = filtros || { leadType: "paid" };
   return {
+    rawRecords: [],
+    vslSummary: {
+      all: { totalLeads: 0, totalCitas: 0, asistencias: 0, ventas: 0 },
+      paid: { totalLeads: 0, totalCitas: 0, asistencias: 0, ventas: 0 },
+      organic: { totalLeads: 0, totalCitas: 0, asistencias: 0, ventas: 0 },
+    },
     leadTypeKpis: { totalLeads: 0, attended: 0, attendanceRate: 0 },
     unknownStatusCount: 0,
     report: "VSL | CLOSERS",

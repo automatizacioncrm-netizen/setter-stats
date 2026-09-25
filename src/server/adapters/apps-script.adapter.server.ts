@@ -2,7 +2,7 @@ import { ApiError, getServerEnv } from "../config/env.server";
 export const REPORT_TIMEOUT_MS = 15_000;
 export const RECONCILE_TIMEOUT_MS = 60_000;
 export interface ReportRequest {
-  pipeline: "all" | "vsl" | "oei";
+  pipeline: "all" | "vsl" | "oei" | "lig";
   leadType: "all" | "paid" | "organic";
   calendar: string;
   dateFrom: string;
@@ -45,7 +45,7 @@ async function requestScript(action: "vsl_report" | "reconcile_all", filters?: R
       "direction",
     ] as const) {
       if (key === "leadType" && filters.pipeline && filters.pipeline !== "vsl") continue;
-      if (filters[key] === undefined) continue;
+      if (filters[key] == null) continue;
       url.searchParams.set(key, String(filters[key]));
     }
   const controller = new AbortController();
@@ -63,6 +63,16 @@ async function requestScript(action: "vsl_report" | "reconcile_all", filters?: R
     () => controller.abort(),
     action === "vsl_report" ? REPORT_TIMEOUT_MS : RECONCILE_TIMEOUT_MS,
   );
+  const debugReport =
+    action === "vsl_report" &&
+    process.env["NODE_ENV"] !== "production" &&
+    process.env["REPORTS_DEBUG"] === "true";
+  const reportLog = (label: string, value: unknown) => {
+    if (debugReport)
+      console.info(`[REPORTS] ${label}`, redact(JSON.stringify(value)).slice(0, 16000));
+  };
+  reportLog("Request received / Query params", filters);
+  reportLog("Apps Script URL", url.toString());
   if (action === "reconcile_all")
     console.info("[reconcile_all] started", { timeoutMs: RECONCILE_TIMEOUT_MS });
   try {
@@ -101,12 +111,41 @@ async function requestScript(action: "vsl_report" | "reconcile_all", filters?: R
       }
       return body;
     }
-    if (!response.ok) throw new ApiError("Apps Script respondió con un error HTTP.");
-    const body: unknown = await response.json();
+    const contentType = response.headers.get("content-type");
+    const text = await response.text();
+    reportLog("Apps Script response", {
+      status: response.status,
+      contentType,
+      redirected: response.redirected,
+      durationMs: Date.now() - startedAt,
+      bytes: new TextEncoder().encode(text).length,
+      rawResponse: redact(text).slice(0, 16000),
+    });
+    const failure = (details: string) =>
+      new ApiError("Apps Script request failed", 502, {
+        upstreamStatus: response.status,
+        contentType,
+        details: redact(details).slice(0, 16000),
+      });
+    if (!response.ok) throw failure(`HTTP ${response.status}: ${text}`);
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      throw failure(`Respuesta no JSON (${contentType ?? "sin Content-Type"}): ${text}`);
+    }
+    reportLog("Parsed response", body);
     if (!body || typeof body !== "object" || !("ok" in body) || body.ok !== true)
-      throw new ApiError("Apps Script no pudo completar la operación.");
+      throw failure(JSON.stringify(body));
     return body;
   } catch (error) {
+    if (action === "vsl_report")
+      reportLog("Request failed", {
+        durationMs: Date.now() - startedAt,
+        timedOut: controller.signal.aborted,
+        error: error instanceof Error ? error.message : String(error),
+        diagnostics: error instanceof ApiError ? error.diagnostics : undefined,
+      });
     if (action === "reconcile_all" && !(error instanceof ApiError)) {
       const cause = error instanceof Error ? error.cause : undefined;
       console.error("[reconcile_all] fetch/read failed", {
@@ -124,6 +163,15 @@ async function requestScript(action: "vsl_report" | "reconcile_all", filters?: R
         ? "Apps Script excedió el tiempo de espera. Consulta el reporte antes de reintentar la actualización."
         : "No se pudo obtener una respuesta JSON válida de Apps Script.",
       controller.signal.aborted ? 504 : 502,
+      action === "vsl_report"
+        ? {
+            details: redact(
+              error instanceof Error
+                ? `${error.name}: ${error.message}; cause: ${String(error.cause ?? "")}`
+                : String(error),
+            ).slice(0, 16000),
+          }
+        : undefined,
     );
   } finally {
     clearTimeout(timer);

@@ -31,18 +31,14 @@ export function SalesSection({
 }: {
   sales: SalesReport;
   available: boolean;
-  pipeline: "all" | "vsl" | "oei";
+  pipeline: "all" | "vsl" | "oei" | "lig";
 }) {
   const [sort, setSort] = useState<{ key: keyof SaleRow; asc: boolean } | null>(null);
   const columns = useMemo(
     () => [
       ...baseColumns.slice(0, 4),
-      ...(pipeline !== "oei"
-        ? [{ key: "setterAsignado" as const, label: "Setter asignado" }]
-        : []),
-      ...(pipeline !== "vsl"
-        ? [{ key: "agendadorCita" as const, label: "Agendador" }]
-        : []),
+      ...(pipeline !== "oei" ? [{ key: "setterAsignado" as const, label: "Setter asignado" }] : []),
+      ...(pipeline !== "vsl" ? [{ key: "agendadorCita" as const, label: "Agendador" }] : []),
       ...baseColumns.slice(4),
     ],
     [pipeline],

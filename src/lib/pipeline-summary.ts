@@ -20,7 +20,10 @@ function percentage(part: number | null, whole: number | null): number | null {
 }
 
 export function getPipelineCardMetrics(summary: Summary, pipeline: Pipeline) {
-  const pipelines = pipeline === "all" ? (["vsl", "oei"] as const) : [pipeline];
+  const pipelines =
+    pipeline === "all"
+      ? (["vsl", "oei", ...(summary?.["lig"] ? ["lig" as const] : [])] as const)
+      : [pipeline];
   const sections = pipelines.map((key) => record(summary?.[key]));
   const sum = (read: (section: Record<string, unknown>) => unknown): number | null => {
     let total = 0;

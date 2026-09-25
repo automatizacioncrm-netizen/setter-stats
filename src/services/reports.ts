@@ -1,7 +1,11 @@
 import type { DetailQuery, ReportFilters, VslClosersReport } from "@/types/reports";
 export async function readResponse<T>(response: Response): Promise<T> {
   const body = await response.json();
-  if (!response.ok) throw new Error(body.message || "No se pudo completar la solicitud.");
+  if (!response.ok) {
+    const message = body.message || "No se pudo completar la solicitud.";
+    // The server includes sanitized diagnostics only outside production.
+    throw new Error(typeof body.details === "string" ? `${message}: ${body.details}` : message);
+  }
   return body as T;
 }
 export async function getVslClosersReport(
@@ -13,7 +17,9 @@ export async function getVslClosersReport(
   const params = new URLSearchParams(
     Object.entries({ ...rest, pipeline: filters.pipeline ?? "all", status, vslOrigin, ...detail })
       .filter(
-        ([key]) => key !== "leadType" || filters.pipeline === undefined || filters.pipeline === "vsl",
+        ([key, value]) =>
+          value != null &&
+          (key !== "leadType" || filters.pipeline === undefined || filters.pipeline === "vsl"),
       )
       .map(([k, v]) => [k, String(v)]),
   );

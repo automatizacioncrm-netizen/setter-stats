@@ -13,7 +13,7 @@ const date = z
         new Date(v).toISOString().slice(0, 10) === v),
   );
 const schema = z.object({
-  pipeline: z.enum(["all", "vsl", "oei"]).default("all"),
+  pipeline: z.enum(["all", "vsl", "oei", "lig"]).default("all"),
   leadType: z.enum(["all", "paid", "organic"]).default("all"),
   calendar: z.string().max(300).default(""),
   dateFrom: date.default(""),
@@ -55,6 +55,14 @@ export async function reportApi(request: Request) {
     if (q.dateFrom && q.dateTo && q.dateFrom > q.dateTo)
       throw new ApiError("La fecha Desde debe ser anterior o igual a Hasta.", 400);
     const data = mapVslReportResponse(await fetchVslReport(q), q);
+    if (process.env["NODE_ENV"] !== "production" && process.env["REPORTS_DEBUG"] === "true")
+      console.info("[REPORTS] Final response", {
+        pipeline: q.pipeline,
+        detailRows: data.detail?.length,
+        total: data.detailTotal,
+        page: data.detailPage,
+        calendars: data.availableCalendars?.length,
+      });
     return Response.json(data, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return apiError(error);

@@ -14,7 +14,7 @@ export type EstadoAgenda = (typeof ESTADOS_AGENDA)[number];
 export type DatePreset = "hoy" | "ayer" | "7dias" | "mes" | "custom" | "todos";
 
 export type LeadType = "all" | "paid" | "organic";
-export type Pipeline = "all" | "vsl" | "oei";
+export type Pipeline = "all" | "vsl" | "oei" | "lig";
 
 export interface ReportFilters {
   pipeline?: Pipeline;
@@ -65,6 +65,11 @@ export interface SetterRow {
 }
 
 export interface VslClosersReport {
+  rawRecords?: LeadDetailRow[];
+  vslSummary?: Record<
+    LeadType,
+    { totalLeads: number; totalCitas: number; asistencias: number; ventas: number }
+  >;
   dateSemantics?: {
     leads: string;
     appointments: string;
@@ -89,6 +94,8 @@ export interface VslClosersReport {
   pipelineSummary?: Record<string, unknown>;
   appointmentPeople?: {
     oeiBookers: AppointmentPersonCount[];
+    ligBookers?: AppointmentPersonCount[];
+    bookers?: AppointmentPersonCount[];
     closers: AppointmentPersonCount[];
   };
   unknownStatusCount: number;
@@ -117,6 +124,8 @@ export interface SalesStageSummary {
 }
 
 export interface SaleRow {
+  vslCategoria?: "paid" | "organic";
+  vslOrigen?: string;
   pipeline: string;
   secuencia: string;
   calendarioCita: string;
@@ -168,6 +177,11 @@ export interface SalesValueByCurrency {
 }
 
 export interface LeadDetailRow {
+  vslCategoria?: "paid" | "organic";
+  asignado?: string;
+  creadoPorCita?: string;
+  planPago?: string;
+  numeroCuotas?: number;
   fechaCreacionOportunidad?: string;
   pipeline?: string;
   secuencia?: string;

@@ -17,6 +17,30 @@ const { getVslClosersReport } = require("../src/services/reports.ts");
 const { getPipelineCardMetrics } = require("../src/lib/pipeline-summary.ts");
 const { mapVslReportResponse } = require("../src/server/mappers/vsl-response.mapper.ts");
 
+test("rawRecords y vslSummary sobreviven al mapper sin depender de la página de detalle", () => {
+  const report = mapVslReportResponse({
+    ok: true,
+    data: {
+      kpis: { total: 2 },
+      rawRecords: [
+        { nombreContacto: "A", vslOrigen: "Automático", vslCategoria: "paid", estadoAgenda: "Asistió" },
+        { nombreContacto: "B", vslOrigen: "", estadoAgenda: "Confirmado" },
+      ],
+      vslSummary: {
+        all: { totalLeads: 2, totalCitas: 2, asistencias: 1, ventas: 0 },
+        paid: { totalLeads: 1, totalCitas: 1, asistencias: 1, ventas: 0 },
+        organic: { totalLeads: 1, totalCitas: 1, asistencias: 0, ventas: 0 },
+      },
+      detail: { rows: [], pagination: { page: 1, totalRecords: 2 } },
+    },
+  }, { pipeline: "vsl", leadType: "all", dateFrom: "", dateTo: "", setter: "", status: "", closer: "", vslOrigin: "", includeDetail: false, pageSize: 25, sort: "nombreContacto", direction: "asc" });
+  assert.equal(report.detail.length, 0);
+  assert.equal(report.rawRecords.length, 2);
+  assert.equal(report.rawRecords[0].vslCategoria, "paid");
+  assert.equal(report.rawRecords[1].vslCategoria, "organic");
+  assert.equal(report.vslSummary.paid.asistencias, 1);
+});
+
 test("date contract preserves independent API totals and creation metadata without filtering rows", () => {
   const dateSemantics = {
     leads: "Creado el",

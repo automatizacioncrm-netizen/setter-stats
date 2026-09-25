@@ -77,6 +77,13 @@ function salesReport(value: unknown): SalesReport {
     rows: array(sales["rows"]).map((item) => {
       const row = object(item);
       return {
+        ...(row["vslCategoria"] != null
+          ? {
+              vslCategoria:
+                str(row["vslCategoria"]) === "paid" ? ("paid" as const) : ("organic" as const),
+            }
+          : {}),
+        vslOrigen: str(row["vslOrigen"]),
         pipeline: str(row["pipeline"]),
         secuencia: str(row["secuencia"]),
         calendarioCita: str(row["calendarioCita"]),
@@ -108,7 +115,7 @@ function salesReport(value: unknown): SalesReport {
 export function mapVslReportResponse(
   raw: unknown,
   query: {
-    pipeline?: "all" | "vsl" | "oei";
+    pipeline?: "all" | "vsl" | "oei" | "lig";
     leadType?: "all" | "paid" | "organic";
     calendar?: string;
     dateFrom: string;
@@ -148,9 +155,14 @@ export function mapVslReportResponse(
   const detail = object(d["detail"]);
   const pagination = object(detail["pagination"]);
   // estadoAgenda is the API's effective status; never recompute it from the original fields.
-  const rows: LeadDetailRow[] = array(detail["rows"]).map((item) => {
+  const mapRecord = (item: unknown): LeadDetailRow => {
     const row = object(item);
     return {
+      vslCategoria: str(row["vslCategoria"]) === "paid" ? "paid" : "organic",
+      asignado: str(row["asignado"]),
+      creadoPorCita: str(row["creadoPorCita"]),
+      planPago: str(row["planPago"]),
+      numeroCuotas: num(row["numeroCuotas"]),
       pipeline: str(row["pipeline"]),
       secuencia: str(row["secuencia"]),
       nombreContacto: str(row["nombreContacto"]),
@@ -176,14 +188,35 @@ export function mapVslReportResponse(
       fuente: str(row["fuente"]),
       productoEvento: str(row["productoEvento"]),
       fechaPrimerPago: str(row["fechaPrimerPago"]),
-      planPagos: str(row["planPagos"]),
-      numeroCuotasPactadas: num(row["numeroCuotasPactadas"]),
+      planPagos: str(row["planPagos"] ?? row["planPago"]),
+      numeroCuotasPactadas: num(row["numeroCuotasPactadas"] ?? row["numeroCuotas"]),
       moneda: str(row["moneda"]),
       montoTotalAcordado: num(row["montoTotalAcordado"]),
       montoUltimoPago: num(row["montoUltimoPago"]),
       leadType: str(row["leadType"]),
     };
-  });
+  };
+  const rows: LeadDetailRow[] = array(detail["rows"]).map(mapRecord);
+  const rawRecords = Array.isArray(d["rawRecords"])
+    ? array(d["rawRecords"]).map(mapRecord)
+    : undefined;
+  const rawSummary = object(d["vslSummary"]);
+  const vslSummary = Object.keys(rawSummary).length
+    ? (Object.fromEntries(
+        (["all", "paid", "organic"] as const).map((type) => {
+          const item = object(rawSummary[type]);
+          return [
+            type,
+            {
+              totalLeads: num(item["totalLeads"]),
+              totalCitas: num(item["totalCitas"]),
+              asistencias: num(item["asistencias"]),
+              ventas: num(item["ventas"]),
+            },
+          ];
+        }),
+      ) as VslClosersReport["vslSummary"])
+    : undefined;
   const sorted = rows
     .slice(0, query.pageSize)
     .sort(
@@ -205,9 +238,20 @@ export function mapVslReportResponse(
       : (query.leadType ?? "paid");
   const appointmentPeople = object(d["appointmentPeople"]);
   const oeiBookers = namedCounts(appointmentPeople["oeiBookers"], "agendador");
+  const ligBookers = namedCounts(appointmentPeople["ligBookers"], "agendador");
+  // The API may return the same creator in both pipelines: combine their totals.
+  const bookerTotals = new Map<string, number>();
+  const allBookers = Array.isArray(appointmentPeople["bookers"])
+    ? namedCounts(appointmentPeople["bookers"], "agendador")
+    : [...oeiBookers, ...ligBookers];
+  for (const person of allBookers)
+    bookerTotals.set(person.name, (bookerTotals.get(person.name) ?? 0) + person.total);
+  const bookers = [...bookerTotals].map(([name, total]) => ({ name, total }));
   const appointmentClosers = namedCounts(appointmentPeople["closers"], "closer");
   return {
     report: str(d["report"]),
+    ...(rawRecords ? { rawRecords } : {}),
+    ...(vslSummary ? { vslSummary } : {}),
     ...(d["dateSemantics"]
       ? {
           dateSemantics: {
@@ -243,8 +287,14 @@ export function mapVslReportResponse(
     sales: salesReport(d["sales"]),
     salesAvailable: d["sales"] != null,
     availableSetters: strings(available["setters"]),
-    availableBookers:
-      oeiBookers.length > 0 ? oeiBookers.map((item) => item.name) : strings(available["bookers"]),
+    availableBookers: Array.isArray(available["bookers"])
+      ? strings(available["bookers"])
+      : (query.pipeline === "oei"
+          ? oeiBookers
+          : query.pipeline === "lig"
+            ? ligBookers
+            : bookers
+        ).map((item) => item.name),
     availableClosers:
       appointmentClosers.length > 0
         ? appointmentClosers.map((item) => item.name)
@@ -253,7 +303,7 @@ export function mapVslReportResponse(
     availableCalendars: strings(available["calendars"]),
     availableStatuses: strings(available["statuses"]).map(status),
     pipelineSummary: object(d["pipelineSummary"]),
-    appointmentPeople: { oeiBookers, closers: appointmentClosers },
+    appointmentPeople: { oeiBookers, ligBookers, bookers, closers: appointmentClosers },
     unknownStatusCount: num(d["unknownStatusCount"]),
     detail: query.includeDetail ? sorted : [],
     detailTotal: num(pagination["totalRecords"] ?? detail["totalRecords"] ?? detail["total"]),

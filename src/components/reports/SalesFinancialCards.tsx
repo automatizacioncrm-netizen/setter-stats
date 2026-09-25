@@ -24,20 +24,20 @@ export function SalesFinancialCards({ values }: { values: SalesValueByCurrency[]
         <div
           key={index}
           role="group"
-          aria-label={`Resumen financiero ${item.currency || "sin moneda"}`}
+          aria-label="Resumen financiero USD"
           className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
         >
           {[
             {
               label: "VALOR TOTAL DE TICKET DE VENTA",
-              value: formatCurrency(item.salesValue, item.currency),
-              currency: item.currency,
+              value: formatCurrency(item.salesValue, "USD"),
+              currency: "USD",
               accent: "var(--status-agendado)",
             },
             {
               label: "CASH RECAUDADO",
-              value: formatCurrency(item.cashCollected, item.currency),
-              currency: item.currency,
+              value: formatCurrency(item.cashCollected, "USD"),
+              currency: "USD",
               accent: "var(--status-asistio)",
             },
             {

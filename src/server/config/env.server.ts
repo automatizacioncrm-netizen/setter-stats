@@ -3,6 +3,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status = 502,
+    public diagnostics?: { details: string; upstreamStatus?: number; contentType?: string | null },
   ) {
     super(message);
   }
@@ -39,7 +40,12 @@ export function getCronSecret() {
 }
 export function apiError(error: unknown) {
   return Response.json(
-    { message: error instanceof ApiError ? error.message : "No se pudo procesar el reporte." },
+    {
+      message: error instanceof ApiError ? error.message : "No se pudo procesar el reporte.",
+      ...(process.env["NODE_ENV"] !== "production" && error instanceof ApiError && error.diagnostics
+        ? { status: error.status, ...error.diagnostics }
+        : {}),
+    },
     {
       status: error instanceof ApiError ? error.status : 500,
       headers: { "Cache-Control": "no-store" },
