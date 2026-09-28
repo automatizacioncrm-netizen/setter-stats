@@ -75,6 +75,8 @@ export interface VslClosersReport {
     appointments: string;
     appointmentsFallback: string;
     sales: string;
+    salesFallback?: string;
+    paymentDate?: string;
   };
   sales: SalesReport;
   salesAvailable: boolean;
@@ -124,12 +126,14 @@ export interface SalesStageSummary {
 }
 
 export interface SaleRow {
+  appointmentCreatedAt?: string;
   vslCategoria?: "paid" | "organic";
   vslOrigen?: string;
   pipeline: string;
   secuencia: string;
   calendarioCita: string;
   productoEvento: string;
+  fechaVenta?: string;
   fechaPrimerPago: string;
   planPagos: string;
   numeroCuotasPactadas: number;
@@ -177,6 +181,7 @@ export interface SalesValueByCurrency {
 }
 
 export interface LeadDetailRow {
+  appointmentCreatedAt?: string;
   vslCategoria?: "paid" | "organic";
   asignado?: string;
   creadoPorCita?: string;
@@ -206,6 +211,7 @@ export interface LeadDetailRow {
   fase: string;
   fuente: string;
   productoEvento?: string;
+  fechaVenta?: string;
   fechaPrimerPago?: string;
   planPagos?: string;
   numeroCuotasPactadas?: number;

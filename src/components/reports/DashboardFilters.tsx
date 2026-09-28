@@ -1,5 +1,5 @@
 import { RotateCcw } from "lucide-react";
-import { type DatePreset, type LeadType, type ReportFilters } from "@/types/reports";
+import { type DatePreset, type ReportFilters } from "@/types/reports";
 
 const PRESETS: { value: DatePreset; label: string }[] = [
   { value: "todos", label: "Todo" },
@@ -21,12 +21,26 @@ interface Props {
   onChange: (next: Partial<ReportFilters>) => void;
   onPreset: (preset: DatePreset) => void;
   onClear: () => void;
-  vslTipoFiltro: LeadType;
-  onVslTipoChange: (value: LeadType) => void;
 }
 
 const fieldClass =
   "h-9 w-full rounded-lg border border-border bg-surface px-3 text-sm text-foreground outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
+
+// Presentation only: keep the API's option value unchanged.
+const calendarOptions = [
+  { id: "2stEL9p5aBxmHO5N7D8m", name: "Llamada de Claridad CM [A]", label: "VSL PAGADO - CIRCULO" },
+  { id: "mvIUSeyGl6PvbEzue8za", name: "Llamada de Claridad CM [ORG]", label: "ORGANICO - CIRCULO" },
+  {
+    id: "pMZfD4DFxhQCJHC9zoK0",
+    name: "Sesión Equipo Millonario (A)",
+    label: "VSL PAGADO - EQUIPO",
+  },
+  {
+    id: "yuWa4NolnVFmsURv7B7Q",
+    name: "Sesión Equipo Millonario (ORG)",
+    label: "ORGANICO - EQUIPO",
+  },
+];
 
 export function DashboardFilters({
   filters,
@@ -40,6 +54,19 @@ export function DashboardFilters({
   onPreset,
   onClear,
 }: Props) {
+  const visibleCalendars = calendars
+    .map((value) => {
+      const index = calendarOptions.findIndex(
+        (option) => option.id === value || option.name === value,
+      );
+      return {
+        value,
+        label: calendarOptions[index]?.label ?? value,
+        order: index < 0 ? calendarOptions.length : index,
+      };
+    })
+    .sort((a, b) => a.order - b.order);
+
   return (
     <div className="rounded-xl border border-border bg-surface p-4 shadow-card">
       <div className="mb-4 flex flex-wrap gap-3">
@@ -55,8 +82,8 @@ export function DashboardFilters({
             }
           >
             <option value="all">Todos los embudos</option>
-            <option value="vsl">VSL | CLOSERS</option>
-            <option value="oei">OEI</option>
+            <option value="vsl">VSL | Closers</option>
+            <option value="oei">Lanzamiento I. Pagado OEI - EM</option>
             <option value="lig">Lanzamiento Interno Gratuito</option>
           </select>
         </label>
@@ -86,9 +113,9 @@ export function DashboardFilters({
             className={fieldClass}
           >
             <option value="">Todos</option>
-            {calendars.map((calendar) => (
-              <option key={calendar} value={calendar}>
-                {calendar}
+            {visibleCalendars.map((calendar) => (
+              <option key={calendar.value} value={calendar.value}>
+                {calendar.label}
               </option>
             ))}
           </select>
@@ -146,9 +173,9 @@ export function DashboardFilters({
             className={fieldClass}
           />
         </label>
-        {filters.pipeline !== "oei" && (
+        {
           <label className="block">
-            <span className="mb-1 block text-xs text-muted-foreground">Setter asignado</span>
+            <span className="mb-1 block text-xs text-muted-foreground">Setter</span>
             <select
               value={filters.setter}
               onChange={(e) => onChange({ setter: e.target.value })}
@@ -167,7 +194,7 @@ export function DashboardFilters({
               ))}
             </select>
           </label>
-        )}
+        }
         {filters.pipeline !== "vsl" && (
           <label className="block">
             <span className="mb-1 block text-xs text-muted-foreground">Creado por cita</span>

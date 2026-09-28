@@ -89,6 +89,10 @@ function salesReport(value: unknown): SalesReport {
         calendarioCita: str(row["calendarioCita"]),
         productoEvento: str(row["productoEvento"]),
         fechaPrimerPago: str(row["fechaPrimerPago"]),
+        ...(row["appointmentCreatedAt"] != null
+          ? { appointmentCreatedAt: str(row["appointmentCreatedAt"]) }
+          : {}),
+        ...(row["fechaVenta"] != null ? { fechaVenta: str(row["fechaVenta"]) } : {}),
         planPagos: str(row["planPagos"]),
         numeroCuotasPactadas: num(row["numeroCuotasPactadas"]),
         moneda: str(row["moneda"]),
@@ -188,6 +192,10 @@ export function mapVslReportResponse(
       fuente: str(row["fuente"]),
       productoEvento: str(row["productoEvento"]),
       fechaPrimerPago: str(row["fechaPrimerPago"]),
+      ...(row["appointmentCreatedAt"] != null
+        ? { appointmentCreatedAt: str(row["appointmentCreatedAt"]) }
+        : {}),
+      ...(row["fechaVenta"] != null ? { fechaVenta: str(row["fechaVenta"]) } : {}),
       planPagos: str(row["planPagos"] ?? row["planPago"]),
       numeroCuotasPactadas: num(row["numeroCuotasPactadas"] ?? row["numeroCuotas"]),
       moneda: str(row["moneda"]),

@@ -1,10 +1,11 @@
+import { getReportRecordValue } from "@/lib/report-record";
 import type { DetailQuery, LeadDetailRow } from "@/types/reports";
 const columns: [keyof LeadDetailRow, string][] = [
   ["pipeline", "Embudo"],
   ["nombreContacto", "Nombre contacto"],
   ["telefono", "Teléfono"],
   ["correo", "Correo electrónico"],
-  ["setterAsignado", "Setter asignado"],
+  ["setterAsignado", "Setter"],
   ["agendadorCita", "Agendador cita"],
   ["closerCita", "Closer cita"],
   ["calendarioCita", "Calendario"],
@@ -30,6 +31,7 @@ const isSortable = (key: keyof LeadDetailRow): key is DetailQuery["sort"] =>
     "fechaCita",
     "productoEvento",
     "fechaPrimerPago",
+    "fechaVenta",
     "planPagos",
     "numeroCuotasPactadas",
     "moneda",
@@ -119,15 +121,24 @@ export function LeadDetailTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, i) => (
-              <tr key={i} className="border-t">
-                {columns.map(([key]) => (
-                  <td key={key} className="p-2">
-                    {row[key] || "—"}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {[...rows]
+              .sort(
+                (a, b) =>
+                  String(getReportRecordValue(a, query.sort)).localeCompare(
+                    String(getReportRecordValue(b, query.sort)),
+                    "es",
+                    { numeric: true },
+                  ) * (query.direction === "asc" ? 1 : -1),
+              )
+              .map((row, i) => (
+                <tr key={i} className="border-t">
+                  {columns.map(([key]) => (
+                    <td key={key} className="p-2">
+                      {getReportRecordValue(row, key) || "—"}
+                    </td>
+                  ))}
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>

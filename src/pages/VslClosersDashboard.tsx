@@ -16,14 +16,7 @@ import { LoadingModal } from "@/components/reports/LoadingModal";
 import { LeadDetailTable } from "@/components/reports/LeadDetailTable";
 import { SalesSection } from "@/components/reports/SalesSection";
 import { getPipelineCardMetrics } from "@/lib/pipeline-summary";
-import { filtrarReporteVsl } from "@/lib/vsl-local-filter";
-import type {
-  DatePreset,
-  DetailQuery,
-  LeadType,
-  ReportFilters,
-  VslClosersReport,
-} from "@/types/reports";
+import type { DatePreset, DetailQuery, ReportFilters, VslClosersReport } from "@/types/reports";
 
 const EMPTY_FILTERS: ReportFilters = {
   preset: "todos",
@@ -90,7 +83,6 @@ function formatUpdatedAt(value: string) {
 
 export function VslClosersDashboard() {
   const [filters, setFilters] = useState<ReportFilters>(EMPTY_FILTERS);
-  const [vslTipoFiltro, setVslTipoFiltro] = useState<LeadType>("all");
   const [syncing, setSyncing] = useState(false);
   const syncInFlight = useRef(false);
   const [syncMessage, setSyncMessage] = useState("");
@@ -258,10 +250,8 @@ export function VslClosersDashboard() {
     if (query.data) lastReport.current = query.data;
   }, [query.data]);
   const cachedData = query.data ?? lastReport.current;
-  const data = useMemo(
-    () => (cachedData ? filtrarReporteVsl(cachedData, vslTipoFiltro, detail, search) : undefined),
-    [cachedData, vslTipoFiltro, detail, search],
-  );
+  // The API owns filtering, appointment counts, sales and pagination.
+  const data = cachedData;
   const optionData =
     data?.filters?.pipeline === filters.pipeline &&
     (filters.pipeline !== "vsl" || data?.leadType === filters.leadType)
@@ -404,8 +394,6 @@ export function VslClosersDashboard() {
         )}
         <DashboardFilters
           filters={filters}
-          vslTipoFiltro={vslTipoFiltro}
-          onVslTipoChange={setVslTipoFiltro}
           setters={optionData?.availableSetters ?? []}
           bookers={optionData?.availableBookers ?? []}
           closers={optionData?.availableClosers ?? []}

@@ -1,3 +1,4 @@
+import { getReportRecordValue } from "@/lib/report-record";
 import { useMemo, useState } from "react";
 import { ArrowUpDown } from "lucide-react";
 import type { SaleRow, SalesReport } from "@/types/reports";
@@ -14,6 +15,8 @@ const baseColumns: { key: keyof SaleRow; label: string }[] = [
   { key: "closerCita", label: "Closer cita" },
   { key: "fase", label: "Fase" },
   { key: "productoEvento", label: "Producto" },
+  { key: "fechaVenta", label: "Fecha de venta" },
+  { key: "fechaReunion", label: "Fecha de reunión" },
   { key: "fechaPrimerPago", label: "Primer pago" },
   { key: "planPagos", label: "Plan de pagos" },
   { key: "numeroCuotasPactadas", label: "Cuotas" },
@@ -37,7 +40,7 @@ export function SalesSection({
   const columns = useMemo(
     () => [
       ...baseColumns.slice(0, 4),
-      ...(pipeline !== "oei" ? [{ key: "setterAsignado" as const, label: "Setter asignado" }] : []),
+      { key: "setterAsignado" as const, label: "Setter" },
       ...(pipeline !== "vsl" ? [{ key: "agendadorCita" as const, label: "Agendador" }] : []),
       ...baseColumns.slice(4),
     ],
@@ -49,9 +52,13 @@ export function SalesSection({
         ? [...sales.rows].sort(
             (a, b) =>
               (sort.key === "montoUltimoPago" || sort.key === "montoTotalAcordado"
-                ? a.moneda.localeCompare(b.moneda) || a[sort.key] - b[sort.key]
-                : String(a[sort.key]).localeCompare(String(b[sort.key]), "es", { numeric: true })) *
-              (sort.asc ? 1 : -1),
+                ? (a.moneda || "").localeCompare(b.moneda || "") ||
+                  (a[sort.key] || 0) - (b[sort.key] || 0)
+                : String(getReportRecordValue(a, sort.key)).localeCompare(
+                    String(getReportRecordValue(b, sort.key)),
+                    "es",
+                    { numeric: true },
+                  )) * (sort.asc ? 1 : -1),
           )
         : sales.rows,
     [sales.rows, sort],
@@ -133,7 +140,7 @@ export function SalesSection({
                       {columns.map((col) => (
                         <td key={col.key} className="px-4 py-3">
                           {col.key === "montoUltimoPago" || col.key === "montoTotalAcordado" ? (
-                            formatCurrency(row[col.key], row.moneda)
+                            formatCurrency(row[col.key], row.moneda || "")
                           ) : col.key === "fase" ? (
                             <span
                               className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${getSalesStageStyle(row.fase).badge}`}
@@ -141,7 +148,7 @@ export function SalesSection({
                               {row.fase || "—"}
                             </span>
                           ) : (
-                            row[col.key] || "—"
+                            getReportRecordValue(row, col.key) || "—"
                           )}
                         </td>
                       ))}
