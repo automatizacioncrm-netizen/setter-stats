@@ -19,8 +19,17 @@ export interface ReportRequest {
   sort: string;
   direction: "asc" | "desc";
 }
+export type AppointmentDetailRequest = Omit<
+  ReportRequest,
+  "includeDetail" | "sort" | "direction"
+> & {
+  vslTipo?: string | undefined;
+};
 
-async function requestScript(action: "vsl_report" | "reconcile_all", filters?: ReportRequest) {
+async function requestScript(
+  action: "vsl_report" | "appointment_detail" | "reconcile_all",
+  filters?: ReportRequest | AppointmentDetailRequest,
+) {
   const env = getServerEnv();
   const url = new URL(env.APPS_SCRIPT_URL);
   url.searchParams.set("action", action);
@@ -36,6 +45,7 @@ async function requestScript(action: "vsl_report" | "reconcile_all", filters?: R
       "booker",
       "status",
       "vslOrigin",
+      ...(action === "appointment_detail" ? ["vslTipo" as const] : []),
       "closer",
       "includeDetail",
       "search",
@@ -45,8 +55,10 @@ async function requestScript(action: "vsl_report" | "reconcile_all", filters?: R
       "direction",
     ] as const) {
       if (key === "leadType" && filters.pipeline && filters.pipeline !== "vsl") continue;
-      if (filters[key] == null) continue;
-      url.searchParams.set(key, String(filters[key]));
+      if (!(key in filters)) continue;
+      const value = (filters as unknown as Record<string, unknown>)[key];
+      if (value == null) continue;
+      url.searchParams.set(key, String(value));
     }
   const controller = new AbortController();
   const startedAt = Date.now();
@@ -61,7 +73,7 @@ async function requestScript(action: "vsl_report" | "reconcile_all", filters?: R
       );
   const timer = setTimeout(
     () => controller.abort(),
-    action === "vsl_report" ? REPORT_TIMEOUT_MS : RECONCILE_TIMEOUT_MS,
+    action === "reconcile_all" ? RECONCILE_TIMEOUT_MS : REPORT_TIMEOUT_MS,
   );
   const debugReport =
     action === "vsl_report" &&
@@ -77,7 +89,7 @@ async function requestScript(action: "vsl_report" | "reconcile_all", filters?: R
     console.info("[reconcile_all] started", { timeoutMs: RECONCILE_TIMEOUT_MS });
   try {
     const response = await fetch(url, {
-      method: action === "vsl_report" ? "GET" : "POST",
+      method: action === "reconcile_all" ? "POST" : "GET",
       signal: controller.signal,
       redirect: "follow",
       cache: "no-store",
@@ -179,6 +191,9 @@ async function requestScript(action: "vsl_report" | "reconcile_all", filters?: R
 }
 export function fetchVslReport(filters: ReportRequest) {
   return requestScript("vsl_report", filters);
+}
+export function fetchAppointmentDetail(filters: AppointmentDetailRequest) {
+  return requestScript("appointment_detail", filters);
 }
 export function runVslReconciliation() {
   return requestScript("reconcile_all");

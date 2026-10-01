@@ -9,14 +9,21 @@ import { KpiCard } from "@/components/reports/KpiCard";
 import { SetterStatusTable } from "@/components/reports/SetterStatusTable";
 import { SetterStatusChart } from "@/components/reports/SetterStatusChart";
 import { ConversionSummary } from "@/components/reports/ConversionSummary";
-import { getVslClosersReport } from "@/services/reports";
+import { appointmentDetailFilters, getVslClosersReport } from "@/services/reports";
+import { AppointmentDetailModal } from "@/components/reports/AppointmentDetailModal";
 import { triggerVslReconciliation } from "@/services/reconciliation.service";
 import { RefreshButton } from "@/components/reports/RefreshButton";
 import { LoadingModal } from "@/components/reports/LoadingModal";
 import { LeadDetailTable } from "@/components/reports/LeadDetailTable";
 import { SalesSection } from "@/components/reports/SalesSection";
 import { getPipelineCardMetrics } from "@/lib/pipeline-summary";
-import type { DatePreset, DetailQuery, ReportFilters, VslClosersReport } from "@/types/reports";
+import type {
+  AppointmentDetailFilters,
+  DatePreset,
+  DetailQuery,
+  ReportFilters,
+  VslClosersReport,
+} from "@/types/reports";
 
 const EMPTY_FILTERS: ReportFilters = {
   preset: "todos",
@@ -83,6 +90,11 @@ function formatUpdatedAt(value: string) {
 
 export function VslClosersDashboard() {
   const [filters, setFilters] = useState<ReportFilters>(EMPTY_FILTERS);
+  const [appointmentSelection, setAppointmentSelection] = useState<{
+    name: string;
+    count: number;
+    filters: AppointmentDetailFilters;
+  } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const syncInFlight = useRef(false);
   const [syncMessage, setSyncMessage] = useState("");
@@ -290,6 +302,8 @@ export function VslClosersDashboard() {
             noShow: 0,
             pendienteAgenda: 0,
             reagendado: 0,
+            ...data?.setters?.find((row) => row.setter === person.name),
+            ...person,
             total: person.total,
           }))
         : (data?.setters ?? []),
@@ -459,7 +473,35 @@ export function VslClosersDashboard() {
             {cardMetrics.totalLeads === 0 && (
               <p>No existen registros para los filtros seleccionados.</p>
             )}
-            <SetterStatusTable rows={peopleRows} totals={data.kpis} mode={peopleMode} />
+            <SetterStatusTable
+              rows={peopleRows}
+              totals={data.kpis}
+              mode={peopleMode}
+              showStatuses={peopleMode !== "booker" || filters.pipeline === "oei"}
+              busy={
+                query.isFetching ||
+                query.isError ||
+                !query.data ||
+                isFiltering ||
+                !!appointmentSelection
+              }
+              onDetail={(person, status, count) => {
+                setAppointmentSelection(
+                  (current) =>
+                    current ?? {
+                      name: person || "Total general",
+                      count,
+                      filters: appointmentDetailFilters(filters, person, status),
+                    },
+                );
+              }}
+            />
+            {appointmentSelection && (
+              <AppointmentDetailModal
+                selection={appointmentSelection}
+                onClose={() => setAppointmentSelection(null)}
+              />
+            )}
             <SalesSection
               sales={data.sales}
               available={data.salesAvailable}

@@ -28,23 +28,30 @@ const fieldClass =
 
 // Presentation only: keep the API's option value unchanged.
 const calendarOptions = [
-  { id: "2stEL9p5aBxmHO5N7D8m", name: "Llamada de Claridad CM [A]", label: "VSL PAGADO - CIRCULO" },
-  { id: "mvIUSeyGl6PvbEzue8za", name: "Llamada de Claridad CM [ORG]", label: "ORGANICO - CIRCULO" },
+  {
+    id: "2stEL9p5aBxmHO5N7D8m",
+    name: "Llamada de Claridad CM [A]",
+    label: "VSL PAGADO - CIRCULO MILLONARIO",
+  },
+  {
+    id: "mvIUSeyGl6PvbEzue8za",
+    name: "Llamada de Claridad CM [ORG]",
+    label: "ORGANICO - CIRCULO MILLONARIO",
+  },
   {
     id: "pMZfD4DFxhQCJHC9zoK0",
     name: "Sesión Equipo Millonario (A)",
-    label: "VSL PAGADO - EQUIPO",
+    label: "VSL PAGADO - EQUIPO MILLONARIO",
   },
   {
     id: "yuWa4NolnVFmsURv7B7Q",
     name: "Sesión Equipo Millonario (ORG)",
-    label: "ORGANICO - EQUIPO",
+    label: "ORGANICO - EQUIPO MILLONARIO",
   },
 ];
 
 export function DashboardFilters({
   filters,
-  setters,
   bookers,
   closers,
   origins,
@@ -173,28 +180,6 @@ export function DashboardFilters({
             className={fieldClass}
           />
         </label>
-        {
-          <label className="block">
-            <span className="mb-1 block text-xs text-muted-foreground">Setter</span>
-            <select
-              value={filters.setter}
-              onChange={(e) => onChange({ setter: e.target.value })}
-              className={fieldClass}
-            >
-              <option value="">Todos</option>
-              {filters.setter && !setters.includes(filters.setter) && (
-                <option value={filters.setter}>
-                  {filters.setter} (sin registros de este tipo)
-                </option>
-              )}
-              {setters.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
-        }
         {filters.pipeline !== "vsl" && (
           <label className="block">
             <span className="mb-1 block text-xs text-muted-foreground">Creado por cita</span>

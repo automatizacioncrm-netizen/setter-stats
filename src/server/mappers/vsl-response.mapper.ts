@@ -27,7 +27,13 @@ const namedCounts = (value: unknown, key: "agendador" | "closer") =>
   array(value)
     .map((item) => {
       const row = object(item);
-      return { name: str(row[key]), total: num(row["total"]) };
+      return {
+        name: str(row[key]),
+        total: num(row["total"]),
+        ...Object.fromEntries(
+          Object.entries(counts(row)).filter(([field]) => row[field] != null),
+        ),
+      };
     })
     .filter((item) => item.name);
 const status = (value: unknown): string => (str(value) === "No show" ? "No asistió" : str(value));

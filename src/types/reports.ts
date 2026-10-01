@@ -27,6 +27,7 @@ export interface ReportFilters {
   booker: string;
   estadoAgenda: string;
   vslOrigen: string;
+  vslTipo?: string;
   closer: string;
 }
 
@@ -107,9 +108,59 @@ export interface VslClosersReport {
   detailPage: number;
 }
 
-export interface AppointmentPersonCount {
+export interface AppointmentPersonCount extends Partial<Omit<SetterRow, "setter" | "total">> {
   name: string;
   total: number;
+}
+
+export type AppointmentDetailFilters = {
+  pipeline: Pipeline;
+  leadType: LeadType;
+  setter: string;
+  booker: string;
+  status: string;
+  calendar: string;
+  dateFrom: string;
+  dateTo: string;
+  closer: string;
+  vslOrigin: string;
+  vslTipo?: string;
+  search: string;
+};
+export interface AppointmentDetailRow {
+  appointmentId?: string;
+  opportunityId?: string;
+  contactId?: string;
+  nombreContacto?: string;
+  telefono?: string;
+  correo?: string;
+  pipeline?: string;
+  secuencia?: string;
+  agendadoPor?: string;
+  setterAsignado?: string;
+  creadoPorCita?: string;
+  calendario?: string;
+  estado?: string;
+  fechaCreacionCita?: string;
+  fechaReunion?: string;
+  fechaCita?: string;
+  closer?: string;
+  closerCita?: string;
+  closerOpportunity?: string;
+  leadType?: string;
+  vslCategoria?: string;
+}
+export interface AppointmentDetailResponse {
+  rows: AppointmentDetailRow[];
+  pagination: { page: number; pageSize: number; totalRecords: number; totalPages: number };
+  summary: {
+    total: number;
+    confirmado: number;
+    asistio: number;
+    cancelado: number;
+    noShow: number;
+    tasaAsistencia: number;
+  };
 }
 
 export const SALES_STAGES = [

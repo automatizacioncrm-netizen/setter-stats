@@ -284,13 +284,12 @@ test("pipeline selector exposes LIG and uses supplied calendars, creators and st
   assert.match(html, /value="lig" selected=""/);
   for (const name of [
     ...calendars,
-    "Setter Opportunity",
     "Creador LIG",
     "Closer Calendar",
     "Creado por cita",
   ])
     assert.ok(html.includes(name), name);
-  assert.doesNotMatch(html, /VSL Origen|Llamada de Claridad|value="Confirmado"/);
+  assert.doesNotMatch(html, /VSL Origen|Llamada de Claridad|value="Confirmado"|Setter Opportunity|>Setter</);
 });
 
 test("browser client keeps booker separate and encodes accents, + and &", async (t) => {

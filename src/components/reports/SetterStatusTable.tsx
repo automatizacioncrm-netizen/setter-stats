@@ -20,15 +20,27 @@ const attendanceRate = (attended: number, total: number) => {
 };
 const sortValue = (row: SetterRow, key: Exclude<SortKey, "setter">) =>
   key === "attendanceRate" ? attendanceRate(row.asistio, row.total) : n(row[key]);
+const DETAIL_STATUS: Partial<Record<SortKey, string>> = {
+  confirmado: "Confirmado",
+  asistio: "Asistió",
+  cancelado: "Cancelado",
+  noShow: "No asistió",
+};
 
 export function SetterStatusTable({
   rows,
   totals,
   mode,
+  showStatuses = mode !== "booker",
+  onDetail,
+  busy = false,
 }: {
   rows: SetterRow[];
   totals: ReportKpis;
   mode: "setter" | "booker" | "general";
+  showStatuses?: boolean;
+  onDetail?: (person: string | undefined, status: string | undefined, count: number) => void;
+  busy?: boolean;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("total");
   const [asc, setAsc] = useState(false);
@@ -52,6 +64,22 @@ export function SetterStatusTable({
       setAsc(false);
     }
   };
+  const valueCell = (key: SortKey, value: number, person?: string) =>
+    key !== "attendanceRate" && value > 0 && onDetail && (key === "total" || DETAIL_STATUS[key]) ? (
+      <button
+        type="button"
+        disabled={
+          busy || person === "" || person === "Sin setter" || person === "Sin setter asignado"
+        }
+        className="cursor-pointer rounded px-1 underline decoration-dotted underline-offset-4 hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-default disabled:no-underline"
+        aria-label={`Ver ${value} agendamientos de ${person || "Total general"}${DETAIL_STATUS[key] ? `: ${DETAIL_STATUS[key]}` : ""}`}
+        onClick={() => onDetail(person, DETAIL_STATUS[key], value)}
+      >
+        {value}
+      </button>
+    ) : (
+      value
+    );
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-card">
@@ -73,19 +101,26 @@ export function SetterStatusTable({
             <tr className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
               <th className="sticky left-0 bg-muted/60 px-4 py-2 text-left font-medium">
                 <button className="inline-flex items-center gap-1" onClick={() => toggle("setter")}>
-                  {mode === "booker" ? "Agendador" : mode === "setter" ? "Setter asignado" : "Responsable"} <ArrowUpDown className="h-3 w-3" />
+                  {mode === "booker"
+                    ? "Agendador"
+                    : mode === "setter"
+                      ? "Setter asignado"
+                      : "Responsable"}{" "}
+                  <ArrowUpDown className="h-3 w-3" />
                 </button>
               </th>
-              {(mode === "booker" ? COLUMNS.filter((col) => col.key === "total") : COLUMNS).map((col) => (
-                <th key={col.key} className="px-4 py-2 text-right font-medium">
-                  <button
-                    className="inline-flex items-center gap-1"
-                    onClick={() => toggle(col.key)}
-                  >
-                    {col.label} <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </th>
-              ))}
+              {(showStatuses ? COLUMNS : COLUMNS.filter((col) => col.key === "total")).map(
+                (col) => (
+                  <th key={col.key} className="px-4 py-2 text-right font-medium">
+                    <button
+                      className="inline-flex items-center gap-1"
+                      onClick={() => toggle(col.key)}
+                    >
+                      {col.label} <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </th>
+                ),
+              )}
             </tr>
           </thead>
           <tbody>
@@ -97,35 +132,44 @@ export function SetterStatusTable({
                 <td className="sticky left-0 bg-surface px-4 py-2 font-medium text-foreground">
                   {row.setter || "Sin setter asignado"}
                 </td>
-                {(mode === "booker" ? COLUMNS.filter((col) => col.key === "total") : COLUMNS).map((col) => (
-                  <td
-                    key={col.key}
-                    className={`px-4 py-2 text-right tabular-nums ${
-                      col.key === "total"
-                        ? "font-semibold text-foreground"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {col.key === "attendanceRate"
-                      ? `${attendanceRate(row.asistio, row.total)}%`
-                      : n(row[col.key] as number)}
-                  </td>
-                ))}
+                {(showStatuses ? COLUMNS : COLUMNS.filter((col) => col.key === "total")).map(
+                  (col) => (
+                    <td
+                      key={col.key}
+                      className={`px-4 py-2 text-right tabular-nums ${
+                        col.key === "total"
+                          ? "font-semibold text-foreground"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {col.key === "attendanceRate"
+                        ? `${attendanceRate(row.asistio, row.total)}%`
+                        : valueCell(col.key, n(row[col.key] as number), row.setter)}
+                    </td>
+                  ),
+                )}
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-border bg-brand-soft font-semibold text-foreground">
               <td className="sticky left-0 bg-brand-soft px-4 py-2">Total general</td>
-              {(mode === "booker" ? COLUMNS.filter((col) => col.key === "total") : COLUMNS).map((col) => (
-                <td key={col.key} className="px-4 py-2 text-right tabular-nums">
-                  {col.key === "attendanceRate"
-                    ? `${attendanceRate(totals.asistio, totals.total)}%`
-                    : n(
-                        col.key === "total" ? totals.total : totals[col.key as keyof typeof totals],
-                      )}
-                </td>
-              ))}
+              {(showStatuses ? COLUMNS : COLUMNS.filter((col) => col.key === "total")).map(
+                (col) => (
+                  <td key={col.key} className="px-4 py-2 text-right tabular-nums">
+                    {col.key === "attendanceRate"
+                      ? `${attendanceRate(totals.asistio, totals.total)}%`
+                      : valueCell(
+                          col.key,
+                          n(
+                            col.key === "total"
+                              ? totals.total
+                              : totals[col.key as keyof typeof totals],
+                          ),
+                        )}
+                  </td>
+                ),
+              )}
             </tr>
           </tfoot>
         </table>

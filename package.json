@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite dev",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/report.cjs tests/loading-dashboard.cjs tests/appointments.cjs tests/consolidated-report.cjs tests/reconciliation.cjs tests/lig-report.cjs tests/frontend-report-semantics.cjs",
+    "test": "node --test tests/report.cjs tests/loading-dashboard.cjs tests/appointments.cjs tests/consolidated-report.cjs tests/reconciliation.cjs tests/lig-report.cjs tests/frontend-report-semantics.cjs tests/appointment-detail.cjs",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",

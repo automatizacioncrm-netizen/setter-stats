@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { fetchVslReport } from "../adapters/apps-script.adapter.server";
+import { fetchVslReport, fetchAppointmentDetail } from "../adapters/apps-script.adapter.server";
 import { mapVslReportResponse } from "../mappers/vsl-response.mapper";
 
 import { apiError, ApiError } from "../config/env.server";
@@ -46,9 +46,45 @@ const schema = z.object({
     .default("nombreContacto"),
   direction: z.enum(["asc", "desc"]).default("asc"),
 });
+const appointmentDetailSchema = schema
+  .omit({ includeDetail: true, sort: true, direction: true })
+  .extend({
+    vslTipo: z.string().max(300).optional(),
+    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  });
+const detailResponseSchema = z.object({
+  rows: z.array(z.object({}).passthrough()),
+  pagination: z.object({
+    page: z.number().int().min(1),
+    pageSize: z.number().int().min(1),
+    totalRecords: z.number().int().min(0),
+    totalPages: z.number().int().min(0),
+  }),
+  summary: z.object({
+    total: z.number(),
+    confirmado: z.number(),
+    asistio: z.number(),
+    cancelado: z.number(),
+    noShow: z.number(),
+    tasaAsistencia: z.number(),
+  }),
+});
 export async function reportApi(request: Request) {
   try {
-    const parsed = schema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+    const params = new URL(request.url).searchParams;
+    if (params.get("action") === "appointment_detail") {
+      const parsed = appointmentDetailSchema.safeParse(Object.fromEntries(params));
+      if (!parsed.success) throw new ApiError("Los filtros o la paginación no son válidos.", 400);
+      const q = parsed.data;
+      if (q.dateFrom && q.dateTo && q.dateFrom > q.dateTo)
+        throw new ApiError("La fecha Desde debe ser anterior o igual a Hasta.", 400);
+      const envelope = (await fetchAppointmentDetail(q)) as { data?: unknown };
+      const result = detailResponseSchema.safeParse(envelope.data ?? envelope);
+      if (!result.success)
+        throw new ApiError("El detalle de agendamientos tiene un formato inválido.");
+      return Response.json(result.data, { headers: { "Cache-Control": "no-store" } });
+    }
+    const parsed = schema.safeParse(Object.fromEntries(params));
     if (!parsed.success) throw new ApiError("Los filtros o la paginación no son válidos.", 400);
     const q = parsed.data;
     if (q.pipeline !== "vsl") q.leadType = "all";

@@ -58,10 +58,8 @@ export function ConversionSummary({ kpis }: Props) {
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-semibold tabular-nums text-foreground">
-            {kpis.tasaAsistencia}%
-          </span>
-          <span className="text-xs text-muted-foreground">Asistencia</span>
+          <span className="text-2xl font-semibold tabular-nums text-foreground">{kpis.total}</span>
+          <span className="text-xs text-muted-foreground">Agendamientos</span>
         </div>
       </div>
       <ul className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 text-xs min-[380px]:grid-cols-2">
