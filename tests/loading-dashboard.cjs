@@ -373,6 +373,50 @@ test("los nombres y cifras de Sin setter abren el mismo detalle", () => {
     ["Sin setter", undefined, 313],
   ]);
 });
+
+test("el nombre del agendador también abre el detalle en OEI y LIG", () => {
+  const exports = {};
+  const jsx = (type, props) => ({ type, props });
+  const source = ts.transpileModule(
+    fs.readFileSync("src/components/reports/SetterStatusTable.tsx", "utf8"),
+    {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+    },
+  ).outputText;
+  vm.runInNewContext(source, {
+    exports,
+    require(name) {
+      if (name === "react/jsx-runtime") return { jsx, jsxs: jsx };
+      if (name === "react")
+        return { useState: (value) => [value, () => {}], useMemo: (fn) => fn() };
+      if (name === "lucide-react") return { ArrowUpDown: "ArrowUpDown" };
+      throw new Error(name);
+    },
+  });
+
+  for (const pipeline of ["oei", "lig"]) {
+    const calls = [];
+    const tree = exports.SetterStatusTable({
+      rows: [{ setter: "Alvaro Jesus Paniura Marin", total: 30 }],
+      totals: { total: 30 },
+      mode: "booker",
+      showStatuses: false,
+      onDetail: (...args) => calls.push(args),
+    });
+    const nodes = (node) =>
+      !node || typeof node !== "object"
+        ? []
+        : [node, ...[node.props?.children].flat(Infinity).flatMap(nodes)];
+    const nameButton = nodes(tree).find(
+      (node) =>
+        node.type === "button" &&
+        node.props["aria-label"] === "Ver todos los agendamientos de Alvaro Jesus Paniura Marin",
+    );
+    assert.ok(nameButton, pipeline);
+    nameButton.props.onClick();
+    assert.deepEqual(calls, [["Alvaro Jesus Paniura Marin", undefined, 30]], pipeline);
+  }
+});
 function deferred() {
   let resolve;
   const promise = new Promise((done) => {
