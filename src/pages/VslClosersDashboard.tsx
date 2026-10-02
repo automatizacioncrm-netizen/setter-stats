@@ -477,7 +477,11 @@ export function VslClosersDashboard() {
               rows={peopleRows}
               totals={data.kpis}
               mode={peopleMode}
-              showStatuses={peopleMode !== "booker" || filters.pipeline === "oei"}
+              showStatuses={
+                peopleMode !== "booker" ||
+                filters.pipeline === "oei" ||
+                filters.pipeline === "lig"
+              }
               busy={
                 query.isFetching ||
                 query.isError ||
