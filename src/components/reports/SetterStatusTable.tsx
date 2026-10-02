@@ -68,9 +68,7 @@ export function SetterStatusTable({
     key !== "attendanceRate" && value > 0 && onDetail && (key === "total" || DETAIL_STATUS[key]) ? (
       <button
         type="button"
-        disabled={
-          busy || person === "" || person === "Sin setter" || person === "Sin setter asignado"
-        }
+        disabled={busy}
         className="cursor-pointer rounded px-1 underline decoration-dotted underline-offset-4 hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-default disabled:no-underline"
         aria-label={`Ver ${value} agendamientos de ${person || "Total general"}${DETAIL_STATUS[key] ? `: ${DETAIL_STATUS[key]}` : ""}`}
         onClick={() => onDetail(person, DETAIL_STATUS[key], value)}
@@ -124,32 +122,44 @@ export function SetterStatusTable({
             </tr>
           </thead>
           <tbody>
-            {sorted.map((row) => (
-              <tr
-                key={row.setter || "Sin setter asignado"}
-                className="border-t border-border hover:bg-accent/50"
-              >
-                <td className="sticky left-0 bg-surface px-4 py-2 font-medium text-foreground">
-                  {row.setter || "Sin setter asignado"}
-                </td>
-                {(showStatuses ? COLUMNS : COLUMNS.filter((col) => col.key === "total")).map(
-                  (col) => (
-                    <td
-                      key={col.key}
-                      className={`px-4 py-2 text-right tabular-nums ${
-                        col.key === "total"
-                          ? "font-semibold text-foreground"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {col.key === "attendanceRate"
-                        ? `${attendanceRate(row.asistio, row.total)}%`
-                        : valueCell(col.key, n(row[col.key] as number), row.setter)}
-                    </td>
-                  ),
-                )}
-              </tr>
-            ))}
+            {sorted.map((row) => {
+              const personLabel = row.setter || "Sin setter";
+              return (
+                <tr key={personLabel} className="border-t border-border hover:bg-accent/50">
+                  <td className="sticky left-0 bg-surface px-4 py-2 font-medium text-foreground">
+                    {mode === "setter" && onDetail ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className="cursor-pointer rounded px-1 text-left hover:bg-accent hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-default disabled:no-underline"
+                        aria-label={`Ver todos los agendamientos de ${personLabel}`}
+                        onClick={() => onDetail(personLabel, undefined, n(row.total))}
+                      >
+                        {personLabel}
+                      </button>
+                    ) : (
+                      personLabel
+                    )}
+                  </td>
+                  {(showStatuses ? COLUMNS : COLUMNS.filter((col) => col.key === "total")).map(
+                    (col) => (
+                      <td
+                        key={col.key}
+                        className={`px-4 py-2 text-right tabular-nums ${
+                          col.key === "total"
+                            ? "font-semibold text-foreground"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {col.key === "attendanceRate"
+                          ? `${attendanceRate(row.asistio, row.total)}%`
+                          : valueCell(col.key, n(row[col.key] as number), personLabel)}
+                      </td>
+                    ),
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-border bg-brand-soft font-semibold text-foreground">

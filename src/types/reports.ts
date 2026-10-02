@@ -118,7 +118,7 @@ export type AppointmentDetailFilters = {
   leadType: LeadType;
   setter: string;
   booker: string;
-  status: string;
+  status?: string;
   calendar: string;
   dateFrom: string;
   dateTo: string;

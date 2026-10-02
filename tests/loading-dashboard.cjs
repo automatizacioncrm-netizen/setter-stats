@@ -317,6 +317,62 @@ test("el pie de Desempeño por Setter usa kpis.total aunque los setters discrepe
         : String(node);
   assert.equal(text(visit(tree, "tfoot")), "Total general25034446%7574743");
 });
+
+test("los nombres y cifras de Sin setter abren el mismo detalle", () => {
+  const exports = {};
+  const jsx = (type, props) => ({ type, props });
+  const source = ts.transpileModule(
+    fs.readFileSync("src/components/reports/SetterStatusTable.tsx", "utf8"),
+    {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+    },
+  ).outputText;
+  vm.runInNewContext(source, {
+    exports,
+    require(name) {
+      if (name === "react/jsx-runtime") return { jsx, jsxs: jsx };
+      if (name === "react")
+        return { useState: (value) => [value, () => {}], useMemo: (fn) => fn() };
+      if (name === "lucide-react") return { ArrowUpDown: "ArrowUpDown" };
+      throw new Error(name);
+    },
+  });
+  const calls = [];
+  const tree = exports.SetterStatusTable({
+    rows: [
+      {
+        setter: "Sin setter",
+        confirmado: 54,
+        asistio: 100,
+        cancelado: 105,
+        noShow: 54,
+        total: 313,
+      },
+    ],
+    totals: { confirmado: 54, asistio: 100, cancelado: 105, noShow: 54, total: 313 },
+    mode: "setter",
+    onDetail: (...args) => calls.push(args),
+  });
+  const nodes = (node) =>
+    !node || typeof node !== "object"
+      ? []
+      : [node, ...[node.props?.children].flat(Infinity).flatMap(nodes)];
+  const detailButtons = nodes(tree).filter((node) => node.type === "button" && node.props.onClick);
+  const click = (label) =>
+    detailButtons.find((button) => button.props["aria-label"] === label).props.onClick();
+
+  click("Ver todos los agendamientos de Sin setter");
+  click("Ver 100 agendamientos de Sin setter: Asistió");
+  click("Ver 105 agendamientos de Sin setter: Cancelado");
+  click("Ver 313 agendamientos de Sin setter");
+
+  assert.deepEqual(calls, [
+    ["Sin setter", undefined, 313],
+    ["Sin setter", "Asistió", 100],
+    ["Sin setter", "Cancelado", 105],
+    ["Sin setter", undefined, 313],
+  ]);
+});
 function deferred() {
   let resolve;
   const promise = new Promise((done) => {

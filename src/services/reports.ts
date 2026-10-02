@@ -7,18 +7,33 @@ import type {
   VslClosersReport,
 } from "@/types/reports";
 
+export function getSetterApiValue(setterName?: string): string {
+  if (!setterName) return "";
+
+  const normalized = setterName.trim().toLocaleLowerCase("es");
+  if (normalized === "sin setter" || normalized === "sin setter asignado") {
+    return "__SIN_SETTER__";
+  }
+
+  return setterName;
+}
+
 export function appointmentDetailFilters(
   filters: ReportFilters,
   person?: string,
   status?: string,
 ): AppointmentDetailFilters {
   const pipeline = filters.pipeline ?? "all";
+  const personSelected = person !== undefined;
+  const usesBooker = pipeline === "oei" || pipeline === "lig";
+  const detailStatus = personSelected ? status : (status ?? filters.estadoAgenda);
   return {
     pipeline,
     leadType: filters.leadType,
-    setter: person && pipeline !== "oei" && pipeline !== "lig" ? person : filters.setter,
-    booker: person && (pipeline === "oei" || pipeline === "lig") ? person : filters.booker,
-    status: status ?? filters.estadoAgenda,
+    setter: personSelected && !usesBooker ? getSetterApiValue(person) : filters.setter,
+    booker: personSelected && usesBooker ? person : filters.booker,
+    // A row's name or total intentionally requests every status for that person.
+    ...(detailStatus ? { status: detailStatus } : {}),
     calendar: filters.calendar ?? "",
     dateFrom: filters.dateFrom,
     dateTo: filters.dateTo,
@@ -36,7 +51,12 @@ export async function getAppointmentDetail(
 ): Promise<AppointmentDetailResponse> {
   const params = new URLSearchParams(
     Object.entries({ ...filters, action: "appointment_detail", page, pageSize: 50 })
-      .filter(([key, value]) => value != null && (key !== "leadType" || filters.pipeline === "vsl"))
+      .filter(
+        ([key, value]) =>
+          value != null &&
+          !(key === "status" && value === "") &&
+          (key !== "leadType" || filters.pipeline === "vsl"),
+      )
       .map(([key, value]) => [key, String(value)]),
   );
   return readResponse<AppointmentDetailResponse>(

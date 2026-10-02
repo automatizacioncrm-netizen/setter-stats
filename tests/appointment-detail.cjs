@@ -10,7 +10,11 @@ require.extensions[".ts"] = (module, filename) =>
     }).outputText,
     filename,
   );
-const { appointmentDetailFilters, getAppointmentDetail } = require("../src/services/reports.ts");
+const {
+  appointmentDetailFilters,
+  getAppointmentDetail,
+  getSetterApiValue,
+} = require("../src/services/reports.ts");
 const { reportApi } = require("../src/server/api/report.api.server.ts");
 const filters = {
   pipeline: "vsl",
@@ -60,7 +64,7 @@ test("click selection respects pipeline, status and all applied filters", () => 
     for (const key of ["calendar", "dateFrom", "dateTo", "closer", "leadType", "vslTipo"])
       assert.equal(result[key], filters[key]);
     assert.equal(result.vslOrigin, filters.vslOrigen);
-    assert.equal(result.status, state ?? "");
+    assert.equal(result.status, state);
   }
   const applied = { ...filters, setter: "Setter", booker: "Booker", estadoAgenda: "Confirmado" };
   assert.equal(appointmentDetailFilters(applied).status, "Confirmado");
@@ -69,6 +73,39 @@ test("click selection respects pipeline, status and all applied filters", () => 
     appointmentDetailFilters({ ...applied, pipeline: "oei" }, "Booker").setter,
     "Setter",
   );
+});
+test("setter names and totals omit status and use the empty-setter sentinel", async (t) => {
+  assert.equal(getSetterApiValue("Jose Luis"), "Jose Luis");
+  assert.equal(getSetterApiValue(" Sin Setter "), "__SIN_SETTER__");
+  assert.equal(getSetterApiValue("Sin setter asignado"), "__SIN_SETTER__");
+
+  const activeStatus = { ...filters, estadoAgenda: "Confirmado" };
+  const normal = appointmentDetailFilters(activeStatus, "Jose Luis");
+  const unassigned = appointmentDetailFilters(activeStatus, "Sin setter");
+  assert.equal(normal.setter, "Jose Luis");
+  assert.equal("status" in normal, false);
+  assert.equal(unassigned.setter, "__SIN_SETTER__");
+  assert.equal("status" in unassigned, false);
+  assert.equal(appointmentDetailFilters(activeStatus, "Sin setter", "Asistió").status, "Asistió");
+
+  setup(t);
+  const browserUrls = [];
+  global.fetch = async (url) => {
+    if (String(url).startsWith("/api/")) {
+      browserUrls.push(new URL(`http://local${url}`));
+      return Response.json({
+        rows: [],
+        summary: { ...summary, total: 0 },
+        pagination: { page: 1, pageSize: 50, totalRecords: 0, totalPages: 0 },
+      });
+    }
+    return assert.fail("The proxy should not be needed in this serialization check");
+  };
+  await getAppointmentDetail(unassigned);
+  assert.equal(browserUrls[0].searchParams.get("setter"), "__SIN_SETTER__");
+  assert.equal(browserUrls[0].searchParams.has("status"), false);
+  assert.equal(browserUrls[0].searchParams.get("page"), "1");
+  assert.equal(browserUrls[0].searchParams.get("pageSize"), "50");
 });
 test("browser → proxy → authenticated appointment_detail preserves selection on pages 1 and 2", async (t) => {
   setup(t);
