@@ -90,8 +90,32 @@ test("request preserves endpoint, effective setter, booker, dates, and consolida
     { includeDetail: true },
   );
   assert.deepEqual(report.sales, sales);
-  assert.deepEqual(report.availableSetters, ["Evelyn"]);
+  assert.deepEqual(report.availableSetters, []);
 });
+test("report origin filters are sent exactly with closer and API options are authoritative", async (t) => {
+  const saved = global.fetch;
+  t.after(() => {
+    global.fetch = saved;
+  });
+  for (const origin of ["Agendado automatico", "No agendado", ""]) {
+    const body = {
+      availableOrigins: ["Agendado automatico", "No agendado"],
+      availableSetters: ["API name"],
+    };
+    global.fetch = async (url) => {
+      const params = new URL(url, "http://local").searchParams;
+      assert.equal(params.get("vslOrigin"), origin);
+      assert.equal(params.get("closer"), "Closer seleccionado");
+      return Response.json(body);
+    };
+    const result = await getVslClosersReport(
+      { pipeline: "vsl", vslOrigen: origin, closer: "Closer seleccionado" },
+      { includeDetail: false },
+    );
+    assert.deepEqual(result, body);
+  }
+});
+
 test("legacy VSL local filter preserves all API sales aggregates and rows", () => {
   const sales = {
     total: 12,
@@ -270,6 +294,6 @@ test("all query params and authoritative period results survive frontend service
   assert.deepEqual(report.kpis, body.kpis);
   assert.deepEqual(report.detail, body.detail);
   assert.deepEqual(report.sales, body.sales);
-  assert.deepEqual(report.availableOrigins, ["existing", paidOrigins[4]]);
+  assert.deepEqual(report.availableOrigins, ["existing"]);
   assert.equal(filtrarReporteVsl(report, "paid", detail), report);
 });

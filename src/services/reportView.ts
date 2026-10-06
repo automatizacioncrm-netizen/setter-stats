@@ -5,10 +5,10 @@ export function toReportView(
   report: VslReport,
   filters: ReportFilters,
   page: number,
-): VslClosersReport {
+): VslClosersReport & { detailTotalKnown: boolean } {
   const available = report.filters?.available;
   const applied = report.filters?.applied;
-  const array = <T,>(value: T[] | null | undefined): T[] => Array.isArray(value) ? value : [];
+  const array = <T>(value: T[] | null | undefined): T[] => (Array.isArray(value) ? value : []);
   return {
     ...report,
     leadType: report.leadType as VslClosersReport["leadType"],
@@ -49,6 +49,7 @@ export function toReportView(
       attendanceRate: report.kpis.tasaAsistencia,
     },
     availableSetters: array(available?.["setters"]),
+    availableBookers: array(available?.["bookers"]),
     availableClosers: array(available?.["closers"]),
     availableOrigins: array(available?.["origins"]),
     availableCalendars: array(available?.["calendars"]),

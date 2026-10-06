@@ -30,9 +30,7 @@ const namedCounts = (value: unknown, key: "agendador" | "closer") =>
       return {
         name: str(row[key]),
         total: num(row["total"]),
-        ...Object.fromEntries(
-          Object.entries(counts(row)).filter(([field]) => row[field] != null),
-        ),
+        ...Object.fromEntries(Object.entries(counts(row)).filter(([field]) => row[field] != null)),
       };
     })
     .filter((item) => item.name);
@@ -294,6 +292,9 @@ export function mapVslReportResponse(
     kpis,
     leadTypeKpis: {
       totalLeads: num(legacyKpis["totalLeads"] ?? rawKpis["totalLeads"]),
+      ...(legacyKpis["totalAppointments"] != null
+        ? { totalAppointments: num(legacyKpis["totalAppointments"]) }
+        : {}),
       attended: num(legacyKpis["attended"] ?? kpis.asistio),
       attendanceRate: num(legacyKpis["attendanceRate"] ?? kpis.tasaAsistencia),
     },

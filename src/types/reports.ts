@@ -11,7 +11,7 @@ export const ESTADOS_AGENDA = [
 
 export type EstadoAgenda = (typeof ESTADOS_AGENDA)[number];
 
-export type DatePreset = "hoy" | "ayer" | "7dias" | "mes" | "custom" | "todos";
+export type DatePreset = "hoy" | "ayer" | "7dias" | "mes" | "mesPasado" | "custom" | "todos";
 
 export type LeadType = "all" | "paid" | "organic";
 export type Pipeline = "all" | "vsl" | "oei" | "lig";
@@ -33,6 +33,7 @@ export interface ReportFilters {
 
 export interface LeadTypeKpis {
   totalLeads: number;
+  totalAppointments?: number;
   attended: number;
   attendanceRate: number;
 }
@@ -63,6 +64,33 @@ export interface SetterRow {
   pendienteAgenda: number;
   reagendado: number;
   total: number;
+}
+
+/** Compatibility contract used by the existing standalone report client. */
+export interface VslReport {
+  report: string;
+  leadType: LeadType;
+  updatedAt?: string;
+  filters?: {
+    applied?: Partial<ReportFilters> & { status?: string; vslOrigin?: string };
+    available?: Record<string, string[]>;
+  };
+  kpis: Partial<ReportKpis> &
+    Pick<
+      ReportKpis,
+      "total" | "asistio" | "cancelado" | "noShow" | "tasaAsistencia" | "tasaNoShow"
+    >;
+  setters?: (Partial<SetterRow> &
+    Pick<SetterRow, "setter" | "total" | "asistio" | "cancelado" | "noShow">)[];
+  sales?: Partial<SalesReport>;
+  detail?: LeadDetailRow[];
+  pagination?: { page?: number; pageSize?: number; totalDetail?: number; totalPages?: number };
+  pipelineSummary?: Record<string, unknown>;
+}
+
+export interface VslReportResponse {
+  ok: boolean;
+  data?: VslReport;
 }
 
 export interface VslClosersReport {
@@ -113,6 +141,8 @@ export interface AppointmentPersonCount extends Partial<Omit<SetterRow, "setter"
   total: number;
 }
 
+export type AppointmentDateField = "appointmentCreated" | "meetingDate";
+
 export type AppointmentDetailFilters = {
   pipeline: Pipeline;
   leadType: LeadType;
@@ -122,6 +152,7 @@ export type AppointmentDetailFilters = {
   calendar: string;
   dateFrom: string;
   dateTo: string;
+  dateField?: AppointmentDateField;
   closer: string;
   vslOrigin: string;
   vslTipo?: string;

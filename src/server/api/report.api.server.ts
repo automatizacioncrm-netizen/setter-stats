@@ -50,6 +50,7 @@ const appointmentDetailSchema = schema
   .omit({ includeDetail: true, sort: true, direction: true })
   .extend({
     vslTipo: z.string().max(300).optional(),
+    dateField: z.enum(["appointmentCreated", "meetingDate"]).optional(),
     pageSize: z.coerce.number().int().min(1).max(100).default(50),
   });
 const detailResponseSchema = z.object({

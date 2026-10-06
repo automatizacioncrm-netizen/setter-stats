@@ -73,7 +73,7 @@ function harness(autoFrames = true) {
             return (state[index] ??= { current: initial });
           },
           useEffect(fn, deps) {
-            if (deps.length === 1 && deps[0] === query.data) fn();
+            if (deps[0] === query.data && (deps.length === 1 || typeof deps[1] === "string")) fn();
             if (deps.length === 2 && deps.every((value) => typeof value === "boolean")) fn();
           },
           useMemo: (fn) => fn(),
@@ -98,6 +98,9 @@ function harness(autoFrames = true) {
       if (name.includes("reconciliation.service"))
         return { triggerVslReconciliation: () => api.post() };
       if (name.includes("pipeline-summary")) return require("../src/lib/pipeline-summary.ts");
+      if (name.includes("setter-performance")) return require("../src/lib/setter-performance.ts");
+      if (name.includes("report-filter-state")) return require("../src/lib/report-filter-state.ts");
+      if (name.includes("services/reports")) return require("../src/services/reports.ts");
       return new Proxy({}, { get: (_, key) => component(key) });
     },
   });
@@ -264,7 +267,7 @@ test("period presets keep Peru dates, seven inclusive days, and empty Todo bound
   }
 });
 
-test("el pie de Desempeño por Setter usa kpis.total aunque los setters discrepen", () => {
+test("el pie de Desempeño por Setter suma solo las filas permitidas", () => {
   const exports = {};
   const jsx = (type, props) => ({ type, props });
   const source = ts.transpileModule(
@@ -280,12 +283,14 @@ test("el pie de Desempeño por Setter usa kpis.total aunque los setters discrepe
       if (name === "react")
         return { useState: (value) => [value, () => {}], useMemo: (fn) => fn() };
       if (name === "lucide-react") return { ArrowUpDown: "ArrowUpDown" };
+      if (name.includes("setter-performance")) return require("../src/lib/setter-performance.ts");
       throw new Error(name);
     },
   });
   const tree = exports.SetterStatusTable({
     rows: [
-      { setter: "Ana", confirmado: 300, asistio: 344, cancelado: 100, noShow: 202, total: 946 },
+      { setter: "Kiara", confirmado: 300, asistio: 344, cancelado: 100, noShow: 202, total: 946 },
+      { setter: "Otro", confirmado: 999, asistio: 999, cancelado: 999, noShow: 999, total: 999 },
     ],
     totals: {
       confirmado: 250,
@@ -315,7 +320,7 @@ test("el pie de Desempeño por Setter usa kpis.total aunque los setters discrepe
             .map(text)
             .join("")
         : String(node);
-  assert.equal(text(visit(tree, "tfoot")), "Total general25034446%7574743");
+  assert.equal(text(visit(tree, "tfoot")), "Total general30034436%100202946");
 });
 
 test("los nombres y cifras de Sin setter abren el mismo detalle", () => {
@@ -334,6 +339,7 @@ test("los nombres y cifras de Sin setter abren el mismo detalle", () => {
       if (name === "react")
         return { useState: (value) => [value, () => {}], useMemo: (fn) => fn() };
       if (name === "lucide-react") return { ArrowUpDown: "ArrowUpDown" };
+      if (name.includes("setter-performance")) return require("../src/lib/setter-performance.ts");
       throw new Error(name);
     },
   });
@@ -367,10 +373,10 @@ test("los nombres y cifras de Sin setter abren el mismo detalle", () => {
   click("Ver 313 agendamientos de Sin setter");
 
   assert.deepEqual(calls, [
-    ["Sin setter", undefined, 313],
-    ["Sin setter", "Asistió", 100],
-    ["Sin setter", "Cancelado", 105],
-    ["Sin setter", undefined, 313],
+    ["Sin setter", undefined, 313, ["Sin setter"]],
+    ["Sin setter", "Asistió", 100, ["Sin setter"]],
+    ["Sin setter", "Cancelado", 105, ["Sin setter"]],
+    ["Sin setter", undefined, 313, ["Sin setter"]],
   ]);
 });
 
@@ -390,6 +396,7 @@ test("el nombre del agendador también abre el detalle en OEI y LIG", () => {
       if (name === "react")
         return { useState: (value) => [value, () => {}], useMemo: (fn) => fn() };
       if (name === "lucide-react") return { ArrowUpDown: "ArrowUpDown" };
+      if (name.includes("setter-performance")) return require("../src/lib/setter-performance.ts");
       throw new Error(name);
     },
   });
@@ -414,7 +421,11 @@ test("el nombre del agendador también abre el detalle en OEI y LIG", () => {
     );
     assert.ok(nameButton, pipeline);
     nameButton.props.onClick();
-    assert.deepEqual(calls, [["Alvaro Jesus Paniura Marin", undefined, 30]], pipeline);
+    assert.deepEqual(
+      calls,
+      [["Alvaro Jesus Paniura Marin", undefined, 30, ["Alvaro Jesus Paniura Marin"]]],
+      pipeline,
+    );
   }
 });
 function deferred() {
@@ -428,7 +439,8 @@ function deferred() {
 test("initial loading closes on success or error; retry remains available", () => {
   const h = harness();
   assert.equal(h.find("LoadingModal").props.title, "Cargando reporte...");
-  assert.equal(h.find("LoadingModal").props.open, true);
+  assert.equal(h.find("LoadingModal").props.open, false);
+  assert.ok(h.find("Skeleton"));
   h.query.isLoading = false;
   h.query.isError = true;
   h.render();
@@ -460,16 +472,17 @@ test("lead type changes reset incompatible filters and survive reconciliation", 
   const filters = h.query.options.queryKey[1];
   assert.equal(filters.dateFrom, "2026-08-01");
   assert.equal(filters.dateTo, "2026-08-31");
-  assert.equal(filters.setter, "");
+  assert.equal(filters.setter, "Jose Luis");
   assert.equal(filters.pipeline, "vsl");
   assert.equal(filters.leadType, "organic");
   assert.equal(h.query.options.queryKey[2].page, 1);
   h.query.isFetching = true;
   h.render();
-  assert.equal(h.find("LoadingModal").props.open, true);
+  assert.equal(h.find("LoadingModal").props.open, false);
+  assert.ok(h.find("Skeleton"));
   h.query.isFetching = false;
   h.query.data.leadType = "organic";
-  h.render();
+  h.advance(350);
   assert.equal(h.find("KpiCard").props.label, "Total de leads");
   assert.equal(h.find("SetterStatusTable").props.rows, h.find("SetterStatusChart").props.rows);
   await h.find("RefreshButton").props.onClick();
@@ -575,11 +588,12 @@ test("sales uses the same query data as the setter table across filters and refr
   });
   h.query.isFetching = true;
   h.render();
-  assert.equal(h.find("LoadingModal").props.open, true);
+  assert.equal(h.find("LoadingModal").props.open, false);
+  assert.ok(h.find("Skeleton"));
   const fresh = { total: 0, byStage: [], rows: [] };
   h.query.data = { ...h.query.data, sales: fresh, leadType: "organic" };
   h.query.isFetching = false;
-  h.render();
+  h.advance(350);
   assert.equal(h.find("SalesSection").props.sales, fresh);
   assert.equal(h.query.options.queryKey[1].estadoAgenda, "No asistió");
   await h.find("RefreshButton").props.onClick();
@@ -587,7 +601,7 @@ test("sales uses the same query data as the setter table across filters and refr
   assert.equal(h.find("SalesSection").props.sales, h.query.data.sales);
 });
 
-test("all filter handlers show the cached-data modal for 350ms without reconciliation", () => {
+test("all filter handlers show stable skeletons without a modal or reconciliation", () => {
   const h = harness(false);
   h.loaded();
   let posts = 0;
@@ -621,20 +635,26 @@ test("all filter handlers show the cached-data modal for 350ms without reconcili
     const previousFilters = h.query.options.queryKey[1];
     action();
     h.render();
-    assert.equal(h.find("LoadingModal").props.open, true);
-    assert.equal(h.query.options.queryKey[1], previousFilters, "modal precedes filter application");
+    assert.equal(h.find("LoadingModal").props.open, false);
+    assert.ok(h.find("Skeleton"));
+    assert.equal(
+      h.query.options.queryKey[1],
+      previousFilters,
+      "placeholder precedes filter application",
+    );
     h.paint();
     h.paint();
     h.render();
     h.advance(349);
-    assert.equal(h.find("LoadingModal").props.open, true);
+    assert.equal(h.find("LoadingModal").props.open, false);
+    assert.ok(h.find("Skeleton"));
     h.advance(1);
     assert.equal(h.find("LoadingModal").props.open, false);
   }
   assert.equal(posts, 0);
 });
 
-test("latest filter wins and the modal waits for a pending GET, including failure", () => {
+test("latest filter wins and the skeleton waits for a pending GET, including failure", () => {
   const h = harness(false);
   h.loaded();
   const change = (pipeline) => h.find("DashboardFilters").props.onChange({ pipeline });
@@ -653,16 +673,43 @@ test("latest filter wins and the modal waits for a pending GET, including failur
   h.paint();
   h.render();
   h.advance(150);
-  assert.equal(h.find("LoadingModal").props.open, true);
+  assert.equal(h.find("LoadingModal").props.open, false);
+  assert.ok(h.find("Skeleton"));
   h.query.isFetching = true;
   h.advance(200);
-  assert.equal(h.find("LoadingModal").props.open, true);
+  assert.equal(h.find("LoadingModal").props.open, false);
+  assert.ok(h.find("Skeleton"));
   h.query.isFetching = false;
   h.query.isError = true;
   h.render();
   assert.equal(h.find("LoadingModal").props.open, false);
   assert.equal(h.query.options.queryKey[1].pipeline, "oei");
   assert.ok(h.find("KpiCard"));
+});
+
+test("filter changes hide old figures, reset VSL fields, and close appointment details", () => {
+  const h = harness();
+  h.loaded();
+  h.find("DashboardFilters").props.onChange({ pipeline: "vsl" });
+  h.render();
+  h.advance(350);
+  h.find("DashboardFilters").props.onChange({ vslOrigen: "Agendado automatico", leadType: "paid" });
+  h.render();
+  h.advance(350);
+  h.find("SetterStatusTable").props.onDetail("Kiara", "Asistió", 1);
+  h.render();
+  assert.ok(h.find("AppointmentDetailModal"));
+  h.find("DashboardFilters").props.onChange({ pipeline: "oei" });
+  h.query.data = undefined;
+  h.query.isLoading = true;
+  h.query.isFetching = true;
+  h.render();
+  assert.equal(h.find("AppointmentDetailModal"), undefined);
+  assert.equal(h.find("KpiCard"), undefined);
+  const filters = h.query.options.queryKey[1];
+  assert.equal(filters.pipeline, "oei");
+  assert.equal(filters.leadType, "all");
+  assert.equal(filters.vslOrigen, "");
 });
 
 test("focus refresh retains loaded data without starting a filter transition", () => {

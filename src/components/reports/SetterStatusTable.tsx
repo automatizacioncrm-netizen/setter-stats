@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ArrowUpDown } from "lucide-react";
 import type { SetterRow, ReportKpis } from "@/types/reports";
+import { normalizeSetterRows } from "@/lib/setter-performance";
 
 type SortKey = keyof SetterRow | "attendanceRate";
 
@@ -29,7 +30,6 @@ const DETAIL_STATUS: Partial<Record<SortKey, string>> = {
 
 export function SetterStatusTable({
   rows,
-  totals,
   mode,
   showStatuses = mode !== "booker",
   onDetail,
@@ -39,14 +39,35 @@ export function SetterStatusTable({
   totals: ReportKpis;
   mode: "setter" | "booker" | "general";
   showStatuses?: boolean;
-  onDetail?: (person: string | undefined, status: string | undefined, count: number) => void;
+  onDetail?: (
+    person: string | undefined,
+    status: string | undefined,
+    count: number,
+    sourceNames?: string[],
+  ) => void;
   busy?: boolean;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("total");
   const [asc, setAsc] = useState(false);
 
+  const visiblePerformanceRows = useMemo(() => normalizeSetterRows(rows), [rows]);
+  const totals = useMemo(
+    () =>
+      visiblePerformanceRows.reduce(
+        (acc, row) => ({
+          confirmado: acc.confirmado + n(row.confirmado),
+          asistio: acc.asistio + n(row.asistio),
+          cancelado: acc.cancelado + n(row.cancelado),
+          noShow: acc.noShow + n(row.noShow),
+          total: acc.total + n(row.total),
+        }),
+        { confirmado: 0, asistio: 0, cancelado: 0, noShow: 0, total: 0 },
+      ),
+    [visiblePerformanceRows],
+  );
+
   const sorted = useMemo(() => {
-    const copy = [...rows];
+    const copy = [...visiblePerformanceRows];
     copy.sort((a, b) => {
       if (sortKey === "setter")
         return asc ? a.setter.localeCompare(b.setter) : b.setter.localeCompare(a.setter);
@@ -55,7 +76,7 @@ export function SetterStatusTable({
         : sortValue(b, sortKey) - sortValue(a, sortKey);
     });
     return copy;
-  }, [rows, sortKey, asc]);
+  }, [visiblePerformanceRows, sortKey, asc]);
 
   const toggle = (key: SortKey) => {
     if (key === sortKey) setAsc((v) => !v);
@@ -64,14 +85,14 @@ export function SetterStatusTable({
       setAsc(false);
     }
   };
-  const valueCell = (key: SortKey, value: number, person?: string) =>
+  const valueCell = (key: SortKey, value: number, person?: string, sourceNames?: string[]) =>
     key !== "attendanceRate" && value > 0 && onDetail && (key === "total" || DETAIL_STATUS[key]) ? (
       <button
         type="button"
         disabled={busy}
         className="cursor-pointer rounded px-1 underline decoration-dotted underline-offset-4 hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-default disabled:no-underline"
         aria-label={`Ver ${value} agendamientos de ${person || "Total general"}${DETAIL_STATUS[key] ? `: ${DETAIL_STATUS[key]}` : ""}`}
-        onClick={() => onDetail(person, DETAIL_STATUS[key], value)}
+        onClick={() => onDetail(person, DETAIL_STATUS[key], value, sourceNames)}
       >
         {value}
       </button>
@@ -123,9 +144,10 @@ export function SetterStatusTable({
           </thead>
           <tbody>
             {sorted.map((row) => {
-              const personLabel = row.setter || "Sin setter";
+              const person = row.setter || "Sin setter";
+              const personLabel = person;
               return (
-                <tr key={personLabel} className="border-t border-border hover:bg-accent/50">
+                <tr key={person} className="border-t border-border hover:bg-accent/50">
                   <td className="sticky left-0 bg-surface px-4 py-2 font-medium text-foreground">
                     {onDetail ? (
                       <button
@@ -133,7 +155,7 @@ export function SetterStatusTable({
                         disabled={busy}
                         className="cursor-pointer rounded px-1 text-left hover:bg-accent hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-default disabled:no-underline"
                         aria-label={`Ver todos los agendamientos de ${personLabel}`}
-                        onClick={() => onDetail(personLabel, undefined, n(row.total))}
+                        onClick={() => onDetail(person, undefined, n(row.total), row.sourceNames)}
                       >
                         {personLabel}
                       </button>
@@ -153,7 +175,7 @@ export function SetterStatusTable({
                       >
                         {col.key === "attendanceRate"
                           ? `${attendanceRate(row.asistio, row.total)}%`
-                          : valueCell(col.key, n(row[col.key] as number), personLabel)}
+                          : valueCell(col.key, n(row[col.key] as number), person, row.sourceNames)}
                       </td>
                     ),
                   )}
@@ -176,6 +198,8 @@ export function SetterStatusTable({
                               ? totals.total
                               : totals[col.key as keyof typeof totals],
                           ),
+                          undefined,
+                          [...new Set(visiblePerformanceRows.flatMap((row) => row.sourceNames))],
                         )}
                   </td>
                 ),

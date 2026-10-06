@@ -17,6 +17,15 @@ import { LoadingModal } from "@/components/reports/LoadingModal";
 import { LeadDetailTable } from "@/components/reports/LeadDetailTable";
 import { SalesSection } from "@/components/reports/SalesSection";
 import { getPipelineCardMetrics } from "@/lib/pipeline-summary";
+import { getCanonicalSetterName, getSetterOptions } from "@/lib/setter-performance";
+import {
+  EMPTY_REPORT_FILTERS as EMPTY_FILTERS,
+  changeReportFilters,
+  isValidReportRange,
+  isReportCloser,
+  rangeForPreset,
+} from "@/lib/report-filter-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import type {
   AppointmentDetailFilters,
   DatePreset,
@@ -24,55 +33,6 @@ import type {
   ReportFilters,
   VslClosersReport,
 } from "@/types/reports";
-
-const EMPTY_FILTERS: ReportFilters = {
-  preset: "todos",
-  pipeline: "all",
-  leadType: "all",
-  calendar: "",
-  dateFrom: "",
-  dateTo: "",
-  setter: "",
-  booker: "",
-  estadoAgenda: "",
-  closer: "",
-  vslOrigen: "",
-};
-
-function iso(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
-
-function rangeForPreset(preset: DatePreset): { dateFrom: string; dateTo: string } {
-  const today = new Date(
-    new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/Lima",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(new Date()) + "T12:00:00Z",
-  );
-  switch (preset) {
-    case "hoy":
-      return { dateFrom: iso(today), dateTo: iso(today) };
-    case "ayer": {
-      const y = new Date(today);
-      y.setUTCDate(y.getUTCDate() - 1);
-      return { dateFrom: iso(y), dateTo: iso(y) };
-    }
-    case "7dias": {
-      const from = new Date(today);
-      from.setUTCDate(from.getUTCDate() - 6);
-      return { dateFrom: iso(from), dateTo: iso(today) };
-    }
-    case "mes": {
-      const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-      return { dateFrom: iso(from), dateTo: iso(today) };
-    }
-    default:
-      return { dateFrom: "", dateTo: "" };
-  }
-}
 
 function formatUpdatedAt(value: string) {
   const date = new Date(value);
@@ -94,6 +54,7 @@ export function VslClosersDashboard() {
     name: string;
     count: number;
     filters: AppointmentDetailFilters;
+    sourceNames?: string[];
   } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const syncInFlight = useRef(false);
@@ -112,13 +73,80 @@ export function VslClosersDashboard() {
     return () => clearTimeout(timer);
   }, [detail.search]);
 
+  const contextFilters = useMemo(
+    () => ({ ...EMPTY_FILTERS, pipeline: filters.pipeline ?? "all", leadType: filters.leadType }),
+    [filters.pipeline, filters.leadType],
+  );
+  const contextDetail = { ...detail, includeDetail: false, search: "", page: 1 };
+  const contextQuery = useQuery({
+    queryKey: ["vsl-closers", contextFilters, contextDetail, undefined],
+    queryFn: ({ signal }) => getVslClosersReport(contextFilters, contextDetail, signal),
+    retry: false,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const context =
+    contextQuery.data?.filters?.pipeline === filters.pipeline ? contextQuery.data : undefined;
+  const usesBooker = filters.pipeline === "oei" || filters.pipeline === "lig";
+  const contextNames = useMemo(
+    () =>
+      usesBooker
+        ? [
+            ...(context?.availableBookers ?? []),
+            ...(filters.pipeline === "oei"
+              ? (context?.appointmentPeople?.oeiBookers ?? [])
+              : (context?.appointmentPeople?.ligBookers ?? [])
+            ).map((person) => person.name),
+          ]
+        : [
+            ...(context?.availableSetters ?? []),
+            ...(filters.pipeline === "all" ? (context?.availableBookers ?? []) : []),
+            ...(context?.setters ?? []).map((row) => row.setter),
+          ],
+    [usesBooker, context, filters.pipeline],
+  );
+  const person = usesBooker ? filters.booker : filters.setter;
+  const sourceNames = getSetterOptions(contextNames).find(
+    (option) => option.value === (getCanonicalSetterName(person) ?? person),
+  )?.sourceNames;
+  const validRange = isValidReportRange(filters);
   const query = useQuery({
-    queryKey: ["vsl-closers", filters, { ...detail, search }],
-    queryFn: ({ signal }) => getVslClosersReport(filters, { ...detail, search }, signal),
+    queryKey: ["vsl-closers", filters, { ...detail, search }, person ? sourceNames : undefined],
+    queryFn: ({ signal }) =>
+      getVslClosersReport(filters, { ...detail, search }, signal, person ? sourceNames : undefined),
+    enabled:
+      validRange &&
+      (!person || Boolean(sourceNames?.length)) &&
+      (!filters.closer || isReportCloser(filters.closer)) &&
+      (!filters.calendar || Boolean(context?.availableCalendars?.includes(filters.calendar))) &&
+      (!filters.estadoAgenda ||
+        Boolean(context?.availableStatuses?.includes(filters.estadoAgenda))),
     retry: false,
     refetchOnWindowFocus: !syncing,
     refetchOnReconnect: !syncing,
   });
+
+  const validatedPipeline = useRef(filters.pipeline);
+  useEffect(() => {
+    if (!context || validatedPipeline.current === filters.pipeline) return;
+    validatedPipeline.current = filters.pipeline;
+    const allowed = getSetterOptions(contextNames).map((option) => option.value);
+    setFilters((previous) => ({
+      ...previous,
+      ...((previous.setter || previous.booker) &&
+      !allowed.includes(getCanonicalSetterName(previous.setter || previous.booker) ?? "")
+        ? { setter: "", booker: "" }
+        : {}),
+      ...(previous.closer && !isReportCloser(previous.closer) ? { closer: "" } : {}),
+      ...(previous.calendar && !context.availableCalendars?.includes(previous.calendar)
+        ? { calendar: "" }
+        : {}),
+      ...(previous.estadoAgenda && !context.availableStatuses?.includes(previous.estadoAgenda)
+        ? { estadoAgenda: "" }
+        : {}),
+    }));
+  }, [context, filters.pipeline, contextNames]);
 
   const [isFiltering, setIsFiltering] = useState(false);
   const [filterDelayDone, setFilterDelayDone] = useState(false);
@@ -139,11 +167,12 @@ export function VslClosersDashboard() {
 
   const runFilterTransition = useCallback(
     (apply: () => void) => {
+      setAppointmentSelection(null);
       cancelFilterTransition();
       const version = ++filterVersion.current;
       setIsFiltering(true);
       setFilterDelayDone(false);
-      // Allow the existing modal to paint before changing cascading controls.
+      // Paint stable placeholders before changing cascading controls.
       filterFrame.current = requestAnimationFrame(() => {
         filterFrame.current = requestAnimationFrame(() => {
           if (version !== filterVersion.current) return;
@@ -163,45 +192,7 @@ export function VslClosersDashboard() {
   const handleChange = useCallback(
     (next: Partial<ReportFilters>) => {
       runFilterTransition(() => {
-        setFilters((prev) => {
-          if (next.pipeline && next.pipeline !== prev.pipeline)
-            return {
-              ...prev,
-              pipeline: next.pipeline,
-              leadType: "all",
-              calendar: "",
-              setter: "",
-              booker: "",
-              closer: "",
-              estadoAgenda: "",
-              vslOrigen: "",
-            };
-          if (next.leadType && next.leadType !== prev.leadType)
-            return {
-              ...prev,
-              leadType: next.leadType,
-              calendar: "",
-              setter: "",
-              booker: "",
-              closer: "",
-              estadoAgenda: "",
-            };
-          if (next.calendar !== undefined && next.calendar !== prev.calendar)
-            return { ...prev, calendar: next.calendar, setter: "", booker: "", closer: "" };
-          if (
-            Object.keys(next).length === 1 &&
-            next.setter !== undefined &&
-            next.setter !== prev.setter
-          )
-            return { ...prev, setter: next.setter, closer: "" };
-          if (
-            Object.keys(next).length === 1 &&
-            next.booker !== undefined &&
-            next.booker !== prev.booker
-          )
-            return { ...prev, booker: next.booker, closer: "" };
-          return { ...prev, ...next };
-        });
+        setFilters((prev) => changeReportFilters(prev, next));
         setDetail((prev) => ({ ...prev, page: 1 }));
       });
     },
@@ -257,18 +248,25 @@ export function VslClosersDashboard() {
     }
   }, [query]);
 
-  const lastReport = useRef<VslClosersReport | undefined>(undefined);
+  const requestKey = JSON.stringify([
+    filters,
+    { ...detail, search },
+    person ? sourceNames : undefined,
+  ]);
+  const lastReport = useRef<{ key: string; data: VslClosersReport } | undefined>(undefined);
   useEffect(() => {
-    if (query.data) lastReport.current = query.data;
-  }, [query.data]);
-  const cachedData = query.data ?? lastReport.current;
+    if (query.data) lastReport.current = { key: requestKey, data: query.data };
+  }, [query.data, requestKey]);
+  const cachedData = query.data ?? lastReport.current?.data;
   // The API owns filtering, appointment counts, sales and pagination.
-  const data = cachedData;
+  const data =
+    query.data ?? (lastReport.current?.key === requestKey ? lastReport.current.data : undefined);
   const optionData =
-    data?.filters?.pipeline === filters.pipeline &&
-    (filters.pipeline !== "vsl" || data?.leadType === filters.leadType)
-      ? data
-      : undefined;
+    context ??
+    (cachedData?.filters?.pipeline === filters.pipeline &&
+    (filters.pipeline !== "vsl" || cachedData?.leadType === filters.leadType)
+      ? cachedData
+      : undefined);
   const initialLoading = !data && query.isLoading;
   const backgroundRefreshing = !!data && query.isFetching && !syncing;
   const cardMetrics = useMemo(
@@ -354,7 +352,7 @@ export function VslClosersDashboard() {
       aria-busy={syncing || initialLoading || isFiltering}
     >
       <LoadingModal
-        open={syncing || initialLoading || isFiltering}
+        open={syncing}
         title={syncing ? "Actualizando datos..." : "Cargando reporte..."}
         description={
           syncing
@@ -408,21 +406,21 @@ export function VslClosersDashboard() {
         )}
         <DashboardFilters
           filters={filters}
-          setters={optionData?.availableSetters ?? []}
+          setters={[
+            ...(optionData?.availableSetters ?? []),
+            ...(optionData?.setters ?? []).map((row) => row.setter),
+          ]}
           bookers={optionData?.availableBookers ?? []}
           closers={optionData?.availableClosers ?? []}
           origins={optionData?.availableOrigins ?? []}
           calendars={optionData?.availableCalendars ?? []}
           statuses={optionData?.availableStatuses ?? []}
+          busy={contextQuery.isFetching && !context}
           onChange={handleChange}
           onPreset={handlePreset}
           onClear={() =>
             runFilterTransition(() => {
-              setFilters({
-                ...EMPTY_FILTERS,
-                pipeline: filters.pipeline ?? "all",
-                leadType: filters.pipeline === "vsl" ? filters.leadType : "all",
-              });
+              setFilters(EMPTY_FILTERS);
               setDetail((prev) => ({ ...prev, page: 1 }));
             })
           }
@@ -434,17 +432,37 @@ export function VslClosersDashboard() {
             cargados.
           </p>
         )}
-        {initialLoading ? (
-          <div className="rounded-xl border border-border bg-surface p-10 text-center text-sm text-muted-foreground shadow-card">
-            Cargando reporte...
+        {!validRange ? (
+          <p
+            role="alert"
+            className="rounded-xl border border-border bg-surface p-4 text-sm text-destructive"
+          >
+            Revisa el rango de fechas para consultar el reporte.
+          </p>
+        ) : initialLoading || isFiltering || (person && !sourceNames && contextQuery.isFetching) ? (
+          <div role="status" aria-label="Actualizando reporte" className="space-y-4">
+            <span className="text-xs text-muted-foreground">Actualizando reporte...</span>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {[1, 2, 3].map((key) => (
+                <Skeleton key={key} className="h-28 rounded-xl" />
+              ))}
+            </div>
+            <Skeleton className="h-80 rounded-xl" />
+            <Skeleton className="h-64 rounded-xl" />
+            <Skeleton className="h-64 rounded-xl" />
           </div>
-        ) : query.isError && !data ? (
+        ) : (query.isError || contextQuery.isError) && !data ? (
           <div className="rounded-xl border border-border bg-surface p-10 text-center shadow-card">
             <p className="text-sm text-foreground">
-              {query.error instanceof Error ? query.error.message : "No se pudo cargar el reporte."}
+              {(query.error ?? contextQuery.error) instanceof Error
+                ? (query.error ?? contextQuery.error)?.message
+                : "No se pudo cargar el reporte."}
             </p>
             <button
-              onClick={() => query.refetch()}
+              onClick={() => {
+                void contextQuery.refetch();
+                void query.refetch();
+              }}
               className="mt-3 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent"
             >
               Reintentar
@@ -478,9 +496,7 @@ export function VslClosersDashboard() {
               totals={data.kpis}
               mode={peopleMode}
               showStatuses={
-                peopleMode !== "booker" ||
-                filters.pipeline === "oei" ||
-                filters.pipeline === "lig"
+                peopleMode !== "booker" || filters.pipeline === "oei" || filters.pipeline === "lig"
               }
               busy={
                 query.isFetching ||
@@ -489,19 +505,21 @@ export function VslClosersDashboard() {
                 isFiltering ||
                 !!appointmentSelection
               }
-              onDetail={(person, status, count) => {
+              onDetail={(person, status, count, sourceNames) => {
                 setAppointmentSelection(
                   (current) =>
                     current ?? {
                       name: person || "Total general",
                       count,
                       filters: appointmentDetailFilters(filters, person, status),
+                      ...(sourceNames ? { sourceNames } : {}),
                     },
                 );
               }}
             />
             {appointmentSelection && (
               <AppointmentDetailModal
+                key={JSON.stringify(appointmentSelection.filters)}
                 selection={appointmentSelection}
                 onClose={() => setAppointmentSelection(null)}
               />
