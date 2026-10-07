@@ -23,7 +23,6 @@ const columns: [keyof AppointmentDetailRow, string][] = [
   ["agendadoPor", "Agendado por"],
   ["setterAsignado", "Setter asignado"],
   ["creadoPorCita", "Creado por cita"],
-  ["creadoPorCitaNormalizado", "Creado por cita normalizado"],
   ["calendario", "Calendario"],
   ["estado", "Estado"],
   ["fechaCreacionCita", "Fecha creación cita"],
