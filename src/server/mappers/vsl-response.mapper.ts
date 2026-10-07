@@ -28,7 +28,8 @@ const namedCounts = (value: unknown, key: "agendador" | "closer") =>
     .map((item) => {
       const row = object(item);
       return {
-        name: str(row[key]),
+        name: str(row["setterEfectivo"] || row["agendadoPor"] || row[key]),
+        ...(row["setterEfectivo"] != null ? { setterEfectivo: str(row["setterEfectivo"]) } : {}),
         total: num(row["total"]),
         ...Object.fromEntries(Object.entries(counts(row)).filter(([field]) => row[field] != null)),
       };
@@ -238,7 +239,13 @@ export function mapVslReportResponse(
     );
   const setters: SetterRow[] = array(d["setters"]).map((item) => {
     const row = object(item);
-    return { setter: str(row["setter"]), ...counts(row), total: num(row["total"]) };
+    return {
+      setter: str(row["setterEfectivo"] || row["agendadoPor"] || row["setter"]),
+      ...(row["setterEfectivo"] != null ? { setterEfectivo: str(row["setterEfectivo"]) } : {}),
+      ...(row["agendadoPor"] != null ? { agendadoPor: str(row["agendadoPor"]) } : {}),
+      ...counts(row),
+      total: num(row["total"]),
+    };
   });
   const responseLeadType = str(d["leadType"]);
   const leadType = query.pipeline

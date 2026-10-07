@@ -390,6 +390,67 @@ test("invalid pages and reversed dates fail before upstream access", async (t) =
     );
 });
 
+test("new detail contract preserves AND filters, server order and available options in every pipeline", async (t) => {
+  setup(t);
+  const calendars = [
+    "VSL PAGADO - CIRCULO MILLONARIO",
+    "ORGANICO - CIRCULO MILLONARIO",
+    "VSL PAGADO - EQUIPO MILLONARIO",
+    "ORGANICO - EQUIPO MILLONARIO",
+  ];
+  for (const pipeline of ["vsl", "oei", "lig"]) {
+    const rows = calendars.map((calendario, i) => ({
+      appointmentId: `appointment-${i}`,
+      calendario,
+      nombreContacto: i === 0 ? "Z" : "A",
+      fechaCreacionCita: `2026-10-0${7 - i}`,
+      setterEfectivo: "Jose Luis Botto Garcia",
+      bookingMode: "automatic",
+      diferenciaDias: 0,
+      diferenciaDiasLabel: "Mismo día",
+      vslOrigen: "API origin",
+    }));
+    const available = {
+      dateFields: [
+        { value: "appointmentCreated", label: "Fecha de creación de cita" },
+        { value: "meetingDate", label: "Fecha de cita / reunión" },
+      ],
+      bookingModes: [{ value: "automatic", label: "Agendado automático" }],
+      dayGaps: [{ value: "0", label: "Mismo día", days: 0 }],
+    };
+    global.fetch = async (url) => {
+      if (String(url).startsWith("/api/")) return reportApi(new Request(`http://local${url}`));
+      const params = new URL(url).searchParams;
+      assert.equal(params.get("pipeline"), pipeline);
+      assert.equal(params.get("bookingMode"), "automatic");
+      assert.equal(params.get("dayGap"), "0");
+      assert.equal(params.get("dateField"), "meetingDate");
+      assert.equal(params.get("setter"), "Jose Luis Botto Garcia");
+      assert.equal(params.get("vslOrigin"), "Origen & +");
+      assert.equal(params.has("sort"), false);
+      return Response.json({
+        ok: true,
+        data: {
+          rows,
+          filters: { available },
+          summary,
+          pagination: { page: 1, pageSize: 50, totalRecords: 4, totalPages: 1 },
+        },
+      });
+    };
+    const result = await getAppointmentDetail({
+      ...appointmentDetailFilters({ ...filters, pipeline }),
+      setter: "Jose Luis Botto Garcia",
+      dateField: "meetingDate",
+      bookingMode: "automatic",
+      dayGap: "0",
+    });
+    assert.deepEqual(result.rows, rows);
+    assert.deepEqual(result.filters.available, available);
+    assert.equal(new Set(result.rows.map((row) => row.appointmentId)).size, 4);
+  }
+});
+
 test("actual modal renders loading, results, empty/error, page handlers and close", async () => {
   const state = [];
   let cursor = 0;
@@ -490,7 +551,29 @@ test("actual modal renders loading, results, empty/error, page handlers and clos
   assert.match(text(tree), /Cargando agendamientos/);
   query.isFetching = false;
   query.data = {
-    rows: [{ appointmentId: "id", nombreContacto: "Contacto de API" }],
+    rows: [
+      {
+        appointmentId: "id",
+        nombreContacto: "Contacto de API",
+        setterEfectivo: "Setter de API",
+        agendadoPor: "Alias",
+        creadoPorCita: "Otro creador",
+        bookingMode: "automatic",
+        diferenciaDiasLabel: "Mismo día",
+        vslOrigen: "Origen API",
+        correo: "oculto@example.com",
+      },
+    ],
+    filters: {
+      available: {
+        dayGaps: [{ value: "0", label: "Mismo día", days: 0 }],
+        bookingModes: [
+          { value: "automatic", label: "Agendado automático" },
+          { value: "manual", label: "Agendado manual" },
+        ],
+        dateFields: [{ value: "appointmentCreated" }, { value: "meetingDate" }],
+      },
+    },
     summary,
     pagination: { page: 1, pageSize: 50, totalRecords: 51, totalPages: 2 },
   };
@@ -498,6 +581,12 @@ test("actual modal renders loading, results, empty/error, page handlers and clos
   assert.match(text(tree), /51 registros/);
   assert.match(text(tree), /Contacto de API/);
   assert.match(text(tree), /Estado: Asistió/);
+  assert.match(text(tree), /Setter de API/);
+  assert.match(text(tree), /Origen API/);
+  assert.match(text(tree), /Mismo día/);
+  assert.ok(!text(tree).includes("oculto@example.com"));
+  assert.ok(!nodes(tree).some((node) => node.type === "th" && text(node) === "Correo"));
+  assert.ok(nodes(tree).some((node) => node.type === "th" && text(node) === "VSL Origen"));
   const buttons = nodes(tree).filter(
     (n) => n.type === "Button" && ["Anterior", "Siguiente"].includes(n.props.children),
   );
@@ -510,7 +599,7 @@ test("actual modal renders loading, results, empty/error, page handlers and clos
   assert.equal(request.page, 2);
   assert.deepEqual(
     { ...request.filters },
-    { ...selected.filters, dateFrom: "", dateTo: "", dateField: "appointmentCreated" },
+    { ...selected.filters, dateField: "appointmentCreated", bookingMode: "", dayGap: "" },
   );
   nodes(tree)
     .find((node) => node.type === "input")
@@ -569,6 +658,21 @@ test("actual modal renders loading, results, empty/error, page handlers and clos
     filters.dateFrom,
     "modal edits never mutate global filters",
   );
+  for (const [label, value, key] of [
+    ["Tipo de agendamiento", "automatic", "bookingMode"],
+    ["Diferencia de días", "0", "dayGap"],
+  ]) {
+    state[0] = 2;
+    tree = render();
+    nodes(tree)
+      .find((node) => node.type === "select" && node.props["aria-label"] === label)
+      .props.onChange({ target: { value } });
+    tree = render();
+    const filtered = await options.queryFn({});
+    assert.equal(filtered.page, 1);
+    assert.equal(filtered.filters[key], value);
+    assert.equal(filtered.filters.dateField, "meetingDate");
+  }
   query.isError = true;
   query.error = new Error("API failed");
   assert.match(text(render()), /No fue posible cargar el detalle/);

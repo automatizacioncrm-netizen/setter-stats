@@ -10,8 +10,51 @@ require.extensions[".ts"] = (module, filename) =>
     filename,
     "commonjs",
   );
-const { normalizeSetterRows, getCanonicalSetterName } = require("../src/lib/setter-performance.ts");
+const {
+  normalizeSetterRows,
+  getCanonicalSetterName,
+  getSetterChartRows,
+} = require("../src/lib/setter-performance.ts");
+test("horizontal chart includes only setters and preserves API names and counts", () => {
+  const rows = [
+    { setter: "Jose Luis", setterEfectivo: "Jose Luis Botto Garcia", total: 12 },
+    { setter: "Evelyn Lopez Horna", total: 8 },
+    { setter: "Kiara Villadolid Huamantumba", total: 4 },
+    { setter: "Sin setter", total: 20 },
+    { setter: "Amaranta Alfonso Krasnova", total: 6 },
+    { setter: "bfRP024sF6O65a", total: 3 },
+    { setter: "Joseph", total: 5 },
+  ];
+  const result = getSetterChartRows(rows);
+  assert.deepEqual(
+    result.map((row) => row.setter),
+    ["Jose Luis Botto Garcia", "Evelyn Lopez Horna", "Kiara Villadolid Huamantumba"],
+  );
+  assert.deepEqual(
+    result.map((row) => row.total),
+    [12, 8, 4],
+  );
+  assert.equal(rows[0].setter, "Jose Luis");
+});
 const { getAppointmentDetail } = require("../src/services/reports.ts");
+test("API effective setters bypass aliases and never add the same authoritative counts twice", () => {
+  const row = {
+    setter: "Jose Luis",
+    setterEfectivo: "Jose Luis Botto Garcia",
+    total: 5,
+    asistio: 2,
+  };
+  const result = normalizeSetterRows([
+    row,
+    { ...row, setter: "Jose Luis Botto Garcia" },
+    { setter: "Alias", setterEfectivo: "Nuevo setter API", total: 3 },
+  ]);
+  assert.equal(result.length, 2);
+  assert.equal(result[0].setter, "Jose Luis Botto Garcia");
+  assert.equal(result[0].total, 5);
+  assert.deepEqual(result[0].sourceNames, ["Jose Luis Botto Garcia"]);
+  assert.equal(result[1].setter, "Nuevo setter API");
+});
 
 test("actual VSL names yield six canonical rows and all metrics merge without mutation", () => {
   const source = Object.freeze(

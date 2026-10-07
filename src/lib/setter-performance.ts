@@ -29,10 +29,23 @@ export function getCanonicalSetterName(value: string): string | null {
   return Object.hasOwn(SETTER_ALIASES, key) ? (SETTER_ALIASES[key] ?? null) : null;
 }
 
-export function getSetterOptions(names: readonly string[]) {
+/** Limit the chart to the setter team without changing API counts or names. */
+export function getSetterChartRows(rows: readonly SetterRow[]): SetterRow[] {
+  return rows
+    .map((row) => ({ ...row, setter: row.setterEfectivo || row.agendadoPor || row.setter }))
+    .filter((row) => {
+      const canonical = getCanonicalSetterName(row.setter);
+      return (
+        (canonical !== null && canonical !== "Sin setter") ||
+        normalizeSetterKey(row.setter) === "kiara villadolid huamantumba"
+      );
+    });
+}
+
+export function getSetterOptions(names: readonly string[], apiNormalized = false) {
   const grouped = new Map<string, { value: string; label: string; sourceNames: string[] }>();
   for (const name of names) {
-    const canonical = getCanonicalSetterName(name);
+    const canonical = apiNormalized ? name || "Sin setter" : getCanonicalSetterName(name);
     if (!canonical) continue;
     const option = grouped.get(canonical) ?? {
       value: canonical,
@@ -61,6 +74,12 @@ export type NormalizedSetterRow = SetterRow & { sourceNames: string[] };
 export function normalizeSetterRows(rows: readonly SetterRow[]): NormalizedSetterRow[] {
   const grouped = new Map<string, NormalizedSetterRow>();
   for (const row of rows) {
+    if (row.setterEfectivo !== undefined) {
+      const setter = row.setterEfectivo || row.agendadoPor || "Sin setter";
+      // API aggregates already count unique Appointment IDs. Do not sum aliases again.
+      grouped.set(setter, { ...row, setter, sourceNames: [setter] });
+      continue;
+    }
     const sourceName = row.setter || "Sin setter";
     const setter = getCanonicalSetterName(sourceName);
     if (!setter) continue;

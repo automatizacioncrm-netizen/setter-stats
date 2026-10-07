@@ -9,6 +9,7 @@ import {
   YAxis,
 } from "recharts";
 import type { SetterRow } from "@/types/reports";
+import { getSetterChartRows } from "@/lib/setter-performance";
 
 const SERIES = [
   { key: "confirmado", label: "Confirmado", color: "var(--brand)" },
@@ -24,13 +25,9 @@ interface Props {
 }
 
 export function SetterStatusChart({ rows, tasaAsistencia, mode }: Props) {
-  const height = Math.max(240, rows.length * 52 + 60);
-  const title =
-    mode === "booker"
-      ? "Composición por Agendador"
-      : mode === "setter"
-        ? "Composición por Setter"
-        : "Composición general de citas";
+  const setterRows = getSetterChartRows(rows);
+  const height = Math.max(240, setterRows.length * 52 + 60);
+  const title = "Composición por Setter";
 
   return (
     <div className="rounded-xl border border-border bg-surface p-4 shadow-card">
@@ -52,7 +49,7 @@ export function SetterStatusChart({ rows, tasaAsistencia, mode }: Props) {
       <div className="mt-4 w-full" style={{ height }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            data={rows}
+            data={setterRows}
             layout="vertical"
             margin={{ top: 4, right: 16, bottom: 4, left: 8 }}
           >
@@ -65,7 +62,7 @@ export function SetterStatusChart({ rows, tasaAsistencia, mode }: Props) {
             <YAxis
               type="category"
               dataKey="setter"
-              width={90}
+              width={190}
               tick={{ fontSize: 12, fill: "var(--foreground)" }}
             />
             <Tooltip

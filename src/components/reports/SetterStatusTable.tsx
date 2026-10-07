@@ -20,7 +20,9 @@ const attendanceRate = (attended: number, total: number) => {
   return Number.isFinite(rate) ? Math.round(rate) : 0;
 };
 const sortValue = (row: SetterRow, key: Exclude<SortKey, "setter">) =>
-  key === "attendanceRate" ? attendanceRate(row.asistio, row.total) : n(row[key]);
+  key === "attendanceRate"
+    ? attendanceRate(row.asistio, row.total)
+    : n(typeof row[key] === "number" ? row[key] : 0);
 const DETAIL_STATUS: Partial<Record<SortKey, string>> = {
   confirmado: "Confirmado",
   asistio: "Asistió",
@@ -199,7 +201,13 @@ export function SetterStatusTable({
                               : totals[col.key as keyof typeof totals],
                           ),
                           undefined,
-                          [...new Set(visiblePerformanceRows.flatMap((row) => row.sourceNames))],
+                          rows.some((row) => row.setterEfectivo !== undefined)
+                            ? undefined
+                            : [
+                                ...new Set(
+                                  visiblePerformanceRows.flatMap((row) => row.sourceNames),
+                                ),
+                              ],
                         )}
                   </td>
                 ),

@@ -1,8 +1,32 @@
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import {
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  type PieLabelRenderProps,
+} from "recharts";
 import type { ReportKpis } from "@/types/reports";
 
 interface Props {
   kpis: ReportKpis;
+}
+
+function SliceCount({ cx, cy, midAngle, outerRadius, value }: PieLabelRenderProps) {
+  const angle = (-Number(midAngle) * Math.PI) / 180;
+  const radius = Number(outerRadius) * 0.65;
+  return (
+    <text
+      x={Number(cx) + radius * Math.cos(angle)}
+      y={Number(cy) + radius * Math.sin(angle)}
+      fill="white"
+      textAnchor="middle"
+      dominantBaseline="central"
+      className="text-sm font-semibold tabular-nums"
+    >
+      {value}
+    </text>
+  );
 }
 
 export function ConversionSummary({ kpis }: Props) {
@@ -30,13 +54,15 @@ export function ConversionSummary({ kpis }: Props) {
               nameKey="name"
               cx="50%"
               cy="50%"
-              innerRadius="65%"
+              innerRadius={0}
               outerRadius="90%"
               startAngle={90}
               endAngle={-270}
               stroke="var(--surface)"
               strokeWidth={2}
               isAnimationActive={false}
+              label={SliceCount}
+              labelLine={false}
             >
               {states
                 .filter((state) => state.value > 0)
@@ -57,10 +83,6 @@ export function ConversionSummary({ kpis }: Props) {
             />
           </PieChart>
         </ResponsiveContainer>
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-semibold tabular-nums text-foreground">{kpis.total}</span>
-          <span className="text-xs text-muted-foreground">Agendamientos</span>
-        </div>
       </div>
       <ul className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 text-xs min-[380px]:grid-cols-2">
         {states.map((state) => (
@@ -72,9 +94,6 @@ export function ConversionSummary({ kpis }: Props) {
             />
             <div className="min-w-0">
               <span className="text-muted-foreground">{state.name}</span>
-              <p className="font-medium tabular-nums text-foreground">
-                {state.value} · {pct(state.value)}%
-              </p>
             </div>
           </li>
         ))}

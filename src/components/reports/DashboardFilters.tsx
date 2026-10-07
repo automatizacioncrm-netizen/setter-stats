@@ -22,6 +22,7 @@ interface Props {
   calendars: string[];
   statuses: string[];
   busy?: boolean;
+  apiNormalizedSetters?: boolean;
   onChange: (next: Partial<ReportFilters>) => void;
   onPreset: (preset: DatePreset) => void;
   onClear: () => void;
@@ -62,6 +63,7 @@ export function DashboardFilters({
   onPreset,
   onClear,
   busy = false,
+  apiNormalizedSetters = false,
 }: Props) {
   const pipeline = filters.pipeline ?? "all";
   const usesBooker = pipeline === "oei" || pipeline === "lig";
@@ -73,6 +75,7 @@ export function DashboardFilters({
       : "Setter / Agendador";
   const setterOptions = getSetterOptions(
     usesBooker ? bookers : pipeline === "all" ? [...setters, ...bookers] : setters,
+    apiNormalizedSetters,
   );
   const closerOptions = REPORT_CLOSERS.map((value) => ({ value, label: value }));
   const changePerson = (value: string) =>
@@ -98,7 +101,10 @@ export function DashboardFilters({
   if (filters.preset !== "todos" || filters.dateFrom || filters.dateTo)
     chips.push({ label: rangeLabel, remove: () => onPreset("todos") });
   if (person)
-    chips.push({ label: getCanonicalSetterName(person) ?? person, remove: () => changePerson("") });
+    chips.push({
+      label: apiNormalizedSetters ? person : (getCanonicalSetterName(person) ?? person),
+      remove: () => changePerson(""),
+    });
   if (filters.closer) chips.push({ label: filters.closer, remove: () => onChange({ closer: "" }) });
   if (filters.calendar)
     chips.push({ label: filters.calendar, remove: () => onChange({ calendar: "" }) });
@@ -152,7 +158,7 @@ export function DashboardFilters({
         </label>
         <SearchableFilter
           label={personLabel}
-          value={getCanonicalSetterName(person) ?? person}
+          value={apiNormalizedSetters ? person : (getCanonicalSetterName(person) ?? person)}
           options={setterOptions}
           allLabel={usesBooker ? "Todos los agendadores" : "Todos los setters"}
           onChange={changePerson}

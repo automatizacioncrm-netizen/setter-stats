@@ -56,6 +56,8 @@ export interface ReportKpis {
 
 export interface SetterRow {
   setter: string;
+  setterEfectivo?: string;
+  agendadoPor?: string;
   agendadoCRM: number;
   confirmado?: number;
   asistio: number;
@@ -142,6 +144,7 @@ export interface AppointmentPersonCount extends Partial<Omit<SetterRow, "setter"
 }
 
 export type AppointmentDateField = "appointmentCreated" | "meetingDate";
+export type BookingMode = "automatic" | "manual";
 
 export type AppointmentDetailFilters = {
   pipeline: Pipeline;
@@ -153,6 +156,8 @@ export type AppointmentDetailFilters = {
   dateFrom: string;
   dateTo: string;
   dateField?: AppointmentDateField;
+  bookingMode?: BookingMode | "";
+  dayGap?: string;
   closer: string;
   vslOrigin: string;
   vslTipo?: string;
@@ -168,6 +173,13 @@ export interface AppointmentDetailRow {
   pipeline?: string;
   secuencia?: string;
   agendadoPor?: string;
+  setterEfectivo?: string;
+  creadoPorCitaNormalizado?: string;
+  bookingMode?: BookingMode;
+  bookingModeLabel?: string;
+  diferenciaDias?: number | null;
+  diferenciaDiasLabel?: string;
+  vslOrigen?: string;
   setterAsignado?: string;
   creadoPorCita?: string;
   calendario?: string;
@@ -182,6 +194,14 @@ export interface AppointmentDetailRow {
   vslCategoria?: string;
 }
 export interface AppointmentDetailResponse {
+  filters?: {
+    applied?: Partial<AppointmentDetailFilters>;
+    available?: {
+      dateFields?: { value: AppointmentDateField; label: string }[];
+      bookingModes?: { value: BookingMode; label: string }[];
+      dayGaps?: { value: string; label: string; days: number | null }[];
+    };
+  };
   rows: AppointmentDetailRow[];
   pagination: { page: number; pageSize: number; totalRecords: number; totalPages: number };
   summary: {

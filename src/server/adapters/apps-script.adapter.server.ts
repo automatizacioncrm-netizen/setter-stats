@@ -25,6 +25,8 @@ export type AppointmentDetailRequest = Omit<
 > & {
   vslTipo?: string | undefined;
   dateField?: "appointmentCreated" | "meetingDate" | undefined;
+  bookingMode?: "" | "automatic" | "manual" | undefined;
+  dayGap?: string | undefined;
 };
 
 async function requestScript(
@@ -46,7 +48,9 @@ async function requestScript(
       "booker",
       "status",
       "vslOrigin",
-      ...(action === "appointment_detail" ? ["vslTipo" as const, "dateField" as const] : []),
+      ...(action === "appointment_detail"
+        ? (["vslTipo", "dateField", "bookingMode", "dayGap"] as const)
+        : []),
       "closer",
       "includeDetail",
       "search",

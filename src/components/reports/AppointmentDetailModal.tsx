@@ -14,17 +14,20 @@ import type {
   AppointmentDateField,
   AppointmentDetailFilters,
   AppointmentDetailRow,
+  BookingMode,
 } from "@/types/reports";
 
 const columns: [keyof AppointmentDetailRow, string][] = [
   ["nombreContacto", "Nombre"],
   ["telefono", "Teléfono"],
-  ["correo", "Correo"],
   ["agendadoPor", "Agendado por"],
+  ["bookingModeLabel", "Tipo"],
   ["calendario", "Calendario"],
   ["estado", "Estado"],
   ["fechaCreacionCita", "Fecha creación cita"],
   ["fechaReunion", "Fecha reunión"],
+  ["diferenciaDiasLabel", "Diferencia"],
+  ["vslOrigen", "VSL Origen"],
   ["closer", "Closer"],
 ];
 
@@ -43,8 +46,17 @@ export function AppointmentDetailModal({
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
-  const [dateField, setDateField] = useState<AppointmentDateField>("appointmentCreated");
-  const [dates, setDates] = useState({ dateFrom: "", dateTo: "" });
+  const [dateField, setDateField] = useState<AppointmentDateField>(
+    selection.filters.dateField ?? "appointmentCreated",
+  );
+  const [dates, setDates] = useState({
+    dateFrom: selection.filters.dateFrom,
+    dateTo: selection.filters.dateTo,
+  });
+  const [bookingMode, setBookingMode] = useState<BookingMode | "">(
+    selection.filters.bookingMode ?? "",
+  );
+  const [dayGap, setDayGap] = useState(selection.filters.dayGap ?? "");
   const changeDates = (next: Partial<typeof dates>) => {
     setPage(1);
     setDates((previous) => ({ ...previous, ...next }));
@@ -60,18 +72,27 @@ export function AppointmentDetailModal({
     setPage(1);
     setSearch("");
     setAppliedSearch("");
-    setDateField("appointmentCreated");
-    setDates({ dateFrom: "", dateTo: "" });
+    setDateField(selection.filters.dateField ?? "appointmentCreated");
+    setDates({ dateFrom: selection.filters.dateFrom, dateTo: selection.filters.dateTo });
+    setBookingMode(selection.filters.bookingMode ?? "");
+    setDayGap(selection.filters.dayGap ?? "");
   }, [selection.filters]);
   const searching = search !== appliedSearch;
   const validDates = isValidReportRange(dates);
-  const detailFilters = { ...selection.filters, ...dates, dateField, search: appliedSearch };
+  const detailFilters = {
+    ...selection.filters,
+    ...dates,
+    dateField,
+    bookingMode,
+    dayGap,
+    search: appliedSearch,
+  };
   const query = useQuery({
-    queryKey: ["appointment-detail", detailFilters, selection.sourceNames, page],
-    queryFn: ({ signal }) =>
-      getAppointmentDetail(detailFilters, page, signal, selection.sourceNames),
+    queryKey: ["appointment-detail", detailFilters, page],
+    queryFn: ({ signal }) => getAppointmentDetail(detailFilters, page, signal),
     enabled: !searching && validDates,
     retry: false,
+    placeholderData: (previous) => previous,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
@@ -81,6 +102,15 @@ export function AppointmentDetailModal({
   }, [query.error]);
   const data = searching || !validDates ? undefined : query.data;
   const totalPages = Math.max(1, data?.pagination.totalPages ?? 1);
+  const available = query.data?.filters?.available;
+  const dateFields = available?.dateFields ?? [
+    { value: "appointmentCreated", label: "Fecha de creación de cita" },
+    { value: "meetingDate", label: "Fecha de cita / reunión" },
+  ];
+  const bookingModes = available?.bookingModes ?? [
+    { value: "automatic", label: "Agendado automático" },
+    { value: "manual", label: "Agendado manual" },
+  ];
   return (
     <Dialog
       open
@@ -119,10 +149,13 @@ export function AppointmentDetailModal({
                 }}
                 className="mt-1 h-9 w-full rounded-lg border border-border bg-surface px-3 text-sm text-foreground"
               >
-                <option value="appointmentCreated">Creación de cita</option>
-                <option value="meetingDate" disabled>
-                  Fecha de reunión
-                </option>
+                {dateFields.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.value === "appointmentCreated"
+                      ? "Fecha de creación de cita"
+                      : "Fecha de cita / reunión"}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="min-w-0 text-xs text-muted-foreground">
@@ -167,10 +200,47 @@ export function AppointmentDetailModal({
               Limpiar fechas
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Fecha de reunión requiere actualizar appointment_detail en Apps Script.
-          </p>
         </section>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="text-xs text-muted-foreground">
+            Tipo de agendamiento
+            <select
+              aria-label="Tipo de agendamiento"
+              value={bookingMode}
+              onChange={(event) => {
+                setPage(1);
+                setBookingMode(event.target.value as BookingMode | "");
+              }}
+              className="mt-1 h-9 w-full rounded-lg border border-border bg-surface px-3 text-sm text-foreground"
+            >
+              <option value="">Todos</option>
+              {bookingModes.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs text-muted-foreground">
+            Diferencia de días
+            <select
+              aria-label="Diferencia de días"
+              value={dayGap}
+              onChange={(event) => {
+                setPage(1);
+                setDayGap(event.target.value);
+              }}
+              className="mt-1 h-9 w-full rounded-lg border border-border bg-surface px-3 text-sm text-foreground"
+            >
+              <option value="">Todos</option>
+              {(available?.dayGaps ?? []).map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         {!validDates ? (
           <p role="alert" className="text-sm text-destructive">
             La fecha Desde debe ser anterior o igual a Hasta.
@@ -193,6 +263,9 @@ export function AppointmentDetailModal({
                 {` · Cancelado: ${data.summary.cancelado} · No asistió: ${data.summary.noShow} · Asistencia: ${data.summary.tasaAsistencia}%`}
               </p>
               {!appliedSearch &&
+                !bookingMode &&
+                !dayGap &&
+                dateField === "appointmentCreated" &&
                 dates.dateFrom === selection.filters.dateFrom &&
                 dates.dateTo === selection.filters.dateTo &&
                 data.pagination.totalRecords !== selection.count && (
@@ -205,7 +278,7 @@ export function AppointmentDetailModal({
                 <p>No se encontraron agendamientos para los filtros seleccionados.</p>
               ) : (
                 <div className="min-w-0 overflow-x-auto rounded-lg border border-border">
-                  <table className="w-full min-w-[1200px] text-sm">
+                  <table className="w-full min-w-[1500px] text-sm">
                     <thead className="bg-muted/60">
                       <tr>
                         {columns.map(([key, label]) => (
@@ -222,8 +295,20 @@ export function AppointmentDetailModal({
                           className="border-t border-border"
                         >
                           {columns.map(([key]) => (
-                            <td key={key} className="px-3 py-2 align-top">
-                              {row[key] || "—"}
+                            <td
+                              key={key}
+                              className="min-w-[110px] max-w-[240px] break-words px-3 py-2 align-top"
+                            >
+                              {key === "agendadoPor"
+                                ? row.setterEfectivo || row.agendadoPor || "Sin setter"
+                                : key === "bookingModeLabel"
+                                  ? row.bookingModeLabel ||
+                                    (row.bookingMode === "automatic"
+                                      ? "Agendado automático"
+                                      : row.bookingMode === "manual"
+                                        ? "Agendado manual"
+                                        : "—")
+                                  : (row[key] ?? "—")}
                             </td>
                           ))}
                         </tr>

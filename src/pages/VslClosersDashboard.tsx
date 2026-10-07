@@ -107,8 +107,16 @@ export function VslClosersDashboard() {
     [usesBooker, context, filters.pipeline],
   );
   const person = usesBooker ? filters.booker : filters.setter;
-  const sourceNames = getSetterOptions(contextNames).find(
-    (option) => option.value === (getCanonicalSetterName(person) ?? person),
+  const apiNormalizedSetters = Boolean(
+    context?.setters.some((row) => row.setterEfectivo !== undefined) ||
+    [
+      ...(context?.appointmentPeople?.oeiBookers ?? []),
+      ...(context?.appointmentPeople?.ligBookers ?? []),
+    ].some((row) => row.setterEfectivo !== undefined),
+  );
+  const sourceNames = getSetterOptions(contextNames, apiNormalizedSetters).find(
+    (option) =>
+      option.value === (apiNormalizedSetters ? person : (getCanonicalSetterName(person) ?? person)),
   )?.sourceNames;
   const validRange = isValidReportRange(filters);
   const query = useQuery({
@@ -131,11 +139,17 @@ export function VslClosersDashboard() {
   useEffect(() => {
     if (!context || validatedPipeline.current === filters.pipeline) return;
     validatedPipeline.current = filters.pipeline;
-    const allowed = getSetterOptions(contextNames).map((option) => option.value);
+    const allowed = getSetterOptions(contextNames, apiNormalizedSetters).map(
+      (option) => option.value,
+    );
     setFilters((previous) => ({
       ...previous,
       ...((previous.setter || previous.booker) &&
-      !allowed.includes(getCanonicalSetterName(previous.setter || previous.booker) ?? "")
+      !allowed.includes(
+        apiNormalizedSetters
+          ? previous.setter || previous.booker
+          : (getCanonicalSetterName(previous.setter || previous.booker) ?? ""),
+      )
         ? { setter: "", booker: "" }
         : {}),
       ...(previous.closer && !isReportCloser(previous.closer) ? { closer: "" } : {}),
@@ -146,7 +160,7 @@ export function VslClosersDashboard() {
         ? { estadoAgenda: "" }
         : {}),
     }));
-  }, [context, filters.pipeline, contextNames]);
+  }, [context, filters.pipeline, contextNames, apiNormalizedSetters]);
 
   const [isFiltering, setIsFiltering] = useState(false);
   const [filterDelayDone, setFilterDelayDone] = useState(false);
@@ -405,6 +419,7 @@ export function VslClosersDashboard() {
           </p>
         )}
         <DashboardFilters
+          apiNormalizedSetters={apiNormalizedSetters}
           filters={filters}
           setters={[
             ...(optionData?.availableSetters ?? []),
