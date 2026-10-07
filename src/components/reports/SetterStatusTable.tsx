@@ -147,7 +147,7 @@ export function SetterStatusTable({
           <tbody>
             {sorted.map((row) => {
               const person = row.setter || "Sin setter";
-              const personLabel = person;
+              const personLabel = person === "Sin setter" ? "Agendado automático" : person;
               return (
                 <tr key={person} className="border-t border-border hover:bg-accent/50">
                   <td className="sticky left-0 bg-surface px-4 py-2 font-medium text-foreground">

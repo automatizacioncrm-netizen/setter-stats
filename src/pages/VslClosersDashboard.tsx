@@ -412,12 +412,6 @@ export function VslClosersDashboard() {
             Datos de ejemplo · Solo desarrollo. La lectura del Google Sheet aún no está configurada.
           </p>
         )}
-        {!!data?.unknownStatusCount && (
-          <p role="status" className="text-sm">
-            {data.unknownStatusCount} registros con estado vacío o desconocido: visibles en detalle,
-            excluidos del resumen y las tasas.
-          </p>
-        )}
         <DashboardFilters
           apiNormalizedSetters={apiNormalizedSetters}
           filters={filters}
