@@ -12,20 +12,36 @@ interface Props {
   kpis: ReportKpis;
 }
 
-function SliceCount({ cx, cy, midAngle, outerRadius, value }: PieLabelRenderProps) {
+function SliceCount({
+  cx,
+  cy,
+  midAngle,
+  outerRadius,
+  value,
+  percentage,
+  startAngle,
+  endAngle,
+}: PieLabelRenderProps & { percentage: number }) {
   const angle = (-Number(midAngle) * Math.PI) / 180;
-  const radius = Number(outerRadius) * 0.65;
+  const sliceAngle = Math.abs(Number(endAngle) - Number(startAngle));
+  const radius = Number(outerRadius) * (sliceAngle < 50 ? 0.74 : 0.62);
+  const x = Number(cx) + radius * Math.cos(angle);
+  const y = Number(cy) + radius * Math.sin(angle);
   return (
-    <text
-      x={Number(cx) + radius * Math.cos(angle)}
-      y={Number(cy) + radius * Math.sin(angle)}
+    <g
+      transform={`translate(${x}, ${y})`}
       fill="white"
       textAnchor="middle"
       dominantBaseline="central"
-      className="text-sm font-semibold tabular-nums"
+      className="tabular-nums"
     >
-      {value}
-    </text>
+      <text y={-9} fontSize={18} fontWeight={700}>
+        {value}
+      </text>
+      <text y={13} fontSize={13} fontWeight={500}>
+        {percentage}%
+      </text>
+    </g>
   );
 }
 
@@ -45,7 +61,7 @@ export function ConversionSummary({ kpis }: Props) {
       <h3 className="text-sm font-semibold text-foreground">Efectividad de la agenda</h3>
       <p className="text-xs text-muted-foreground">Sobre {kpis.total} agendamientos reales</p>
 
-      <div className="relative mx-auto mt-3 h-44 w-full max-w-64 sm:h-48">
+      <div className="relative mx-auto mt-4 h-60 w-full max-w-72 sm:h-64">
         <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <PieChart>
             <Pie
@@ -61,7 +77,9 @@ export function ConversionSummary({ kpis }: Props) {
               stroke="var(--surface)"
               strokeWidth={2}
               isAnimationActive={false}
-              label={SliceCount}
+              label={(props: PieLabelRenderProps) => (
+                <SliceCount {...props} percentage={pct(Number(props["value"]))} />
+              )}
               labelLine={false}
             >
               {states
@@ -84,12 +102,12 @@ export function ConversionSummary({ kpis }: Props) {
           </PieChart>
         </ResponsiveContainer>
       </div>
-      <ul className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 text-xs min-[380px]:grid-cols-2">
+      <ul className="mx-auto mt-4 grid max-w-72 grid-cols-1 gap-x-6 gap-y-3 text-sm min-[380px]:grid-cols-2">
         {states.map((state) => (
-          <li key={state.name} className="flex min-w-0 items-start gap-2">
+          <li key={state.name} className="flex min-w-0 items-center gap-2">
             <span
               aria-hidden="true"
-              className="mt-1 h-2 w-2 shrink-0 rounded-full"
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
               style={{ backgroundColor: state.color }}
             />
             <div className="min-w-0">
