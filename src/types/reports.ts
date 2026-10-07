@@ -181,6 +181,8 @@ export interface AppointmentDetailRow {
   diferenciaDiasLabel?: string;
   vslOrigen?: string;
   setterAsignado?: string;
+  setterOpportunity?: string;
+  responsablesAgendamiento?: string[];
   creadoPorCita?: string;
   calendario?: string;
   estado?: string;

@@ -28,12 +28,20 @@ export function appointmentDetailFilters(
   const pipeline = filters.pipeline ?? "all";
   const personSelected = person !== undefined;
   const usesBooker = pipeline === "oei" || pipeline === "lig";
+  const automatic = person === "Agendado automático" || person === "Agendado automatico";
   const detailStatus = personSelected ? status : (status ?? filters.estadoAgenda);
   return {
     pipeline,
     leadType: filters.leadType,
-    setter: personSelected && !usesBooker ? getSetterApiValue(person) : filters.setter,
-    booker: personSelected && usesBooker ? person : filters.booker,
+    setter: automatic
+      ? ""
+      : personSelected && !usesBooker
+        ? getSetterApiValue(person)
+        : filters.setter,
+    booker: automatic ? "" : personSelected && usesBooker ? person : filters.booker,
+    bookingMode: automatic ? "automatic" : "",
+    dateField: "appointmentCreated",
+    dayGap: "",
     // A row's name or total intentionally requests every status for that person.
     ...(detailStatus ? { status: detailStatus } : {}),
     calendar: filters.calendar ?? "",
@@ -52,7 +60,7 @@ export async function getAppointmentDetail(
   signal?: AbortSignal,
   sourceNames?: string[],
 ): Promise<AppointmentDetailResponse> {
-  if (sourceNames?.length) {
+  if (sourceNames?.length && (filters.pipeline === "oei" || filters.pipeline === "lig")) {
     const usesBooker = filters.pipeline === "oei" || filters.pipeline === "lig";
     const names = [
       ...new Set(sourceNames.map((name) => (usesBooker ? name : getSetterApiValue(name)))),

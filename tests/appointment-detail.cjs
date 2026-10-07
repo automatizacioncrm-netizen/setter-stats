@@ -87,7 +87,7 @@ test("performance table filters existing rows and totals across pipeline changes
     const renderedRows = nodes(body).filter((node) => node.type === "tr");
     assert.deepEqual(
       renderedRows.map((row) => content(nodes(row).find((node) => node.type === "td"))).sort(),
-      [...names].sort(),
+      names.map((name) => (name === "Sin setter" ? "Agendado automático" : name)).sort(),
     );
     const footer = nodes(tree).find((node) => node.type === "tfoot");
     assert.deepEqual(
@@ -109,13 +109,14 @@ test("performance table filters existing rows and totals across pipeline changes
       buttons.forEach((button) => button.props.onClick());
     }
     for (const person of apiNames) {
+      const selectedName = person === "Sin setter" ? "Agendado automático" : person;
       assert.ok(
         clicks.some(
-          ([name, status, count]) => name === person && status === undefined && count === 10,
+          ([name, status, count]) => name === selectedName && status === undefined && count === 10,
         ),
       );
       for (const status of ["Confirmado", "Asistió", "Cancelado", "No asistió"])
-        assert.ok(clicks.some(([name, state]) => name === person && state === status));
+        assert.ok(clicks.some(([name, state]) => name === selectedName && state === status));
     }
     const unassigned = appointmentDetailFilters({ pipeline }, "Sin setter");
     assert.equal(
@@ -158,12 +159,7 @@ test("performance table filters existing rows and totals across pipeline changes
       node.props["aria-label"] === "Ver todos los agendamientos de Jose Luis Botto Garcia",
   );
   mergedName.props.onClick();
-  assert.deepEqual(clicks[0], [
-    "Jose Luis Botto Garcia",
-    undefined,
-    20,
-    ["Jose Luis", "Jose Luis Botto Garcia"],
-  ]);
+  assert.deepEqual(clicks[0], ["Jose Luis Botto Garcia", undefined, 20, undefined]);
   const footer = nodes(groupedTree).find((node) => node.type === "tfoot");
   assert.deepEqual(
     nodes(footer)
@@ -314,7 +310,7 @@ test("browser → proxy → authenticated appointment_detail preserves selection
   assert.equal(p1, "1");
   assert.equal(p2, "2");
   assert.deepEqual(rest1, rest2);
-  assert.equal("dateField" in rest1, false, "legacy requests must omit dateField");
+  assert.equal(rest1.dateField, "appointmentCreated");
   for (const dateField of ["appointmentCreated", "meetingDate"]) {
     selected.dateField = dateField;
     const dated = await getAppointmentDetail(selected);
@@ -451,6 +447,93 @@ test("new detail contract preserves AND filters, server order and available opti
   }
 });
 
+test("VSL canonical and automatic selections preserve API cross-attribution A–F in one request", async (t) => {
+  setup(t);
+  const appointments = [
+    {
+      appointmentId: "A",
+      setterAsignado: "Evelyn",
+      creadoPorCita: "",
+      setterEfectivo: "Evelyn Lopez Horna",
+      bookingMode: "automatic",
+    },
+    {
+      appointmentId: "B",
+      setterAsignado: "",
+      creadoPorCita: "Evelyn Lopez",
+      creadoPorCitaNormalizado: "Evelyn Lopez Horna",
+      bookingMode: "manual",
+    },
+    {
+      appointmentId: "C",
+      setterAsignado: "Jimena",
+      creadoPorCita: "Claudia Jimena Ocampo Portilla",
+      bookingMode: "manual",
+    },
+    {
+      appointmentId: "D",
+      setterAsignado: "Jose",
+      creadoPorCita: "Evelyn",
+      setterEfectivo: "Evelyn Lopez Horna",
+      bookingMode: "manual",
+    },
+    {
+      appointmentId: "E",
+      setterAsignado: "Jose Luis Botto Garcia",
+      creadoPorCita: "",
+      bookingMode: "automatic",
+    },
+  ];
+  for (const [person, expectedIds] of [
+    ["Evelyn Lopez Horna", ["A", "B", "D"]],
+    ["Claudia Jimena Ocampo Portilla", ["C"]],
+    ["Jose Luis Botto Garcia", ["D", "E"]],
+    ["Agendado automático", ["A", "E"]],
+  ]) {
+    const selected = {
+      ...appointmentDetailFilters(filters, person),
+      dayGap: "0",
+      search: "contact",
+      dateField: "meetingDate",
+    };
+    const responseRows = appointments.filter((row) => expectedIds.includes(row.appointmentId));
+    let calls = 0;
+    global.fetch = async (url) => {
+      if (String(url).startsWith("/api/")) return reportApi(new Request(`http://local${url}`));
+      calls++;
+      const params = new URL(url).searchParams;
+      assert.equal(params.get("setter"), person === "Agendado automático" ? "" : person);
+      assert.equal(params.get("booker"), "");
+      assert.equal(params.get("bookingMode"), person === "Agendado automático" ? "automatic" : "");
+      assert.notEqual(params.get("setter"), "__SIN_SETTER__");
+      for (const key of [
+        "dateField",
+        "dayGap",
+        "search",
+        "calendar",
+        "dateFrom",
+        "dateTo",
+        "closer",
+        "vslOrigin",
+      ])
+        assert.equal(params.get(key), selected[key]);
+      return Response.json({
+        ok: true,
+        data: {
+          rows: responseRows,
+          summary: { ...summary, total: responseRows.length },
+          pagination: { page: 1, pageSize: 50, totalRecords: responseRows.length, totalPages: 1 },
+        },
+      });
+    };
+    const result = await getAppointmentDetail(selected, 1, undefined, ["Jose", "Evelyn", "Jimena"]);
+    assert.deepEqual(result.rows, responseRows);
+    assert.equal(result.pagination.totalRecords, expectedIds.length);
+    assert.equal(calls, 1, "no fan-out to alias queries for VSL");
+    assert.equal(new Set(result.rows.map((row) => row.appointmentId)).size, expectedIds.length);
+  }
+});
+
 test("actual modal renders loading, results, empty/error, page handlers and close", async () => {
   const state = [];
   let cursor = 0;
@@ -581,7 +664,7 @@ test("actual modal renders loading, results, empty/error, page handlers and clos
   assert.match(text(tree), /51 registros/);
   assert.match(text(tree), /Contacto de API/);
   assert.match(text(tree), /Estado: Asistió/);
-  assert.match(text(tree), /Setter de API/);
+  assert.match(text(tree), /Alias/);
   assert.match(text(tree), /Origen API/);
   assert.match(text(tree), /Mismo día/);
   assert.ok(!text(tree).includes("oculto@example.com"));

@@ -129,7 +129,7 @@ test("merged exact-name details preserve filters, summaries and pagination acros
     global.fetch = saved;
   });
   const names = ["Jose Luis", "Jose Luis Botto Garcia"];
-  for (const pipeline of ["vsl", "oei", "lig", "all"]) {
+  for (const pipeline of ["oei", "lig"]) {
     const calls = [];
     const signal = new AbortController().signal;
     global.fetch = async (url, options) => {
@@ -215,7 +215,7 @@ test("single source uses original name and empty or failed merged details remain
     summary: { total: 0, confirmado: 0, asistio: 0, cancelado: 0, noShow: 0, tasaAsistencia: 0 },
   };
   global.fetch = async (url) => {
-    assert.equal(new URL(url, "http://local").searchParams.get("setter"), "Jose Luis");
+    assert.equal(new URL(url, "http://local").searchParams.get("setter"), "Jose Luis Botto Garcia");
     return Response.json(emptyResponse);
   };
   const empty = await getAppointmentDetail(

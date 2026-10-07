@@ -157,7 +157,16 @@ export function SetterStatusTable({
                         disabled={busy}
                         className="cursor-pointer rounded px-1 text-left hover:bg-accent hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-default disabled:no-underline"
                         aria-label={`Ver todos los agendamientos de ${personLabel}`}
-                        onClick={() => onDetail(person, undefined, n(row.total), row.sourceNames)}
+                        onClick={() =>
+                          onDetail(
+                            personLabel,
+                            undefined,
+                            n(row.total),
+                            personLabel === "Agendado automático" || mode === "setter"
+                              ? undefined
+                              : row.sourceNames,
+                          )
+                        }
                       >
                         {personLabel}
                       </button>
@@ -177,7 +186,14 @@ export function SetterStatusTable({
                       >
                         {col.key === "attendanceRate"
                           ? `${attendanceRate(row.asistio, row.total)}%`
-                          : valueCell(col.key, n(row[col.key] as number), person, row.sourceNames)}
+                          : valueCell(
+                              col.key,
+                              n(row[col.key] as number),
+                              personLabel,
+                              personLabel === "Agendado automático" || mode === "setter"
+                                ? undefined
+                                : row.sourceNames,
+                            )}
                       </td>
                     ),
                   )}

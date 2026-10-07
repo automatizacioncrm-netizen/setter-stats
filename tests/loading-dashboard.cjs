@@ -367,16 +367,16 @@ test("los nombres y cifras de Sin setter abren el mismo detalle", () => {
   const click = (label) =>
     detailButtons.find((button) => button.props["aria-label"] === label).props.onClick();
 
-  click("Ver todos los agendamientos de Sin setter");
-  click("Ver 100 agendamientos de Sin setter: Asistió");
-  click("Ver 105 agendamientos de Sin setter: Cancelado");
-  click("Ver 313 agendamientos de Sin setter");
+  click("Ver todos los agendamientos de Agendado automático");
+  click("Ver 100 agendamientos de Agendado automático: Asistió");
+  click("Ver 105 agendamientos de Agendado automático: Cancelado");
+  click("Ver 313 agendamientos de Agendado automático");
 
   assert.deepEqual(calls, [
-    ["Sin setter", undefined, 313, ["Sin setter"]],
-    ["Sin setter", "Asistió", 100, ["Sin setter"]],
-    ["Sin setter", "Cancelado", 105, ["Sin setter"]],
-    ["Sin setter", undefined, 313, ["Sin setter"]],
+    ["Agendado automático", undefined, 313, undefined],
+    ["Agendado automático", "Asistió", 100, undefined],
+    ["Agendado automático", "Cancelado", 105, undefined],
+    ["Agendado automático", undefined, 313, undefined],
   ]);
 });
 

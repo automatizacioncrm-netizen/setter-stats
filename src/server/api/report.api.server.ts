@@ -86,6 +86,13 @@ export async function reportApi(request: Request) {
       const result = detailResponseSchema.safeParse(envelope.data ?? envelope);
       if (!result.success)
         throw new ApiError("El detalle de agendamientos tiene un formato inválido.");
+      if (process.env["NODE_ENV"] !== "production") {
+        console.debug("[appointment_detail]", {
+          filters: q,
+          totalRecords: result.data.pagination.totalRecords,
+          rowsReceived: result.data.rows.length,
+        });
+      }
       return Response.json(result.data, { headers: { "Cache-Control": "no-store" } });
     }
     const parsed = schema.safeParse(Object.fromEntries(params));

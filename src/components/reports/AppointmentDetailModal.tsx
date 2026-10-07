@@ -21,7 +21,9 @@ const columns: [keyof AppointmentDetailRow, string][] = [
   ["nombreContacto", "Nombre"],
   ["telefono", "Teléfono"],
   ["agendadoPor", "Agendado por"],
-  ["bookingModeLabel", "Tipo"],
+  ["setterAsignado", "Setter asignado"],
+  ["creadoPorCita", "Creado por cita"],
+  ["creadoPorCitaNormalizado", "Creado por cita normalizado"],
   ["calendario", "Calendario"],
   ["estado", "Estado"],
   ["fechaCreacionCita", "Fecha creación cita"],
@@ -44,8 +46,8 @@ export function AppointmentDetailModal({
   onClose: () => void;
 }) {
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [appliedSearch, setAppliedSearch] = useState("");
+  const [search, setSearch] = useState(selection.filters.search);
+  const [appliedSearch, setAppliedSearch] = useState(selection.filters.search);
   const [dateField, setDateField] = useState<AppointmentDateField>(
     selection.filters.dateField ?? "appointmentCreated",
   );
@@ -62,16 +64,17 @@ export function AppointmentDetailModal({
     setDates((previous) => ({ ...previous, ...next }));
   };
   useEffect(() => {
+    if (search === appliedSearch) return;
     const timer = setTimeout(() => {
       setPage(1);
       setAppliedSearch(search);
     }, 400);
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [search, appliedSearch]);
   useEffect(() => {
     setPage(1);
-    setSearch("");
-    setAppliedSearch("");
+    setSearch(selection.filters.search);
+    setAppliedSearch(selection.filters.search);
     setDateField(selection.filters.dateField ?? "appointmentCreated");
     setDates({ dateFrom: selection.filters.dateFrom, dateTo: selection.filters.dateTo });
     setBookingMode(selection.filters.bookingMode ?? "");
@@ -92,6 +95,7 @@ export function AppointmentDetailModal({
     queryFn: ({ signal }) => getAppointmentDetail(detailFilters, page, signal),
     enabled: !searching && validDates,
     retry: false,
+    staleTime: 30_000,
     placeholderData: (previous) => previous,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -300,15 +304,22 @@ export function AppointmentDetailModal({
                               className="min-w-[110px] max-w-[240px] break-words px-3 py-2 align-top"
                             >
                               {key === "agendadoPor"
-                                ? row.setterEfectivo || row.agendadoPor || "Sin setter"
-                                : key === "bookingModeLabel"
-                                  ? row.bookingModeLabel ||
-                                    (row.bookingMode === "automatic"
+                                ? row.agendadoPor ||
+                                  row.setterEfectivo ||
+                                  row.creadoPorCitaNormalizado ||
+                                  row.setterAsignado ||
+                                  "Agendado automático"
+                                : key === "setterAsignado"
+                                  ? row.setterAsignado || row.setterOpportunity || "—"
+                                  : key === "bookingModeLabel"
+                                    ? row.bookingMode === "automatic"
                                       ? "Agendado automático"
                                       : row.bookingMode === "manual"
                                         ? "Agendado manual"
-                                        : "—")
-                                  : (row[key] ?? "—")}
+                                        : row.bookingModeLabel || "—"
+                                    : key === "fechaReunion"
+                                      ? row.fechaReunion || row.fechaCita || "—"
+                                      : (row[key] ?? "—")}
                             </td>
                           ))}
                         </tr>

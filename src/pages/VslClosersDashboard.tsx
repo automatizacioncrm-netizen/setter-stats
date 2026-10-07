@@ -107,25 +107,29 @@ export function VslClosersDashboard() {
     [usesBooker, context, filters.pipeline],
   );
   const person = usesBooker ? filters.booker : filters.setter;
-  const apiNormalizedSetters = Boolean(
-    context?.setters.some((row) => row.setterEfectivo !== undefined) ||
-    [
-      ...(context?.appointmentPeople?.oeiBookers ?? []),
-      ...(context?.appointmentPeople?.ligBookers ?? []),
-    ].some((row) => row.setterEfectivo !== undefined),
-  );
+  const apiNormalizedSetters =
+    filters.pipeline === "vsl" ||
+    Boolean(
+      context?.setters.some((row) => row.setterEfectivo !== undefined) ||
+      [
+        ...(context?.appointmentPeople?.oeiBookers ?? []),
+        ...(context?.appointmentPeople?.ligBookers ?? []),
+      ].some((row) => row.setterEfectivo !== undefined),
+    );
   const sourceNames = getSetterOptions(contextNames, apiNormalizedSetters).find(
     (option) =>
       option.value === (apiNormalizedSetters ? person : (getCanonicalSetterName(person) ?? person)),
   )?.sourceNames;
+  const requestSourceNames =
+    filters.pipeline === "vsl" ? undefined : person ? sourceNames : undefined;
   const validRange = isValidReportRange(filters);
   const query = useQuery({
-    queryKey: ["vsl-closers", filters, { ...detail, search }, person ? sourceNames : undefined],
+    queryKey: ["vsl-closers", filters, { ...detail, search }, requestSourceNames],
     queryFn: ({ signal }) =>
-      getVslClosersReport(filters, { ...detail, search }, signal, person ? sourceNames : undefined),
+      getVslClosersReport(filters, { ...detail, search }, signal, requestSourceNames),
     enabled:
       validRange &&
-      (!person || Boolean(sourceNames?.length)) &&
+      (filters.pipeline === "vsl" || !person || Boolean(sourceNames?.length)) &&
       (!filters.closer || isReportCloser(filters.closer)) &&
       (!filters.calendar || Boolean(context?.availableCalendars?.includes(filters.calendar))) &&
       (!filters.estadoAgenda ||
@@ -262,11 +266,7 @@ export function VslClosersDashboard() {
     }
   }, [query]);
 
-  const requestKey = JSON.stringify([
-    filters,
-    { ...detail, search },
-    person ? sourceNames : undefined,
-  ]);
+  const requestKey = JSON.stringify([filters, { ...detail, search }, requestSourceNames]);
   const lastReport = useRef<{ key: string; data: VslClosersReport } | undefined>(undefined);
   useEffect(() => {
     if (query.data) lastReport.current = { key: requestKey, data: query.data };
