@@ -1,9 +1,8 @@
-import { getReportRecordValue } from "@/lib/report-record";
+import { saleDetailValue, formatSaleQuotaDate, formatSaleDetailAmount } from "@/lib/sales-detail";
 import { useMemo, useState } from "react";
 import { ArrowUpDown } from "lucide-react";
 import type { SaleRow, SalesReport } from "@/types/reports";
 import { KpiCard } from "./KpiCard";
-import { formatCurrency } from "@/lib/currency";
 import { getSalesStageStyle } from "@/lib/sales-stage-style";
 import { SalesFinancialCards } from "./SalesFinancialCards";
 
@@ -12,56 +11,47 @@ const baseColumns: { key: keyof SaleRow; label: string }[] = [
   { key: "secuencia", label: "Secuencia" },
   { key: "calendarioCita", label: "Calendario" },
   { key: "nombreContacto", label: "Nombre del contacto" },
+  { key: "setterAsignado", label: "Setter" },
+  { key: "agendadorCita", label: "Agendador" },
   { key: "closerCita", label: "Closer cita" },
   { key: "fase", label: "Fase" },
   { key: "productoEvento", label: "Producto" },
-  { key: "fechaVenta", label: "Fecha de venta" },
+  { key: "fechaCuota1", label: "Fecha de venta" },
+  { key: "monedaPrecioAcordado", label: "Moneda" },
+  { key: "precioAcordadoProducto", label: "Precio acordado" },
+  { key: "montoCuota1", label: "Monto cuota 1" },
   { key: "fechaReunion", label: "Fecha de reunión" },
-  { key: "fechaPrimerPago", label: "Primer pago" },
   { key: "planPagos", label: "Plan de pagos" },
   { key: "numeroCuotasPactadas", label: "Cuotas" },
-  { key: "montoTotalAcordado", label: "Monto acordado" },
-  { key: "montoUltimoPago", label: "Último pago" },
-  { key: "fechaCita", label: "Fecha cita" },
-  { key: "fechaAgendamiento", label: "Fecha agendamiento" },
-  { key: "estadoAgenda", label: "Estado" },
 ];
 
 export function SalesSection({
   sales,
   available,
-  pipeline,
 }: {
   sales: SalesReport;
   available: boolean;
   pipeline: "all" | "vsl" | "oei" | "lig";
 }) {
   const [sort, setSort] = useState<{ key: keyof SaleRow; asc: boolean } | null>(null);
-  const columns = useMemo(
-    () => [
-      ...baseColumns.slice(0, 4),
-      { key: "setterAsignado" as const, label: "Setter" },
-      ...(pipeline !== "vsl" ? [{ key: "agendadorCita" as const, label: "Agendador" }] : []),
-      ...baseColumns.slice(4),
-    ],
-    [pipeline],
-  );
+  const columns = baseColumns;
+  const detailRows = sales.detailRows ?? sales.rows;
   const rows = useMemo(
     () =>
       sort
-        ? [...sales.rows].sort(
+        ? [...detailRows].sort(
             (a, b) =>
-              (sort.key === "montoUltimoPago" || sort.key === "montoTotalAcordado"
-                ? (a.moneda || "").localeCompare(b.moneda || "") ||
-                  (a[sort.key] || 0) - (b[sort.key] || 0)
-                : String(getReportRecordValue(a, sort.key)).localeCompare(
-                    String(getReportRecordValue(b, sort.key)),
+              (sort.key === "montoCuota1" || sort.key === "precioAcordadoProducto"
+                ? (a.monedaPrecioAcordado || "").localeCompare(b.monedaPrecioAcordado || "") ||
+                  (a[sort.key] ?? -Infinity) - (b[sort.key] ?? -Infinity)
+                : String(saleDetailValue(a, sort.key)).localeCompare(
+                    String(saleDetailValue(b, sort.key)),
                     "es",
                     { numeric: true },
                   )) * (sort.asc ? 1 : -1),
           )
-        : sales.rows,
-    [sales.rows, sort],
+        : detailRows,
+    [detailRows, sort],
   );
 
   return (
@@ -139,8 +129,10 @@ export function SalesSection({
                     <tr key={index} className="border-t border-border hover:bg-accent/50">
                       {columns.map((col) => (
                         <td key={col.key} className="px-4 py-3">
-                          {col.key === "montoUltimoPago" || col.key === "montoTotalAcordado" ? (
-                            formatCurrency(row[col.key], row.moneda || "")
+                          {col.key === "montoCuota1" || col.key === "precioAcordadoProducto" ? (
+                            formatSaleDetailAmount(row, col.key)
+                          ) : col.key === "fechaCuota1" ? (
+                            formatSaleQuotaDate(row.fechaCuota1)
                           ) : col.key === "fase" ? (
                             <span
                               className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${getSalesStageStyle(row.fase).badge}`}
@@ -148,7 +140,7 @@ export function SalesSection({
                               {row.fase || "—"}
                             </span>
                           ) : (
-                            getReportRecordValue(row, col.key) || "—"
+                            saleDetailValue(row, col.key) || "—"
                           )}
                         </td>
                       ))}

@@ -230,6 +230,10 @@ export interface SalesStageSummary {
 }
 
 export interface SaleRow {
+  fechaCuota1?: string;
+  monedaPrecioAcordado?: string;
+  precioAcordadoProducto?: number | null;
+  montoCuota1?: number | null;
   appointmentCreatedAt?: string;
   vslCategoria?: "paid" | "organic";
   vslOrigen?: string;
@@ -260,6 +264,7 @@ export interface SaleRow {
 }
 
 export interface SalesReport {
+  detailRows?: SaleRow[];
   productSummary: SalesProductSummary[];
   salesValueByCurrency: SalesValueByCurrency[];
   cashByCurrency: { currency: string; amount: number }[];

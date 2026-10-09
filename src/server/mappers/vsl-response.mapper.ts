@@ -48,6 +48,55 @@ const counts = (row: Record<string, unknown>) => ({
 
 function salesReport(value: unknown): SalesReport {
   const sales = object(value);
+  const optionalAmount = (value: unknown): number | null => {
+    if (value == null || (typeof value === "string" && !value.trim())) return null;
+    if (typeof value !== "number" && typeof value !== "string") return null;
+    const amount = Number(value);
+    return Number.isFinite(amount) ? amount : null;
+  };
+  const mapSaleRow = (item: unknown) => {
+    const row = object(item);
+    return {
+      fechaCuota1: str(row["fechaCuota1"]),
+      monedaPrecioAcordado: str(row["monedaPrecioAcordado"]),
+      precioAcordadoProducto: optionalAmount(row["precioAcordadoProducto"]),
+      montoCuota1: optionalAmount(row["montoCuota1"]),
+      ...(row["vslCategoria"] != null
+        ? {
+            vslCategoria:
+              str(row["vslCategoria"]) === "paid" ? ("paid" as const) : ("organic" as const),
+          }
+        : {}),
+      vslOrigen: str(row["vslOrigen"]),
+      pipeline: str(row["pipeline"]),
+      secuencia: str(row["secuencia"]),
+      calendarioCita: str(row["calendarioCita"]),
+      productoEvento: str(row["productoEvento"]),
+      fechaPrimerPago: str(row["fechaPrimerPago"]),
+      ...(row["appointmentCreatedAt"] != null
+        ? { appointmentCreatedAt: str(row["appointmentCreatedAt"]) }
+        : {}),
+      ...(row["fechaVenta"] != null ? { fechaVenta: str(row["fechaVenta"]) } : {}),
+      planPagos: str(row["planPagos"]),
+      numeroCuotasPactadas: num(row["numeroCuotasPactadas"]),
+      moneda: str(row["moneda"]),
+      montoTotalAcordado: num(row["montoTotalAcordado"]),
+      montoUltimoPago: num(row["montoUltimoPago"]),
+      setterAsignado: str(row["setterAsignado"]),
+      agendadorCita: str(row["agendadorCita"]),
+      createdByUserName: str(row["createdByUserName"]),
+      closerAsignado: str(row["closerAsignado"]),
+      closerCita: str(row["closerCita"]),
+      nombreContacto: str(row["nombreContacto"]),
+      fase: str(row["fase"]),
+      fuente: str(row["fuente"]),
+      fechaCita: str(row["fechaCita"]),
+      fechaAgendamiento: str(row["fechaAgendamiento"]),
+      estadoAgenda: status(row["estadoAgenda"]),
+      estadoCita: str(row["estadoCita"]),
+      fechaReunion: str(row["fechaReunion"]),
+    };
+  };
   return {
     total: num(sales["total"]),
     byStage: array(sales["byStage"]).map((item) => ({
@@ -79,45 +128,10 @@ function salesReport(value: unknown): SalesReport {
         porcentajeRecaudado: num(row["porcentajeRecaudado"]),
       };
     }),
-    rows: array(sales["rows"]).map((item) => {
-      const row = object(item);
-      return {
-        ...(row["vslCategoria"] != null
-          ? {
-              vslCategoria:
-                str(row["vslCategoria"]) === "paid" ? ("paid" as const) : ("organic" as const),
-            }
-          : {}),
-        vslOrigen: str(row["vslOrigen"]),
-        pipeline: str(row["pipeline"]),
-        secuencia: str(row["secuencia"]),
-        calendarioCita: str(row["calendarioCita"]),
-        productoEvento: str(row["productoEvento"]),
-        fechaPrimerPago: str(row["fechaPrimerPago"]),
-        ...(row["appointmentCreatedAt"] != null
-          ? { appointmentCreatedAt: str(row["appointmentCreatedAt"]) }
-          : {}),
-        ...(row["fechaVenta"] != null ? { fechaVenta: str(row["fechaVenta"]) } : {}),
-        planPagos: str(row["planPagos"]),
-        numeroCuotasPactadas: num(row["numeroCuotasPactadas"]),
-        moneda: str(row["moneda"]),
-        montoTotalAcordado: num(row["montoTotalAcordado"]),
-        montoUltimoPago: num(row["montoUltimoPago"]),
-        setterAsignado: str(row["setterAsignado"]),
-        agendadorCita: str(row["agendadorCita"]),
-        createdByUserName: str(row["createdByUserName"]),
-        closerAsignado: str(row["closerAsignado"]),
-        closerCita: str(row["closerCita"]),
-        nombreContacto: str(row["nombreContacto"]),
-        fase: str(row["fase"]),
-        fuente: str(row["fuente"]),
-        fechaCita: str(row["fechaCita"]),
-        fechaAgendamiento: str(row["fechaAgendamiento"]),
-        estadoAgenda: status(row["estadoAgenda"]),
-        estadoCita: str(row["estadoCita"]),
-        fechaReunion: str(row["fechaReunion"]),
-      };
-    }),
+    rows: array(sales["rows"]).map(mapSaleRow),
+    ...(Array.isArray(sales["detailRows"])
+      ? { detailRows: array(sales["detailRows"]).map(mapSaleRow) }
+      : {}),
   };
 }
 

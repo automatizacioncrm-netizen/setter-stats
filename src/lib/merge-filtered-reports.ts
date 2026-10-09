@@ -170,6 +170,9 @@ export function mergeFilteredReports(
       salesValueByCurrency,
       productSummary,
       rows: reports.flatMap((report) => report.sales.rows),
+      ...(reports.some((report) => report.sales.detailRows !== undefined)
+        ? { detailRows: reports.flatMap((report) => report.sales.detailRows ?? report.sales.rows) }
+        : {}),
     },
     salesAvailable: reports.every((report) => report.salesAvailable),
     availableSetters: options("availableSetters"),
