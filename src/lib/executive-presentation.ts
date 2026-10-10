@@ -15,13 +15,20 @@ export function executiveCards(report: VslClosersReport, selected: boolean) {
     {
       label: "Total de agendamientos",
       value: value("appointments", report.kpis.total),
-      hint: `${value("appointments", report.kpis.total)} citas en el período seleccionado`,
+      hint:
+        value("appointments", report.kpis.total) === "No disponible"
+          ? "Conteo no informado por la API"
+          : `${report.kpis.total} citas en el período seleccionado`,
     },
     {
       label: "Asistió",
       value: value("attended", report.kpis.asistio),
       accent: "var(--status-asistio)",
-      hint: `${report.kpis.tasaAsistencia}% de asistencia`,
+      hint:
+        value("attended", report.kpis.asistio) === "No disponible" ||
+        value("appointments", report.kpis.total) === "No disponible"
+          ? "Porcentaje no disponible"
+          : `${report.kpis.tasaAsistencia}% de asistencia`,
     },
     {
       label: "Total de ventas",

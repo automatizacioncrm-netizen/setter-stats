@@ -1,11 +1,11 @@
-import type { SetterRow } from "../types/reports";
+import type { SetterRow, AppointmentDetailRow } from "../types/reports";
 import { REPORT_SETTERS, normalizePersonKey, resolveTeamMember } from "./report-team";
 export const normalizeSetterKey = normalizePersonKey;
 export function getCanonicalSetterName(value: string): string | null {
   return resolveTeamMember(value, REPORT_SETTERS)?.name ?? null;
 }
-export function getSetterChartRows(rows: readonly SetterRow[]): SetterRow[] {
-  return normalizeSetterRows(rows);
+export function getSetterChartRows(rows: readonly SetterRow[], selectedSetter = ""): SetterRow[] {
+  return getVisibleSetterRows(rows, selectedSetter);
 }
 export function getSetterOptions(names: readonly string[], apiNormalized = false) {
   return REPORT_SETTERS.map((person) => {
@@ -59,5 +59,32 @@ export function normalizeSetterRows(rows: readonly SetterRow[]): NormalizedSette
       }
     }
     return aggregate;
+  });
+}
+
+export function getVisibleSetterRows(rows: readonly SetterRow[], selectedSetter = "") {
+  const normalized = normalizeSetterRows(rows);
+  if (!selectedSetter) return normalized;
+  const selected = getCanonicalSetterName(selectedSetter);
+  return normalized.filter((row) => row.setter === selected);
+}
+
+/** Filter the displayed API page by its resolved identity; do not infer attribution. */
+export function getEffectiveAppointmentRows(
+  rows: readonly AppointmentDetailRow[],
+  selectedSetter: string,
+) {
+  const selected = getCanonicalSetterName(selectedSetter);
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    if (
+      !selected ||
+      !row.appointmentId ||
+      getCanonicalSetterName(row.setterEfectivo || "") !== selected ||
+      seen.has(row.appointmentId)
+    )
+      return false;
+    seen.add(row.appointmentId);
+    return true;
   });
 }

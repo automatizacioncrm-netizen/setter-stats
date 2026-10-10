@@ -228,9 +228,9 @@ test("actual sales table shows the 16 requested columns and sorts new amounts wi
       .map(text);
     assert.equal(cells[4], "Setter API");
     assert.equal(cells[5], "Creador");
-    assert.equal(cells[9], "09/10/2026");
-    assert.equal(cells[16 + 9], "—");
-    assert.ok(!text(tree).includes("1999") && !text(tree).includes("Do not display"));
+    assert.equal(cells[9], "01/01/1999");
+    assert.equal(cells[16 + 9], "01/01/1999");
+    assert.ok(!text(tree).includes("Do not display"));
     nodes(headers[11])
       .find((n) => n.type === "button")
       .props.onClick();

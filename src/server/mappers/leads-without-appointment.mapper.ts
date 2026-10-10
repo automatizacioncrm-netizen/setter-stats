@@ -20,7 +20,10 @@ const schema = z.object({
     )
     .optional(),
 });
-export function mapLeadsWithoutAppointment(value: unknown): {
+export function mapLeadsWithoutAppointment(
+  value: unknown,
+  expectedPipeline: "vsl" | "oei" = "vsl",
+): {
   data?: LeadsWithoutAppointment;
   error?: string;
 } {

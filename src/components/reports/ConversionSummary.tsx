@@ -10,6 +10,7 @@ import type { ReportKpis } from "@/types/reports";
 
 interface Props {
   kpis: ReportKpis;
+  error?: string | undefined;
 }
 
 function SliceCount({
@@ -45,7 +46,7 @@ function SliceCount({
   );
 }
 
-export function ConversionSummary({ kpis }: Props) {
+export function ConversionSummary({ kpis, error }: Props) {
   const pct = (value: number) => (kpis.total ? Math.round((value / kpis.total) * 100) : 0);
 
   // Same status colors as Composición general de citas.
@@ -59,63 +60,76 @@ export function ConversionSummary({ kpis }: Props) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4 shadow-card">
       <h3 className="text-sm font-semibold text-foreground">Efectividad de la agenda</h3>
-      <p className="text-xs text-muted-foreground">Sobre {kpis.total} agendamientos reales</p>
+      {!error && (
+        <p className="text-xs text-muted-foreground">Sobre {kpis.total} agendamientos reales</p>
+      )}
 
-      <div className="relative mx-auto mt-4 h-60 w-full max-w-72 sm:h-64">
-        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-          <PieChart>
-            <Pie
-              data={states.filter((state) => state.value > 0)}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="50%"
-              innerRadius={0}
-              outerRadius="90%"
-              startAngle={90}
-              endAngle={-270}
-              stroke="var(--surface)"
-              strokeWidth={2}
-              isAnimationActive={false}
-              label={(props: PieLabelRenderProps) => (
-                <SliceCount {...props} percentage={pct(Number(props["value"]))} />
-              )}
-              labelLine={false}
-            >
-              {states
-                .filter((state) => state.value > 0)
-                .map((state) => (
-                  <Cell key={state.name} fill={state.color} />
-                ))}
-            </Pie>
-            <Tooltip
-              formatter={(value, name) => [`${value} agendamientos · ${pct(Number(value))}%`, name]}
-              contentStyle={{
-                borderRadius: 10,
-                border: "1px solid var(--border)",
-                fontSize: 12,
-                background: "var(--surface)",
-                color: "var(--foreground)",
-              }}
-              wrapperStyle={{ zIndex: 10 }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-      <ul className="mx-auto mt-4 grid max-w-72 grid-cols-1 gap-x-6 gap-y-3 text-sm min-[380px]:grid-cols-2">
-        {states.map((state) => (
-          <li key={state.name} className="flex min-w-0 items-center gap-2">
-            <span
-              aria-hidden="true"
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: state.color }}
-            />
-            <div className="min-w-0">
-              <span className="text-muted-foreground">{state.name}</span>
-            </div>
-          </li>
-        ))}
-      </ul>
+      {error ? (
+        <p role="status" className="mt-4 text-sm text-muted-foreground">
+          {error}
+        </p>
+      ) : (
+        <>
+          <div className="relative mx-auto mt-4 h-60 w-full max-w-72 sm:h-64">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <PieChart>
+                <Pie
+                  data={states.filter((state) => state.value > 0)}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={0}
+                  outerRadius="90%"
+                  startAngle={90}
+                  endAngle={-270}
+                  stroke="var(--surface)"
+                  strokeWidth={2}
+                  isAnimationActive={false}
+                  label={(props: PieLabelRenderProps) => (
+                    <SliceCount {...props} percentage={pct(Number(props["value"]))} />
+                  )}
+                  labelLine={false}
+                >
+                  {states
+                    .filter((state) => state.value > 0)
+                    .map((state) => (
+                      <Cell key={state.name} fill={state.color} />
+                    ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value, name) => [
+                    `${value} agendamientos · ${pct(Number(value))}%`,
+                    name,
+                  ]}
+                  contentStyle={{
+                    borderRadius: 10,
+                    border: "1px solid var(--border)",
+                    fontSize: 12,
+                    background: "var(--surface)",
+                    color: "var(--foreground)",
+                  }}
+                  wrapperStyle={{ zIndex: 10 }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <ul className="mx-auto mt-4 grid max-w-72 grid-cols-1 gap-x-6 gap-y-3 text-sm min-[380px]:grid-cols-2">
+            {states.map((state) => (
+              <li key={state.name} className="flex min-w-0 items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: state.color }}
+                />
+                <div className="min-w-0">
+                  <span className="text-muted-foreground">{state.name}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }

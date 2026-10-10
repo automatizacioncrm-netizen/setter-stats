@@ -1,6 +1,7 @@
 import type { VslClosersReport } from "@/types/reports";
 import type { ReactNode } from "react";
 import { ratio, formatNumber } from "@/lib/executive-metrics";
+import { getCanonicalSetterName } from "@/lib/setter-performance";
 import { LeadsWithoutAppointmentSection } from "./LeadsWithoutAppointmentSection";
 import { ExecutiveTable } from "./ExecutiveTable";
 
@@ -14,10 +15,12 @@ export function ExecutivePerformance({
   report,
   setterDetails,
   setterSelected,
+  selectedSetter = "",
 }: {
   report: VslClosersReport;
   setterDetails?: ReactNode;
   setterSelected?: boolean;
+  selectedSetter?: string;
 }) {
   const p = report.performance;
   const conversion = teamPerformanceRows(
@@ -26,12 +29,15 @@ export function ExecutivePerformance({
     (r) => r.closer,
     (r) => r.ventas,
   ).map((r) => ({ ...r, closer: r.name, ventas: r.count }));
-  const setters = teamPerformanceRows(
+  const allSetters = teamPerformanceRows(
     p?.asistenciaPorSetter ?? [],
     REPORT_SETTERS,
     (r) => r.setter,
     (r) => r.agendamientos,
   ).map((r) => ({ ...r, setter: r.name, agendamientos: r.count }));
+  const setters = selectedSetter
+    ? allSetters.filter((r) => r.setter === getCanonicalSetterName(selectedSetter))
+    : allSetters;
   const closers = teamPerformanceRows(
     p?.asistenciaPorCloserTodosEmbudos ?? [],
     REPORT_CLOSER_TEAM,
@@ -43,7 +49,7 @@ export function ExecutivePerformance({
     conversion.reduce((sum, r) => sum + r.ventas, 0);
   const excludedActivity =
     (p?.asistenciaPorSetter.reduce((sum, r) => sum + r.agendamientos, 0) ?? 0) -
-    setters.reduce((sum, r) => sum + r.agendamientos, 0);
+    allSetters.reduce((sum, r) => sum + r.agendamientos, 0);
   const all = report.filters.pipeline === "all";
   const conversionScope = all ? "vsl+oei" : report.filters.pipeline;
   const attendanceScope = all ? "vsl+oei+lig" : report.filters.pipeline;

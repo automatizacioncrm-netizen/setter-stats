@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { DashboardFilters } from "@/components/reports/DashboardFilters";
 import { ExecutiveSummary } from "@/components/reports/ExecutiveSummary";
+import { calendarPresentation } from "@/lib/calendar-presentation";
 import { hasSelectedSetter } from "@/lib/executive-presentation";
 import { SetterStatusTable } from "@/components/reports/SetterStatusTable";
 import { SetterStatusChart } from "@/components/reports/SetterStatusChart";
@@ -66,6 +67,7 @@ export function VslClosersDashboard() {
     count: number;
     filters: AppointmentDetailFilters;
     sourceNames?: string[];
+    effectiveSetter?: string;
   } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const syncInFlight = useRef(false);
@@ -294,29 +296,11 @@ export function VslClosersDashboard() {
       : filters.pipeline === "vsl"
         ? "setter"
         : "general";
-  const peopleRows = useMemo(
-    () =>
-      peopleMode === "booker"
-        ? (
-            (filters.pipeline === "lig"
-              ? data?.appointmentPeople?.ligBookers
-              : data?.appointmentPeople?.oeiBookers) ?? []
-          ).map((person) => ({
-            setter: person.name,
-            agendadoCRM: 0,
-            confirmado: 0,
-            asistio: 0,
-            cancelado: 0,
-            noShow: 0,
-            pendienteAgenda: 0,
-            reagendado: 0,
-            ...data?.setters?.find((row) => row.setter === person.name),
-            ...person,
-            total: person.total,
-          }))
-        : (data?.setters ?? []),
-    [data?.appointmentPeople, data?.setters, peopleMode, filters.pipeline],
+  const calendar = useMemo(
+    () => (data ? calendarPresentation(data, person) : undefined),
+    [data, person],
   );
+  const peopleRows = calendar?.rows ?? [];
   useEffect(() => {
     const cardTotal = cardMetrics.totalAppointments;
     const tableTotal = data?.kpis.total;
@@ -463,25 +447,37 @@ export function VslClosersDashboard() {
           <>
             <h2 className="text-lg font-semibold">Resumen ejecutivo</h2>
             <ExecutiveSummary report={data} filters={filters} />
+            <div
+              className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
+              aria-label="Gráficos de Calendar"
+            >
+              <SetterStatusChart
+                rows={peopleRows}
+                tasaAsistencia={calendar?.kpis.tasaAsistencia ?? 0}
+                mode={peopleMode}
+                selectedSetter={person}
+                error={calendar?.error}
+              />
+              <ConversionSummary kpis={calendar?.kpis ?? data.kpis} error={calendar?.error} />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {filters.pipeline === "all"
+                ? "Actividad del personal: VSL, OEI y LIG. Las tarjetas comerciales muestran VSL + OEI."
+                : "Actividad del embudo y período seleccionados."}
+            </p>
             <ExecutivePerformance
               report={data}
               setterSelected={hasSelectedSetter(filters)}
+              selectedSetter={person}
               setterDetails={
                 <>
-                  <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-                    <SetterStatusChart
-                      rows={peopleRows}
-                      tasaAsistencia={attendanceRate}
-                      mode={peopleMode}
-                    />
-                    <ConversionSummary kpis={data.kpis} />
-                  </div>
-
                   {cardMetrics.totalLeads === 0 && (
                     <p>No existen registros para los filtros seleccionados.</p>
                   )}
                   <SetterStatusTable
                     rows={peopleRows}
+                    selectedSetter={person}
+                    error={calendar?.error}
                     totals={data.kpis}
                     mode={peopleMode}
                     showStatuses={
@@ -501,6 +497,7 @@ export function VslClosersDashboard() {
                         (current) =>
                           current ?? {
                             name: person || "Total general",
+                            ...(person ? { effectiveSetter: person } : {}),
                             count,
                             filters: appointmentDetailFilters(filters, person, status),
                             ...(sourceNames ? { sourceNames } : {}),

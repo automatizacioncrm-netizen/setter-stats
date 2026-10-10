@@ -505,3 +505,158 @@ test("historical sale remains attributed by API despite meeting outside reportin
   assert.equal(r.performance.conversionPorCloser[0].ventas, 2);
   assert.match(html(r), /Ezequiel Dario<\/td><td[^>]*>2<\/td><td[^>]*>2/);
 });
+
+test("missing executive metrics are unavailable rather than fabricated zero counts", () => {
+  const r = mapVslReportResponse({ ok: true, data: {} }, query);
+  const output = summary(r, EMPTY_REPORT_FILTERS);
+  assert.equal((output.match(/>No disponible</g) || []).length, 4);
+  assert.doesNotMatch(output, /0% de asistencia/);
+});
+test("unbooked details cannot mix VSL, OEI or LIG and partial details preserve API totals", () => {
+  assert.ok(
+    mapLeadsWithoutAppointment({
+      ...unbookedFixture(),
+      detalleSinCita: [{ ...unbookedFixture().detalleSinCita[0], pipeline: "oei" }],
+    }).error,
+  );
+  const partial = { ...unbookedFixture(), detalleSinCita: [] };
+  assert.equal(mapLeadsWithoutAppointment(partial).data.leadsSinCita, 1);
+});
+
+const { calendarPresentation } = require("../src/lib/calendar-presentation.ts");
+const { getVisibleSetterRows, getSetterChartRows } = require("../src/lib/setter-performance.ts");
+const calendarFixture = () => ({
+  ...integrated(),
+  filters: { ...EMPTY_REPORT_FILTERS, pipeline: "all" },
+  kpis: {
+    total: 147,
+    confirmado: 32,
+    asistio: 75,
+    cancelado: 21,
+    noShow: 19,
+    agendadoCRM: 0,
+    pendienteAgenda: 0,
+    reagendado: 0,
+    tasaAsistencia: 51.02,
+    tasaNoShow: 12.93,
+    totalLeads: 99,
+    conEstadoAgenda: 147,
+  },
+  setters: [
+    {
+      setter: "Cinthia Maquito",
+      total: 131,
+      confirmado: 28,
+      asistio: 66,
+      cancelado: 20,
+      noShow: 17,
+      agendadoCRM: 0,
+      pendienteAgenda: 0,
+      reagendado: 0,
+    },
+    {
+      setter: "Jose Luis Botto Garcia",
+      total: 16,
+      confirmado: 4,
+      asistio: 9,
+      cancelado: 1,
+      noShow: 2,
+      agendadoCRM: 0,
+      pendienteAgenda: 0,
+      reagendado: 0,
+    },
+  ],
+  performance: {
+    ...fixture(),
+    asistenciaPorSetter: [
+      { setter: "Cinthia Maquito", agendamientos: 131, citasAsistidas: 66, asistenciaPct: 50.38 },
+      {
+        setter: "Jose Luis Botto Garcia",
+        agendamientos: 16,
+        citasAsistidas: 9,
+        asistenciaPct: 56.25,
+      },
+    ],
+    diagnostics: { citasUnicasActividad: 147 },
+  },
+});
+test("Cinthia presentation uses only her effective API states with denominator 131, leaving commercial cards 147", () => {
+  const r = calendarFixture();
+  const view = calendarPresentation(r, "Cinthia Maquito");
+  assert.equal(view.error, undefined);
+  assert.equal(view.rows.length, 1);
+  assert.equal(view.rows[0].setter, "Cinthia Maquito");
+  assert.equal(view.kpis.total, 131);
+  assert.equal(view.kpis.asistio, 66);
+  assert.equal(view.kpis.confirmado, 28);
+  assert.equal(view.kpis.cancelado, 20);
+  assert.equal(view.kpis.noShow, 17);
+  assert.equal(r.kpis.total, 147);
+  assert.ok(Math.abs(view.kpis.tasaAsistencia - 50.381679389) < 0.0001);
+  const output = renderToStaticMarkup(
+    createElement(ExecutivePerformance, {
+      report: r,
+      selectedSetter: "Cinthia Maquito",
+      setterSelected: true,
+    }),
+  );
+  const setterSection = output.match(
+    /aria-labelledby="setter-attendance-heading"([\s\S]*?)<\/section>/,
+  )[1];
+  assert.equal((setterSection.match(/<tbody>[\s\S]*?<\/tbody>/)[0].match(/<tr /g) || []).length, 1);
+  assert.match(setterSection, /Cinthia Maquito/);
+  assert.doesNotMatch(setterSection, /Jose Luis Botto Garcia|Alvaro Jesus/);
+});
+test("clearing and switching setter restore six rows and never reuse prior person's states", () => {
+  const r = calendarFixture();
+  assert.equal(calendarPresentation(r).rows.length, 6);
+  const jose = calendarPresentation(r, "Jose Luis Botto Garcia");
+  assert.equal(jose.rows.length, 1);
+  assert.equal(jose.kpis.total, 16);
+  assert.equal(jose.kpis.asistio, 9);
+  for (const name of ["Cinthia", "Cinthia Maquito"]) {
+    assert.equal(getVisibleSetterRows(r.setters, name).length, 1);
+    assert.equal(getSetterChartRows(r.setters, name)[0].total, 131);
+  }
+  assert.equal(getVisibleSetterRows(r.setters, "Cinthia otra").length, 0);
+});
+test("missing LIG or unresolved effective setter states never become invented distributions", () => {
+  const r = calendarFixture();
+  r.performance.diagnostics.citasUnicasActividad = 237;
+  assert.match(calendarPresentation(r).error, /237.*147/);
+  r.performance.asistenciaPorSetter.push({
+    setter: "Alvaro Jesus Paniura Marin",
+    agendamientos: 48,
+    citasAsistidas: 8,
+    asistenciaPct: 16.67,
+  });
+  assert.match(calendarPresentation(r, "Alvaro Jesus Paniura Marin").error, /48.*0/);
+  assert.equal(r.setters.length, 2);
+});
+test("selected Alvaro uses existing effective attribution without borrowing another person's counts", () => {
+  const r = calendarFixture();
+  r.setters.push({
+    setter: "Alvaro",
+    setterEfectivo: "Alvaro Jesus Paniura Marin",
+    total: 1,
+    confirmado: 1,
+    asistio: 0,
+    cancelado: 0,
+    noShow: 0,
+    agendadoCRM: 0,
+    pendienteAgenda: 0,
+    reagendado: 0,
+  });
+  r.performance.asistenciaPorSetter.push({
+    setter: "Alvaro Jesus Paniura Marin",
+    agendamientos: 1,
+    citasAsistidas: 0,
+    asistenciaPct: 0,
+  });
+  const view = calendarPresentation(r, "Alvaro Jesus Paniura Marin");
+  assert.equal(view.error, undefined);
+  assert.equal(view.rows.length, 1);
+  assert.equal(view.kpis.total, 1);
+  assert.equal(view.kpis.confirmado, 1);
+  assert.equal(view.kpis.asistio, 0);
+});

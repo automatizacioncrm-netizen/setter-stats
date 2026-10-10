@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ArrowUpDown } from "lucide-react";
 import type { SetterRow, ReportKpis } from "@/types/reports";
-import { normalizeSetterRows } from "@/lib/setter-performance";
+import { getVisibleSetterRows } from "@/lib/setter-performance";
 
 type SortKey = keyof SetterRow | "attendanceRate";
 
@@ -36,6 +36,8 @@ export function SetterStatusTable({
   showStatuses = mode !== "booker",
   onDetail,
   busy = false,
+  selectedSetter = "",
+  error,
 }: {
   rows: SetterRow[];
   totals: ReportKpis;
@@ -48,11 +50,16 @@ export function SetterStatusTable({
     sourceNames?: string[],
   ) => void;
   busy?: boolean;
+  selectedSetter?: string;
+  error?: string | undefined;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("total");
   const [asc, setAsc] = useState(false);
 
-  const visiblePerformanceRows = useMemo(() => normalizeSetterRows(rows), [rows]);
+  const visiblePerformanceRows = useMemo(
+    () => getVisibleSetterRows(rows, selectedSetter),
+    [rows, selectedSetter],
+  );
   const totals = useMemo(
     () =>
       visiblePerformanceRows.reduce(
@@ -102,6 +109,12 @@ export function SetterStatusTable({
       value
     );
 
+  if (error)
+    return (
+      <p role="status" className="text-sm text-muted-foreground">
+        {error}
+      </p>
+    );
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-card">
       <div className="border-b border-border px-4 py-3">
@@ -148,6 +161,12 @@ export function SetterStatusTable({
             {sorted.map((row) => {
               const person = row.setter || "Sin setter";
               const personLabel = person === "Sin setter" ? "Sin setter identificado" : person;
+              if (error)
+                return (
+                  <p role="status" className="text-sm text-muted-foreground">
+                    {error}
+                  </p>
+                );
               return (
                 <tr key={person} className="border-t border-border hover:bg-accent/50">
                   <td className="sticky left-0 bg-surface px-4 py-2 font-medium text-foreground">

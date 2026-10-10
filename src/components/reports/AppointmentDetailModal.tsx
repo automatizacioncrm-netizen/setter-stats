@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { getEffectiveAppointmentRows } from "@/lib/setter-performance";
 import { getAppointmentDetail } from "@/services/reports";
 import { isValidReportRange, rangeForPreset } from "@/lib/report-filter-state";
 import type {
@@ -41,6 +42,7 @@ export function AppointmentDetailModal({
     count: number;
     filters: AppointmentDetailFilters;
     sourceNames?: string[];
+    effectiveSetter?: string;
   };
   onClose: () => void;
 }) {
@@ -104,6 +106,9 @@ export function AppointmentDetailModal({
       console.error("No fue posible cargar el detalle de agendamientos.", query.error);
   }, [query.error]);
   const data = searching || !validDates ? undefined : query.data;
+  const visibleRows = selection.effectiveSetter
+    ? getEffectiveAppointmentRows(data?.rows ?? [], selection.effectiveSetter)
+    : (data?.rows ?? []);
   const totalPages = Math.max(1, data?.pagination.totalPages ?? 1);
   const available = query.data?.filters?.available;
   const dateFields = available?.dateFields ?? [
@@ -126,7 +131,9 @@ export function AppointmentDetailModal({
           <DialogTitle>Detalle de agendamientos — {selection.name}</DialogTitle>
           <DialogDescription>
             {data
-              ? `${data.pagination.totalRecords} registros`
+              ? selection.effectiveSetter
+                ? `${visibleRows.length} citas del setter en esta página · Cifra seleccionada: ${selection.count}`
+                : `${data.pagination.totalRecords} registros`
               : `Cifra seleccionada: ${selection.count}`}
             {selection.filters.status && ` · Estado: ${selection.filters.status}`}
           </DialogDescription>
@@ -260,12 +267,22 @@ export function AppointmentDetailModal({
         ) : (
           data && (
             <>
-              <p className="text-sm text-muted-foreground">
-                Total: {data.summary.total} · Confirmado: {data.summary.confirmado} · Asistió:{" "}
-                {data.summary.asistio}
-                {` · Cancelado: ${data.summary.cancelado} · No asistió: ${data.summary.noShow} · Asistencia: ${data.summary.tasaAsistencia}%`}
-              </p>
-              {!appliedSearch &&
+              {!selection.effectiveSetter && (
+                <p className="text-sm text-muted-foreground">
+                  Total: {data.summary.total} · Confirmado: {data.summary.confirmado} · Asistió:{" "}
+                  {data.summary.asistio}
+                  {` · Cancelado: ${data.summary.cancelado} · No asistió: ${data.summary.noShow} · Asistencia: ${data.summary.tasaAsistencia}%`}
+                </p>
+              )}
+              {selection.effectiveSetter && (
+                <p className="text-sm text-muted-foreground">
+                  Solo se muestran citas cuyo setter efectivo identifica la API. La paginación
+                  corresponde a la búsqueda de origen, que puede incluir otros responsables; no se
+                  usan sus totales como cifras del setter.
+                </p>
+              )}
+              {!selection.effectiveSetter &&
+                !appliedSearch &&
                 !bookingMode &&
                 !dayGap &&
                 dateField === "appointmentCreated" &&
@@ -277,8 +294,12 @@ export function AppointmentDetailModal({
                     seleccionada ({selection.count}).
                   </p>
                 )}
-              {data.rows.length === 0 ? (
-                <p>No se encontraron agendamientos para los filtros seleccionados.</p>
+              {visibleRows.length === 0 ? (
+                <p>
+                  {selection.effectiveSetter
+                    ? "No hay citas con atribución verificable a este setter en esta página."
+                    : "No se encontraron agendamientos para los filtros seleccionados."}
+                </p>
               ) : (
                 <div className="min-w-0 overflow-x-auto rounded-lg border border-border">
                   <table className="w-full min-w-[1500px] text-sm">
@@ -292,7 +313,7 @@ export function AppointmentDetailModal({
                       </tr>
                     </thead>
                     <tbody>
-                      {data.rows.map((row, index) => (
+                      {visibleRows.map((row, index) => (
                         <tr
                           key={row.appointmentId || `${page}-${index}`}
                           className="border-t border-border"

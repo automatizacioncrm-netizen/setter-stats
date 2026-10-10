@@ -97,6 +97,8 @@ function harness(autoFrames = true) {
         };
       if (name.includes("reconciliation.service"))
         return { triggerVslReconciliation: () => api.post() };
+      if (name.includes("calendar-presentation"))
+        return require("../src/lib/calendar-presentation.ts");
       if (name.includes("executive-presentation"))
         return require("../src/lib/executive-presentation.ts");
       if (name.includes("pipeline-summary")) return require("../src/lib/pipeline-summary.ts");
@@ -205,11 +207,11 @@ test("cards y secciones de agenda consumen los agregados Calendar de la misma re
   );
   assert.equal(cards[1].hint, "783 citas en el período seleccionado");
   assert.equal(cards[2].hint, "45.59% de asistencia");
-  assert.equal(h.find("SetterStatusTable").props.rows, setters);
+  assert.equal(h.find("SetterStatusTable").props.rows.length, 6);
   assert.equal(h.find("SetterStatusTable").props.totals, kpis);
-  assert.equal(h.find("SetterStatusChart").props.rows, setters);
+  assert.equal(h.find("SetterStatusChart").props.rows.length, 6);
   assert.equal(h.find("SetterStatusChart").props.tasaAsistencia, 45.59);
-  assert.equal(h.find("ConversionSummary").props.kpis, kpis);
+  assert.deepEqual(h.find("ConversionSummary").props.kpis, kpis);
 });
 
 test("period cards preserve the four independent API cohorts", () => {
@@ -528,12 +530,15 @@ test("one continuous modal spans POST and GET, blocks duplicate calls, and rende
   assert.equal(gets, 1);
   assert.equal(h.find("LoadingModal").props.open, true);
   assert.equal(h.notices.length, 0);
-  h.query.data = { ...h.query.data, setters: [{ setter: "Updated", total: 2 }] };
+  h.query.data = { ...h.query.data, setters: [{ setter: "Evelyn Lopez Horna", total: 2 }] };
   get.resolve({ isError: false });
   await pending;
   h.render();
   assert.equal(h.find("LoadingModal").props.open, false);
-  assert.equal(h.find("SetterStatusTable").props.rows[0].setter, "Updated");
+  assert.equal(
+    h.find("SetterStatusTable").props.rows.find((r) => r.setter === "Evelyn Lopez Horna").total,
+    2,
+  );
   assert.equal(h.notices[0][1], "Datos actualizados correctamente");
   assert.equal(h.notices[0][2].description, "2 nuevos · 17 actualizados");
 });
@@ -733,11 +738,25 @@ test("focus refresh retains loaded data without starting a filter transition", (
   h.query.isLoading = true;
   h.render();
   assert.equal(h.find("LoadingModal").props.open, false);
-  assert.equal(h.find("SetterStatusTable").props.rows, previous.setters);
+  assert.equal(h.find("SetterStatusTable").props.rows.length, 6);
+  assert.equal(h.find("ExecutiveSummary").props.report, previous);
   h.query.isLoading = false;
   h.query.isFetching = false;
   h.query.isError = true;
   h.render();
   assert.equal(h.find("LoadingModal").props.open, false);
   assert.ok(h.find("SetterStatusTable"));
+});
+
+test("Calendar charts are reused once below summary and removed from collapsed detail", () => {
+  const h = harness();
+  h.loaded();
+  assert.equal(h.findAll("SetterStatusChart").length, 1);
+  assert.equal(h.findAll("ConversionSummary").length, 1);
+  const detail = h.find("ExecutivePerformance").props.setterDetails;
+  assert.equal(h.find("SetterStatusChart", detail), undefined);
+  assert.equal(h.find("ConversionSummary", detail), undefined);
+  const source = fs.readFileSync("src/pages/VslClosersDashboard.tsx", "utf8");
+  assert.ok(source.indexOf("<ExecutiveSummary") < source.indexOf("<SetterStatusChart"));
+  assert.ok(source.indexOf("<ConversionSummary") < source.indexOf("<ExecutivePerformance"));
 });
