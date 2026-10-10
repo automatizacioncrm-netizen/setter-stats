@@ -93,7 +93,7 @@ export function SetterStatusTable({
         type="button"
         disabled={busy}
         className="cursor-pointer rounded px-1 underline decoration-dotted underline-offset-4 hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-default disabled:no-underline"
-        aria-label={`Ver ${value} agendamientos de ${person || "Total general"}${DETAIL_STATUS[key] ? `: ${DETAIL_STATUS[key]}` : ""}`}
+        aria-label={`Ver ${value} agendamientos de ${person === "Sin setter" ? "Sin setter identificado" : person || "Total general"}${DETAIL_STATUS[key] ? `: ${DETAIL_STATUS[key]}` : ""}`}
         onClick={() => onDetail(person, DETAIL_STATUS[key], value, sourceNames)}
       >
         {value}
@@ -147,7 +147,7 @@ export function SetterStatusTable({
           <tbody>
             {sorted.map((row) => {
               const person = row.setter || "Sin setter";
-              const personLabel = person === "Sin setter" ? "Agendado automático" : person;
+              const personLabel = person === "Sin setter" ? "Sin setter identificado" : person;
               return (
                 <tr key={person} className="border-t border-border hover:bg-accent/50">
                   <td className="sticky left-0 bg-surface px-4 py-2 font-medium text-foreground">
@@ -159,12 +159,10 @@ export function SetterStatusTable({
                         aria-label={`Ver todos los agendamientos de ${personLabel}`}
                         onClick={() =>
                           onDetail(
-                            personLabel,
+                            person,
                             undefined,
                             n(row.total),
-                            personLabel === "Agendado automático" || mode === "setter"
-                              ? undefined
-                              : row.sourceNames,
+                            mode === "setter" ? undefined : row.sourceNames,
                           )
                         }
                       >
@@ -189,10 +187,8 @@ export function SetterStatusTable({
                           : valueCell(
                               col.key,
                               n(row[col.key] as number),
-                              personLabel,
-                              personLabel === "Agendado automático" || mode === "setter"
-                                ? undefined
-                                : row.sourceNames,
+                              person,
+                              mode === "setter" ? undefined : row.sourceNames,
                             )}
                       </td>
                     ),
@@ -203,27 +199,16 @@ export function SetterStatusTable({
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-border bg-brand-soft font-semibold text-foreground">
-              <td className="sticky left-0 bg-brand-soft px-4 py-2">Total general</td>
+              <td className="sticky left-0 bg-brand-soft px-4 py-2">Total equipo visible</td>
               {(showStatuses ? COLUMNS : COLUMNS.filter((col) => col.key === "total")).map(
                 (col) => (
                   <td key={col.key} className="px-4 py-2 text-right tabular-nums">
                     {col.key === "attendanceRate"
                       ? `${attendanceRate(totals.asistio, totals.total)}%`
-                      : valueCell(
-                          col.key,
-                          n(
-                            col.key === "total"
-                              ? totals.total
-                              : totals[col.key as keyof typeof totals],
-                          ),
-                          undefined,
-                          rows.some((row) => row.setterEfectivo !== undefined)
-                            ? undefined
-                            : [
-                                ...new Set(
-                                  visiblePerformanceRows.flatMap((row) => row.sourceNames),
-                                ),
-                              ],
+                      : n(
+                          col.key === "total"
+                            ? totals.total
+                            : totals[col.key as keyof typeof totals],
                         )}
                   </td>
                 ),

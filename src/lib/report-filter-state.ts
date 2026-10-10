@@ -1,10 +1,7 @@
 import type { DatePreset, ReportFilters } from "../types/reports";
 
-export const REPORT_CLOSERS = [
-  "Fiorela Bernales",
-  "Ezequiel Dario",
-  "Amaranta Alfonso Krasnova",
-] as const;
+import { REPORT_CLOSER_TEAM } from "./report-team";
+export const REPORT_CLOSERS = REPORT_CLOSER_TEAM.map((person) => person.name);
 
 export const isReportCloser = (name: string) => REPORT_CLOSERS.some((closer) => closer === name);
 

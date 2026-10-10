@@ -1,3 +1,4 @@
+import { mapLeadsWithoutAppointment } from "./leads-without-appointment.mapper";
 import { z } from "zod";
 import type {
   LeadDetailRow,
@@ -7,6 +8,7 @@ import type {
   VslClosersReport,
 } from "../../types/reports";
 import { ApiError } from "../config/env.server";
+import { mapPerformance } from "./performance.mapper";
 
 const envelope = z.object({ ok: z.literal(true), data: z.record(z.unknown()) });
 export const vslResponseSchema = envelope;
@@ -58,6 +60,7 @@ function salesReport(value: unknown): SalesReport {
     const row = object(item);
     return {
       fechaCuota1: str(row["fechaCuota1"]),
+      ...(row["opportunityId"] != null ? { opportunityId: str(row["opportunityId"]) } : {}),
       monedaPrecioAcordado: str(row["monedaPrecioAcordado"]),
       precioAcordadoProducto: optionalAmount(row["precioAcordadoProducto"]),
       montoCuota1: optionalAmount(row["montoCuota1"]),
@@ -167,6 +170,17 @@ export function mapVslReportResponse(
     Object.values(kpiCounts).reduce((sum, value) => sum + value, 0);
   const total = num(rawKpis["total"] ?? legacyKpis["totalAppointments"]);
   const totalLeads = num(legacyKpis["totalLeads"] ?? rawKpis["totalLeads"]);
+  const hasCount = (value: unknown) =>
+    (typeof value === "number" || (typeof value === "string" && value.trim() !== "")) &&
+    Number.isFinite(Number(value)) &&
+    Number(value) >= 0;
+  const executiveUnavailable: NonNullable<VslClosersReport["executiveUnavailable"]> = [];
+  if (!hasCount(legacyKpis["totalLeads"] ?? rawKpis["totalLeads"]))
+    executiveUnavailable.push("leads");
+  if (!hasCount(rawKpis["total"] ?? legacyKpis["totalAppointments"]))
+    executiveUnavailable.push("appointments");
+  if (!hasCount(rawKpis["asistio"])) executiveUnavailable.push("attended");
+  if (!hasCount(object(d["sales"])["total"])) executiveUnavailable.push("sales");
   const kpis: ReportKpis = {
     ...kpiCounts,
     total,
@@ -281,8 +295,38 @@ export function mapVslReportResponse(
     bookerTotals.set(person.name, (bookerTotals.get(person.name) ?? 0) + person.total);
   const bookers = [...bookerTotals].map(([name, total]) => ({ name, total }));
   const appointmentClosers = namedCounts(appointmentPeople["closers"], "closer");
+  const sales = salesReport(d["sales"]);
+  if (query.pipeline === "all" && sales.rows.some((row) => row.pipeline.toLowerCase() === "lig")) {
+    throw new ApiError(
+      "La versión de la API incluye ventas LIG en la vista comercial. Configura la versión VSL + OEI.",
+    );
+  }
+  const performance = mapPerformance(d["performance"]);
+  const unbooked = mapLeadsWithoutAppointment(d["leadsVslSinCita"]);
+  const byPipeline = object(d["leadsSinCitaPorEmbudo"]);
+  const vslUnbooked =
+    byPipeline["vsl"] == null ? unbooked : mapLeadsWithoutAppointment(byPipeline["vsl"]);
+  const oeiUnbooked = mapLeadsWithoutAppointment(byPipeline["oei"], "oei");
+  if (
+    performance.performance?.diagnostics["ventasUnicas"] != null &&
+    performance.performance.diagnostics["ventasUnicas"] !== sales.total
+  ) {
+    delete performance.performance;
+    performance.performanceError = "Las ventas verificadas no concilian con el total comercial.";
+  }
   return {
     report: str(d["report"]),
+    ...performance,
+    executiveUnavailable,
+    ...(unbooked.data ? { leadsVslSinCita: unbooked.data } : {}),
+    leadsSinCitaPorEmbudo: {
+      ...(vslUnbooked.data ? { vsl: vslUnbooked.data } : {}),
+      ...(oeiUnbooked.data ? { oei: oeiUnbooked.data } : {}),
+    },
+    leadsSinCitaErrors: {
+      ...(vslUnbooked.error ? { vsl: vslUnbooked.error } : {}),
+      ...(oeiUnbooked.error ? { oei: oeiUnbooked.error } : {}),
+    },
     ...(rawRecords ? { rawRecords } : {}),
     ...(vslSummary ? { vslSummary } : {}),
     ...(d["dateSemantics"]
@@ -292,6 +336,12 @@ export function mapVslReportResponse(
             appointments: str(object(d["dateSemantics"])["appointments"]),
             appointmentsFallback: str(object(d["dateSemantics"])["appointmentsFallback"]),
             sales: str(object(d["dateSemantics"])["sales"]),
+            ...(object(d["dateSemantics"])["salesFallback"] != null
+              ? { salesFallback: str(object(d["dateSemantics"])["salesFallback"]) }
+              : {}),
+            ...(object(d["dateSemantics"])["paymentDate"] != null
+              ? { paymentDate: str(object(d["dateSemantics"])["paymentDate"]) }
+              : {}),
           },
         }
       : {}),
@@ -320,7 +370,7 @@ export function mapVslReportResponse(
       attendanceRate: num(legacyKpis["attendanceRate"] ?? kpis.tasaAsistencia),
     },
     setters,
-    sales: salesReport(d["sales"]),
+    sales,
     salesAvailable: d["sales"] != null,
     availableSetters: strings(available["setters"]),
     availableBookers: Array.isArray(available["bookers"])

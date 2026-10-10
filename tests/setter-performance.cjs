@@ -26,13 +26,10 @@ test("horizontal chart includes only setters and preserves API names and counts"
     { setter: "Joseph", total: 5 },
   ];
   const result = getSetterChartRows(rows);
-  assert.deepEqual(
-    result.map((row) => row.setter),
-    ["Jose Luis Botto Garcia", "Evelyn Lopez Horna", "Kiara Villadolid Huamantumba"],
-  );
+  assert.equal(result.length, 6);
   assert.deepEqual(
     result.map((row) => row.total),
-    [12, 8, 4],
+    [0, 12, 0, 0, 8, 4],
   );
   assert.equal(rows[0].setter, "Jose Luis");
 });
@@ -49,11 +46,14 @@ test("API effective setters bypass aliases and never add the same authoritative 
     { ...row, setter: "Jose Luis Botto Garcia" },
     { setter: "Alias", setterEfectivo: "Nuevo setter API", total: 3 },
   ]);
-  assert.equal(result.length, 2);
-  assert.equal(result[0].setter, "Jose Luis Botto Garcia");
-  assert.equal(result[0].total, 5);
-  assert.deepEqual(result[0].sourceNames, ["Jose Luis Botto Garcia"]);
-  assert.equal(result[1].setter, "Nuevo setter API");
+  assert.equal(result.length, 6);
+  assert.equal(result[1].setter, "Jose Luis Botto Garcia");
+  assert.equal(result[1].total, 5);
+  assert.deepEqual(result[1].sourceNames, ["Jose Luis Botto Garcia"]);
+  assert.equal(
+    result.reduce((sum, r) => sum + r.total, 0),
+    5,
+  );
 });
 
 test("actual VSL names yield six canonical rows and all metrics merge without mutation", () => {
@@ -74,17 +74,17 @@ test("actual VSL names yield six canonical rows and all metrics merge without mu
   assert.deepEqual(
     result.map((row) => row.setter),
     [
+      "Alvaro Jesus Paniura Marin",
       "Jose Luis Botto Garcia",
-      "Sin setter",
-      "Evelyn Lopez Horna",
       "Claudia Jimena Ocampo Portilla",
       "Cinthia Maquito",
-      "Kiara",
+      "Evelyn Lopez Horna",
+      "Kiara Villadolid Huamantumba",
     ],
   );
   assert.equal(
     result.reduce((sum, row) => sum + row.total, 0),
-    995,
+    682,
   );
   assert.equal(getCanonicalSetterName("  JOSÉ   LUIS  "), "Jose Luis Botto Garcia");
   for (const name of ["Joseph", "Carla", "constructor", "Otro"])
@@ -114,13 +114,15 @@ test("actual VSL names yield six canonical rows and all metrics merge without mu
         }),
       ),
     );
-    const [merged] = normalizeSetterRows(rows);
-    assert.equal(normalizeSetterRows(rows).length, 1);
+    const merged = normalizeSetterRows(rows).find(
+      (r) => r.setter === getCanonicalSetterName(names[0]),
+    );
+    assert.equal(normalizeSetterRows(rows).length, 6);
     for (const key of keys) assert.equal(merged[key], 10, key);
     assert.deepEqual(merged.sourceNames, names);
   }
-  assert.deepEqual(normalizeSetterRows([]), []);
-  assert.deepEqual(normalizeSetterRows([{ setter: "Alvaro", total: 0 }]), []);
+  assert.equal(normalizeSetterRows([]).length, 6);
+  assert.equal(normalizeSetterRows([{ setter: "Alvaro", total: 0 }])[0].total, 0);
 });
 
 test("merged exact-name details preserve filters, summaries and pagination across aliases", async (t) => {

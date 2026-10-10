@@ -242,56 +242,13 @@ test("timeouts remain 504 and optional debug logs never include the credential",
   assert.doesNotMatch(await result.text(), /private-test-secret/);
 });
 
-test("pipeline selector exposes LIG and uses supplied calendars, creators and statuses", () => {
-  const exports = {};
-  vm.runInNewContext(
-    ts.transpileModule(fs.readFileSync("src/components/reports/DashboardFilters.tsx", "utf8"), {
-      compilerOptions: {
-        module: ts.ModuleKind.CommonJS,
-        target: ts.ScriptTarget.ES2022,
-        jsx: ts.JsxEmit.ReactJSX,
-      },
-    }).outputText,
-    { exports, require },
-  );
-  const React = require("react");
-  const { renderToStaticMarkup } = require("react-dom/server");
-  const html = renderToStaticMarkup(
-    React.createElement(exports.DashboardFilters, {
-      filters: {
-        pipeline: "lig",
-        dateFrom: "",
-        dateTo: "",
-        setter: "",
-        booker: "",
-        closer: "",
-        estadoAgenda: "",
-        vslOrigen: "",
-      },
-      calendars,
-      statuses: ["Asistió"],
-      setters: ["Setter Opportunity"],
-      bookers: ["Creador LIG"],
-      closers: ["Closer Calendar"],
-      origins: [],
-      vslTipoFiltro: "all",
-      onChange() {},
-      onPreset() {},
-      onClear() {},
-      onVslTipoChange() {},
-    }),
-  );
-  assert.match(html, /value="lig" selected=""/);
-  for (const name of [
-    ...calendars,
-    "Creador LIG",
-    "Closer Calendar",
-    "Creado por cita",
-  ])
-    assert.ok(html.includes(name), name);
-  assert.doesNotMatch(html, /VSL Origen|Llamada de Claridad|value="Confirmado"|Setter Opportunity|>Setter</);
+test("commercial selector exposes only VSL and OEI", () => {
+  const source = fs.readFileSync("src/components/reports/DashboardFilters.tsx", "utf8");
+  assert.match(source, /Todos \(VSL \+ OEI\)/);
+  assert.match(source, /value="vsl"/);
+  assert.match(source, /value="oei"/);
+  assert.doesNotMatch(source, /<option value="lig"/);
 });
-
 test("browser client keeps booker separate and encodes accents, + and &", async (t) => {
   setup(t);
   global.fetch = async (input) => {

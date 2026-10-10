@@ -95,7 +95,30 @@ export interface VslReportResponse {
   data?: VslReport;
 }
 
+export interface LeadsWithoutAppointment {
+  totalLeads: number;
+  leadsConCita: number;
+  leadsSinCita: number;
+  porcentajeSinCita?: number | null | undefined;
+  porcentajeConCita?: number | null | undefined;
+  detalleSinCita?:
+    | {
+        opportunityId: string;
+        nombreContacto: string;
+        fechaCreacion: string;
+        setter: string;
+        pipeline: "vsl" | "oei";
+      }[]
+    | undefined;
+}
+
 export interface VslClosersReport {
+  executiveUnavailable?: ("leads" | "appointments" | "attended" | "sales")[];
+  leadsVslSinCita?: LeadsWithoutAppointment;
+  leadsSinCitaPorEmbudo?: Partial<Record<"vsl" | "oei", LeadsWithoutAppointment>>;
+  leadsSinCitaErrors?: Partial<Record<"vsl" | "oei", string>>;
+  performance?: ReportPerformance;
+  performanceError?: string;
   rawRecords?: LeadDetailRow[];
   vslSummary?: Record<
     LeadType,
@@ -136,6 +159,38 @@ export interface VslClosersReport {
   detail?: LeadDetailRow[];
   detailTotal: number;
   detailPage: number;
+}
+
+export interface ReportPerformance {
+  conversionPorCloser: {
+    closer: string;
+    citasAsistidas: number;
+    ventas: number;
+    conversionPct: number | null;
+  }[];
+  asistenciaPorSetter: {
+    setter: string;
+    agendamientos: number;
+    citasAsistidas: number;
+    asistenciaPct: number | null;
+  }[];
+  asistenciaPorCloserTodosEmbudos: {
+    closer: string;
+    agendamientos: number;
+    citasAsistidas: number;
+    asistenciaPct: number | null;
+  }[];
+  alcanceAsistencia: string;
+  alcanceConversionCloser: string;
+  diagnostics: {
+    citasLigIncluidasSoloEnActividad?: number | undefined;
+    citasUnicasActividad?: number | undefined;
+    ventasSinCitaAsistida?: number | undefined;
+    ventasAtribucionAmbigua?: number | undefined;
+    ventasUnicas?: number | undefined;
+    citasAsistidasUnicas?: number | undefined;
+    criterio?: string | undefined;
+  };
 }
 
 export interface AppointmentPersonCount extends Partial<Omit<SetterRow, "setter" | "total">> {
@@ -230,6 +285,7 @@ export interface SalesStageSummary {
 }
 
 export interface SaleRow {
+  opportunityId?: string;
   fechaCuota1?: string;
   monedaPrecioAcordado?: string;
   precioAcordadoProducto?: number | null;

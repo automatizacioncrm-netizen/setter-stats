@@ -97,6 +97,8 @@ function harness(autoFrames = true) {
         };
       if (name.includes("reconciliation.service"))
         return { triggerVslReconciliation: () => api.post() };
+      if (name.includes("executive-presentation"))
+        return require("../src/lib/executive-presentation.ts");
       if (name.includes("pipeline-summary")) return require("../src/lib/pipeline-summary.ts");
       if (name.includes("setter-performance")) return require("../src/lib/setter-performance.ts");
       if (name.includes("report-filter-state")) return require("../src/lib/report-filter-state.ts");
@@ -118,14 +120,14 @@ function harness(autoFrames = true) {
   function find(type, node = tree) {
     if (!node || typeof node !== "object") return undefined;
     if (node.type === type) return node;
-    const children = node.props?.children;
+    const children = [node.props?.children, node.props?.setterDetails].flat(Infinity);
     return (Array.isArray(children) ? children.flat(Infinity) : [children])
       .map((child) => (child ? find(type, child) : undefined))
       .find(Boolean);
   }
   function findAll(type, node = tree) {
     if (!node || typeof node !== "object") return [];
-    const children = node.props?.children;
+    const children = [node.props?.children, node.props?.setterDetails].flat(Infinity);
     return [
       ...(node.type === type ? [node] : []),
       ...(Array.isArray(children) ? children.flat(Infinity) : [children]).flatMap((child) =>
@@ -192,12 +194,16 @@ test("cards y secciones de agenda consumen los agregados Calendar de la misma re
     leadTypeKpis: { totalLeads: 1828 },
   };
   h.render();
-  const cards = h.findAll("KpiCard").map((card) => card.props);
+  const summary = h.find("ExecutiveSummary").props;
+  const cards = require("../src/lib/executive-presentation.ts").executiveCards(
+    summary.report,
+    false,
+  );
   assert.deepEqual(
     cards.map((card) => card.value),
-    [1828, 783, 357],
+    [1828, 783, 357, "No disponible"],
   );
-  assert.equal(cards[1].hint, "43% de los leads agendaron");
+  assert.equal(cards[1].hint, "783 citas en el período seleccionado");
   assert.equal(cards[2].hint, "45.59% de asistencia");
   assert.equal(h.find("SetterStatusTable").props.rows, setters);
   assert.equal(h.find("SetterStatusTable").props.totals, kpis);
@@ -227,12 +233,16 @@ test("period cards preserve the four independent API cohorts", () => {
       pipelineSummary: { vsl: { totalLeads: 999, conCitaCalendar: 999 } },
     };
     h.render();
-    const cards = h.findAll("KpiCard").map((card) => card.props);
+    const summary = h.find("ExecutiveSummary").props;
+    const cards = require("../src/lib/executive-presentation.ts").executiveCards(
+      summary.report,
+      false,
+    );
     assert.deepEqual(
       cards.map((card) => card.value),
-      [leads, appointments, appointments],
+      [leads, appointments, appointments, "No disponible"],
     );
-    assert.equal(cards[1].hint, `${appointments} citas en el período`);
+    assert.equal(cards[1].hint, `${appointments} citas en el período seleccionado`);
     assert.equal(h.find("SalesSection").props.sales.total, sales);
     assert.equal(h.find("ConversionSummary").props.kpis.total, appointments);
   }
@@ -304,7 +314,7 @@ test("el pie de Desempeño por Setter suma solo las filas permitidas", () => {
   const visit = (node, type) => {
     if (!node || typeof node !== "object") return undefined;
     if (node.type === type) return node;
-    const children = node.props?.children;
+    const children = [node.props?.children, node.props?.setterDetails].flat(Infinity);
     return (Array.isArray(children) ? children.flat(Infinity) : [children])
       .map((child) => visit(child, type))
       .find(Boolean);
@@ -320,10 +330,10 @@ test("el pie de Desempeño por Setter suma solo las filas permitidas", () => {
             .map(text)
             .join("")
         : String(node);
-  assert.equal(text(visit(tree, "tfoot")), "Total general30034436%100202946");
+  assert.equal(text(visit(tree, "tfoot")), "Total equipo visible30034436%100202946");
 });
 
-test("los nombres y cifras de Sin setter abren el mismo detalle", () => {
+test("los registros sin setter no aparecen como integrantes del equipo", () => {
   const exports = {};
   const jsx = (type, props) => ({ type, props });
   const source = ts.transpileModule(
@@ -364,20 +374,12 @@ test("los nombres y cifras de Sin setter abren el mismo detalle", () => {
       ? []
       : [node, ...[node.props?.children].flat(Infinity).flatMap(nodes)];
   const detailButtons = nodes(tree).filter((node) => node.type === "button" && node.props.onClick);
-  const click = (label) =>
-    detailButtons.find((button) => button.props["aria-label"] === label).props.onClick();
-
-  click("Ver todos los agendamientos de Agendado automático");
-  click("Ver 100 agendamientos de Agendado automático: Asistió");
-  click("Ver 105 agendamientos de Agendado automático: Cancelado");
-  click("Ver 313 agendamientos de Agendado automático");
-
-  assert.deepEqual(calls, [
-    ["Agendado automático", undefined, 313, undefined],
-    ["Agendado automático", "Asistió", 100, undefined],
-    ["Agendado automático", "Cancelado", 105, undefined],
-    ["Agendado automático", undefined, 313, undefined],
-  ]);
+  assert.ok(
+    detailButtons.every(
+      (button) => !String(button.props["aria-label"] || "").includes("Sin setter"),
+    ),
+  );
+  assert.deepEqual(calls, []);
 });
 
 test("el nombre del agendador también abre el detalle en OEI y LIG", () => {
@@ -483,7 +485,13 @@ test("lead type changes reset incompatible filters and survive reconciliation", 
   h.query.isFetching = false;
   h.query.data.leadType = "organic";
   h.advance(350);
-  assert.equal(h.find("KpiCard").props.label, "Total de leads");
+  assert.equal(
+    require("../src/lib/executive-presentation.ts").executiveCards(
+      h.find("ExecutiveSummary").props.report,
+      false,
+    )[0].label,
+    "Total de leads",
+  );
   assert.equal(h.find("SetterStatusTable").props.rows, h.find("SetterStatusChart").props.rows);
   await h.find("RefreshButton").props.onClick();
   h.render();
@@ -684,7 +692,7 @@ test("latest filter wins and the skeleton waits for a pending GET, including fai
   h.render();
   assert.equal(h.find("LoadingModal").props.open, false);
   assert.equal(h.query.options.queryKey[1].pipeline, "oei");
-  assert.ok(h.find("KpiCard"));
+  assert.ok(h.find("ExecutiveSummary"));
 });
 
 test("filter changes hide old figures, reset VSL fields, and close appointment details", () => {
@@ -705,7 +713,7 @@ test("filter changes hide old figures, reset VSL fields, and close appointment d
   h.query.isFetching = true;
   h.render();
   assert.equal(h.find("AppointmentDetailModal"), undefined);
-  assert.equal(h.find("KpiCard"), undefined);
+  assert.equal(h.find("ExecutiveSummary"), undefined);
   const filters = h.query.options.queryKey[1];
   assert.equal(filters.pipeline, "oei");
   assert.equal(filters.leadType, "all");

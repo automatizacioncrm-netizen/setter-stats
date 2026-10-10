@@ -28,10 +28,7 @@ test("setter respects each pipeline and every fallback, including missing proper
       ["oei", "lig"].includes(pipeline) ? "Daniela" : "Jimena",
     );
     assert.equal(getEffectiveSetter({ pipeline, setterAsignado: "Jimena" }), "Jimena");
-    assert.equal(
-      getEffectiveSetter({ pipeline, createdByUserName: "Evelyn" }),
-      ["oei", "lig"].includes(pipeline) ? "Evelyn" : "",
-    );
+    assert.equal(getEffectiveSetter({ pipeline, createdByUserName: "Evelyn" }), "Evelyn");
     assert.equal(getEffectiveBooker(r), "Evelyn");
   }
   assert.equal(getEffectiveSetter(null), "");

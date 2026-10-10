@@ -1,6 +1,7 @@
 import type { SaleRow } from "../types/reports";
 import { formatCurrency } from "./currency";
 import { getReportRecordValue } from "./report-record";
+import { financialAmount, recognizedCurrency } from "./executive-metrics";
 
 export function formatSaleQuotaDate(value?: string): string {
   if (!value) return "—";
@@ -18,6 +19,7 @@ export function saleDetailValue(row: SaleRow, key: keyof SaleRow) {
     const setter = row.setterAsignado || "";
     return setter === "Agendado automático" || setter === "Agendado automatico" ? "" : setter;
   }
+  if (key === "fechaVenta") return row.fechaVenta || "";
   if (key === "agendadorCita") return row.agendadorCita || "";
   return getReportRecordValue(row, key);
 }
@@ -27,5 +29,8 @@ export function formatSaleDetailAmount(
   key: "precioAcordadoProducto" | "montoCuota1",
 ) {
   const amount = row[key];
-  return amount == null ? "—" : formatCurrency(amount, row.monedaPrecioAcordado || "");
+  if (amount == null) return "—";
+  return recognizedCurrency(row.monedaPrecioAcordado)
+    ? formatCurrency(amount, row.monedaPrecioAcordado || "")
+    : financialAmount(amount, null);
 }

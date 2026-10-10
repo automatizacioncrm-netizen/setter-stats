@@ -142,7 +142,7 @@ test("searchable canonical options retain all exact source names and whitelist",
     "Joseph",
     "Carla",
   ]);
-  assert.equal(options.length, 3);
+  assert.equal(options.length, 6);
   assert.deepEqual(options.find((x) => x.value === "Jose Luis Botto Garcia").sourceNames, [
     "Jose Luis",
     "Jose Luis Botto Garcia",

@@ -51,8 +51,7 @@ test("performance table filters existing rows and totals across pipeline changes
     "Claudia Jimena Ocampo Portilla",
     "Cinthia Maquito",
     "Evelyn Lopez Horna",
-    "Kiara",
-    "Sin setter",
+    "Kiara Villadolid Huamantumba",
   ];
   const hidden = [
     "Joseph",
@@ -64,7 +63,10 @@ test("performance table filters existing rows and totals across pipeline changes
   const makeRow = (setter) =>
     Object.freeze({ setter, confirmado: 2, asistio: 3, cancelado: 4, noShow: 1, total: 10 });
   for (const pipeline of ["vsl", "oei", "lig", "vsl"]) {
-    const names = pipeline === "vsl" ? allowed : allowed.filter((name) => name !== "Kiara");
+    const names =
+      pipeline === "vsl"
+        ? allowed
+        : allowed.filter((name) => name !== "Kiara Villadolid Huamantumba");
     const apiNames = names;
     const zeroRow = Object.freeze({
       setter: "Jose Luis Botto Garcia",
@@ -87,7 +89,7 @@ test("performance table filters existing rows and totals across pipeline changes
     const renderedRows = nodes(body).filter((node) => node.type === "tr");
     assert.deepEqual(
       renderedRows.map((row) => content(nodes(row).find((node) => node.type === "td"))).sort(),
-      names.map((name) => (name === "Sin setter" ? "Agendado automático" : name)).sort(),
+      allowed.slice().sort(),
     );
     const footer = nodes(tree).find((node) => node.type === "tfoot");
     assert.deepEqual(
@@ -95,7 +97,7 @@ test("performance table filters existing rows and totals across pipeline changes
         .filter((node) => node.type === "td")
         .map(content),
       [
-        "Total general",
+        "Total equipo visible",
         String(names.length * 2),
         String(names.length * 3),
         "30%",
@@ -109,7 +111,7 @@ test("performance table filters existing rows and totals across pipeline changes
       buttons.forEach((button) => button.props.onClick());
     }
     for (const person of apiNames) {
-      const selectedName = person === "Sin setter" ? "Agendado automático" : person;
+      const selectedName = person;
       assert.ok(
         clicks.some(
           ([name, status, count]) => name === selectedName && status === undefined && count === 10,
@@ -133,10 +135,7 @@ test("performance table filters existing rows and totals across pipeline changes
   ]) {
     const tree = exports.SetterStatusTable({ rows, totals: {}, mode: "general" });
     const body = nodes(tree).find((node) => node.type === "tbody");
-    assert.equal(
-      nodes(body).filter((node) => node.type === "tr").length,
-      rows.length && rows[0].setter !== "Otro" ? 1 : 0,
-    );
+    assert.equal(nodes(body).filter((node) => node.type === "tr").length, 6);
     assert.ok(!content(tree).includes("NaN"));
   }
   const clicks = [];
@@ -152,7 +151,7 @@ test("performance table filters existing rows and totals across pipeline changes
     onDetail: (...args) => clicks.push(args),
   });
   const groupedBody = nodes(groupedTree).find((node) => node.type === "tbody");
-  assert.equal(nodes(groupedBody).filter((node) => node.type === "tr").length, 2);
+  assert.equal(nodes(groupedBody).filter((node) => node.type === "tr").length, 6);
   const mergedName = nodes(groupedBody).find(
     (node) =>
       node.type === "button" &&
@@ -165,7 +164,7 @@ test("performance table filters existing rows and totals across pipeline changes
     nodes(footer)
       .filter((node) => node.type === "td")
       .map(content),
-    ["Total general", "6", "9", "30%", "12", "3", "30"],
+    ["Total equipo visible", "6", "9", "30%", "12", "3", "30"],
   );
 });
 const filters = {

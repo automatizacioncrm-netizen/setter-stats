@@ -4,7 +4,29 @@ import { ArrowUpDown } from "lucide-react";
 import type { SaleRow, SalesReport } from "@/types/reports";
 import { KpiCard } from "./KpiCard";
 import { getSalesStageStyle } from "@/lib/sales-stage-style";
-import { SalesFinancialCards } from "./SalesFinancialCards";
+import { SalesFinancialTable } from "./SalesFinancialTable";
+
+export function SalesSummaryCards({ sales }: { sales: SalesReport }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <KpiCard label="Total de ventas" value={sales.total} accent="var(--status-asistio)" />
+      {sales.byStage.map((item) => (
+        <div
+          key={item.stage}
+          className="rounded-xl border-t-4"
+          style={{ borderColor: getSalesStageStyle(item.stage).accent }}
+        >
+          <KpiCard
+            label={item.stage}
+            value={item.count}
+            accent={getSalesStageStyle(item.stage).accent}
+            hint={item.count === 1 ? "venta" : "ventas"}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const baseColumns: { key: keyof SaleRow; label: string }[] = [
   { key: "pipeline", label: "Embudo" },
@@ -16,7 +38,7 @@ const baseColumns: { key: keyof SaleRow; label: string }[] = [
   { key: "closerCita", label: "Closer cita" },
   { key: "fase", label: "Fase" },
   { key: "productoEvento", label: "Producto" },
-  { key: "fechaCuota1", label: "Fecha de venta" },
+  { key: "fechaVenta", label: "Fecha de venta" },
   { key: "monedaPrecioAcordado", label: "Moneda" },
   { key: "precioAcordadoProducto", label: "Precio acordado" },
   { key: "montoCuota1", label: "Monto cuota 1" },
@@ -28,9 +50,11 @@ const baseColumns: { key: keyof SaleRow; label: string }[] = [
 export function SalesSection({
   sales,
   available,
+  hideSummary = false,
 }: {
   sales: SalesReport;
   available: boolean;
+  hideSummary?: boolean;
   pipeline: "all" | "vsl" | "oei" | "lig";
 }) {
   const [sort, setSort] = useState<{ key: keyof SaleRow; asc: boolean } | null>(null);
@@ -73,24 +97,8 @@ export function SalesSection({
         </p>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <KpiCard label="Total de ventas" value={sales.total} accent="var(--status-asistio)" />
-            {sales.byStage.map((item) => (
-              <div
-                key={item.stage}
-                className="rounded-xl border-t-4"
-                style={{ borderColor: getSalesStageStyle(item.stage).accent }}
-              >
-                <KpiCard
-                  label={item.stage}
-                  value={item.count}
-                  accent={getSalesStageStyle(item.stage).accent}
-                  hint={item.count === 1 ? "venta" : "ventas"}
-                />
-              </div>
-            ))}
-          </div>
-          <SalesFinancialCards values={sales.salesValueByCurrency} />
+          {!hideSummary && <SalesSummaryCards sales={sales} />}
+          <SalesFinancialTable sales={sales} />
           <div className="overflow-hidden rounded-lg border border-border">
             <h3 className="border-b border-border px-4 py-3 text-sm font-semibold">
               Detalle de ventas filtradas
@@ -131,8 +139,8 @@ export function SalesSection({
                         <td key={col.key} className="px-4 py-3">
                           {col.key === "montoCuota1" || col.key === "precioAcordadoProducto" ? (
                             formatSaleDetailAmount(row, col.key)
-                          ) : col.key === "fechaCuota1" ? (
-                            formatSaleQuotaDate(row.fechaCuota1)
+                          ) : col.key === "fechaVenta" ? (
+                            formatSaleQuotaDate(row.fechaVenta)
                           ) : col.key === "fase" ? (
                             <span
                               className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${getSalesStageStyle(row.fase).badge}`}

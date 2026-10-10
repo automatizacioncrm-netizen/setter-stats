@@ -129,8 +129,24 @@ export function mergeFilteredReports(
       | "availableStatuses",
   ) => [...new Set(reports.flatMap((report) => report[key] ?? []))];
   const { preset: _preset, ...applied } = filters;
+  const { performance: _performance, performanceError: _performanceError, ...base } = first;
   return {
-    ...first,
+    ...base,
+    ...(reports.length > 1
+      ? {
+          leadsSinCitaPorEmbudo: {},
+          leadsSinCitaErrors: {
+            vsl: "Este indicador requiere una consulta única por responsable.",
+            oei: "Este indicador requiere una consulta única por responsable.",
+          },
+        }
+      : {}),
+    ...(reports.length === 1 && first.performance
+      ? { performance: first.performance }
+      : {
+          performanceError:
+            "Los indicadores requieren una consulta única por responsable para evitar solapamientos.",
+        }),
     filters: applied,
     kpis,
     leadTypeKpis: {

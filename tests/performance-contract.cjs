@@ -1,0 +1,507 @@
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const ts = require("typescript");
+const path = require("node:path");
+const Module = require("node:module");
+require.extensions[".ts"] = require.extensions[".tsx"] = (m, filename) =>
+  m._compile(
+    ts.transpileModule(fs.readFileSync(filename, "utf8"), {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+        jsx: ts.JsxEmit.ReactJSX,
+      },
+    }).outputText,
+    filename,
+    "commonjs",
+  );
+const resolve = Module._resolveFilename;
+Module._resolveFilename = function (name, ...args) {
+  return resolve.call(
+    this,
+    name.startsWith("@/") ? path.resolve("src", name.slice(2)) : name,
+    ...args,
+  );
+};
+const { mapPerformance } = require("../src/server/mappers/performance.mapper.ts");
+const { mapVslReportResponse } = require("../src/server/mappers/vsl-response.mapper.ts");
+const { ExecutivePerformance } = require("../src/components/reports/ExecutivePerformance.tsx");
+const { DashboardFilters } = require("../src/components/reports/DashboardFilters.tsx");
+const { renderToStaticMarkup } = require("react-dom/server");
+const { createElement } = require("react");
+const { getVslClosersReport } = require("../src/services/reports.ts");
+
+const fixture = () => ({
+  conversionPorCloser: [
+    { closer: "Fiorela Bernales", citasAsistidas: 2, ventas: 2, conversionPct: 100 },
+  ],
+  asistenciaPorSetter: [
+    { setter: "Evelyn", agendamientos: 4, citasAsistidas: 3, asistenciaPct: 75 },
+  ],
+  asistenciaPorCloserTodosEmbudos: [
+    { closer: "Fiorela Bernales", agendamientos: 4, citasAsistidas: 3, asistenciaPct: 75 },
+  ],
+  alcanceAsistencia: "vsl+oei+lig",
+  alcanceConversionCloser: "vsl+oei",
+  diagnostics: {
+    citasLigIncluidasSoloEnActividad: 1,
+    citasUnicasActividad: 4,
+    ventasSinCitaAsistida: 1,
+    ventasAtribucionAmbigua: 0,
+    ventasUnicas: 3,
+    citasAsistidasUnicas: 2,
+  },
+});
+const rows = [
+  { pipeline: "vsl", opportunityId: "vsl-1" },
+  { pipeline: "vsl", opportunityId: "vsl-2" },
+  { pipeline: "oei", opportunityId: "oei-1" },
+];
+const query = {
+  pipeline: "all",
+  includeDetail: false,
+  pageSize: 25,
+  sort: "nombreContacto",
+  direction: "asc",
+};
+const mapped = (performance = fixture()) =>
+  mapVslReportResponse({ ok: true, data: { sales: { total: 3, rows }, performance } }, query);
+const html = (report) => renderToStaticMarkup(createElement(ExecutivePerformance, { report }));
+
+test("proxy preserves all actual performance properties and commercial sales without LIG", () => {
+  const report = mapped();
+  assert.deepEqual(report.performance, fixture());
+  assert.equal(report.sales.total, 3);
+  assert.ok(report.sales.rows.every((r) => r.pipeline !== "lig"));
+});
+test("commercial API versions that include LIG fail explicitly", () => {
+  assert.throws(
+    () =>
+      mapVslReportResponse(
+        {
+          ok: true,
+          data: {
+            sales: { total: 4, rows: [...rows, { pipeline: "lig" }] },
+            performance: fixture(),
+          },
+        },
+        query,
+      ),
+    /incluye ventas LIG/,
+  );
+});
+test("activity includes LIG but commercial conversion uses its separate denominator", () => {
+  const report = mapped();
+  const output = html(report);
+  assert.equal(report.performance.asistenciaPorSetter[0].agendamientos, 4);
+  assert.equal(report.performance.asistenciaPorCloserTodosEmbudos[0].citasAsistidas, 3);
+  assert.equal(report.performance.conversionPorCloser[0].citasAsistidas, 2);
+  assert.match(output, /100.00 %/);
+  assert.match(output, /75.00 %/);
+  assert.match(output, /Vista general: incluye citas de VSL, OEI y LIG/);
+});
+test("unattributed sales remain in commercial totals and separate diagnostics", () => {
+  const report = mapped();
+  const p = report.performance;
+  assert.equal(
+    p.conversionPorCloser.reduce((n, r) => n + r.ventas, 0) +
+      p.diagnostics.ventasSinCitaAsistida +
+      p.diagnostics.ventasAtribucionAmbigua,
+    report.sales.total,
+  );
+  assert.match(html(report), /1 ventas sin atribución verificable/);
+});
+test("ambiguous closer attribution is preserved without arbitrary reassignment", () => {
+  const p = fixture();
+  p.diagnostics.ventasSinCitaAsistida = 0;
+  p.diagnostics.ventasAtribucionAmbigua = 1;
+  const report = mapped(p);
+  assert.equal(report.performance.conversionPorCloser[0].ventas, 2);
+  assert.match(html(report), /Atribución ambigua: 1/);
+});
+test("incomplete and invalid performance never become zero counts or perpetual loading", () => {
+  for (const p of [undefined, {}, { ...fixture(), asistenciaPorSetter: undefined }]) {
+    const result = mapPerformance(p);
+    assert.equal(result.performance, undefined);
+    assert.ok(result.performanceError);
+    const output = html({ filters: { pipeline: "all" }, ...result });
+    assert.match(output, /role="alert"/);
+    assert.doesNotMatch(output, /Cargando el conjunto completo/);
+  }
+});
+test("empty but complete aggregates render a real empty state", () => {
+  const p = {
+    ...fixture(),
+    conversionPorCloser: [],
+    asistenciaPorSetter: [],
+    asistenciaPorCloserTodosEmbudos: [],
+    diagnostics: {
+      citasUnicasActividad: 0,
+      ventasUnicas: 0,
+      ventasSinCitaAsistida: 0,
+      ventasAtribucionAmbigua: 0,
+    },
+  };
+  const parsed = mapPerformance(p);
+  assert.ok(parsed.performance);
+  assert.match(html({ filters: { pipeline: "all" }, ...parsed }), /Alvaro Jesus Paniura Marin/);
+});
+test("attendance invariant rejects attended greater than assigned", () => {
+  const p = fixture();
+  p.asistenciaPorSetter[0].citasAsistidas = 5;
+  assert.ok(mapPerformance(p).performanceError);
+});
+test("sales invariant and activity totals reject mismatched aggregates", () => {
+  const p = fixture();
+  p.diagnostics.ventasUnicas = 99;
+  assert.ok(mapPerformance(p).performanceError);
+  const next = fixture();
+  next.diagnostics.citasUnicasActividad = 99;
+  assert.ok(mapPerformance(next).performanceError);
+});
+test("zero denominators and unknown metrics do not produce misleading rates", () => {
+  const p = fixture();
+  p.conversionPorCloser[0].citasAsistidas = 0;
+  assert.match(html(mapped(p)), /No aplicable/);
+});
+test("selected funnel scopes cannot accidentally render global activity or LIG conversion", () => {
+  for (const pipeline of ["vsl", "oei"]) {
+    const report = mapped();
+    report.filters.pipeline = pipeline;
+    assert.match(html(report), /El alcance recibido no corresponde/);
+    report.performance.alcanceAsistencia = pipeline;
+    report.performance.alcanceConversionCloser = pipeline;
+    assert.doesNotMatch(html(report), /El alcance recibido no corresponde|Vista general: incluye/);
+  }
+});
+test("commercial selector offers precisely all, vsl and oei", () => {
+  const output = renderToStaticMarkup(
+    createElement(DashboardFilters, {
+      filters: { pipeline: "all", preset: "todos", leadType: "all" },
+      setters: [],
+      bookers: [],
+      closers: [],
+      origins: [],
+      calendars: [],
+      statuses: [],
+      onChange() {},
+      onPreset() {},
+      onClear() {},
+    }),
+  );
+  const selector = output.match(/<select aria-label="Embudo"[\s\S]*?<\/select>/)[0];
+  assert.deepEqual(
+    [...selector.matchAll(/<option value="([^"]*)"/g)].map((m) => m[1]),
+    ["all", "vsl", "oei"],
+  );
+  assert.match(selector, /Todos \(VSL \+ OEI\)/);
+});
+test("filter changes and combined filters use the same report request, without extra detail downloads", async (t) => {
+  const saved = global.fetch;
+  t.after(() => (global.fetch = saved));
+  let calls = 0;
+  for (const pipeline of ["all", "vsl", "oei"]) {
+    global.fetch = async (url) => {
+      calls++;
+      const p = new URL(url, "http://local").searchParams;
+      assert.equal(p.get("pipeline"), pipeline);
+      assert.equal(p.get("closer"), "Fiorela Bernales");
+      assert.equal(p.get("dateFrom"), "2026-09-01");
+      assert.equal(p.get("action"), null);
+      return Response.json(mapped());
+    };
+    const report = await getVslClosersReport(
+      {
+        pipeline,
+        closer: "Fiorela Bernales",
+        dateFrom: "2026-09-01",
+        dateTo: "2026-09-30",
+        setter: "",
+        booker: "Evelyn",
+      },
+      { includeDetail: false },
+    );
+    html(report);
+  }
+  assert.equal(calls, 3);
+});
+test("technical formulas stay in tooltips and attribution diagnostics, not loading text", () => {
+  const output = html(mapped());
+  assert.match(output, /title="Ventas atribuibles/);
+  assert.match(output, /Diagnóstico de atribución y alcance/);
+  assert.doesNotMatch(
+    output,
+    /Atribución efectiva del reporte|Citas únicas por Appointment ID|Cargando el conjunto completo/,
+  );
+});
+
+test("official tables contain exactly 3, 6 and 3 rows and keep excluded totals", () => {
+  const p = fixture();
+  p.conversionPorCloser.push({
+    closer: "Cinthia Maquito",
+    citasAsistidas: 1,
+    ventas: 1,
+    conversionPct: 100,
+  });
+  p.diagnostics.ventasSinCitaAsistida = 0;
+  p.asistenciaPorSetter.push({
+    setter: "Joseph",
+    agendamientos: 2,
+    citasAsistidas: 1,
+    asistenciaPct: 50,
+  });
+  p.diagnostics.citasUnicasActividad = 6;
+  const report = mapped(p);
+  const output = html(report);
+  const bodies = [...output.matchAll(/<tbody>([\s\S]*?)<\/tbody>/g)].map((m) => m[1]);
+  assert.deepEqual(
+    bodies.map((body) => (body.match(/<tr /g) || []).length),
+    [3, 6, 3],
+  );
+  assert.doesNotMatch(output, />Joseph<|>Closer sin nombre resuelto<|>Sin setter identificado</);
+  assert.match(output, /Ventas de otros responsables: 1/);
+  assert.match(output, /Citas fuera del equipo de setters: 2/);
+  assert.equal(report.sales.total, 3);
+  assert.equal(report.performance.diagnostics.citasUnicasActividad, 6);
+});
+test("confirmed aliases merge into canonical IDs and unknown IDs never map to team", () => {
+  const {
+    REPORT_SETTERS,
+    resolveTeamMember,
+    teamPerformanceRows,
+  } = require("../src/lib/report-team.ts");
+  for (const [alias, id] of [
+    [" ÁLVARO ", "alvaro"],
+    ["José", "jose"],
+    ["Claudia   Jimena", "claudia"],
+    ["Evelyn Lopez", "evelyn"],
+    ["Kiara", "kiara"],
+  ]) {
+    assert.equal(resolveTeamMember(alias, REPORT_SETTERS).id, id);
+  }
+  for (const name of ["Joseph", "Jose otro", "Sin setter", "Jh1LDdbfRP024sF6O65a", "constructor"]) {
+    assert.equal(resolveTeamMember(name, REPORT_SETTERS), null);
+  }
+  const rows = teamPerformanceRows(
+    [
+      { setter: "Jose", agendamientos: 2, citasAsistidas: 1 },
+      { setter: "Jose Luis", agendamientos: 3, citasAsistidas: 2 },
+    ],
+    REPORT_SETTERS,
+    (r) => r.setter,
+    (r) => r.agendamientos,
+  );
+  assert.equal(rows.length, 6);
+  assert.equal(rows[1].count, 5);
+  assert.equal(rows[1].citasAsistidas, 3);
+  assert.equal(rows[0].count, 0);
+});
+
+test("repeated API buckets are rejected instead of doubling canonical counts", () => {
+  const p = fixture();
+  p.conversionPorCloser.push({ ...p.conversionPorCloser[0] });
+  assert.match(mapPerformance(p).performanceError, /filas repetidas/);
+});
+test("record-level fallback follows VSL assigned and OEI/LIG creator priority", () => {
+  const { getEffectiveSetter } = require("../src/lib/report-record.ts");
+  const record = { setterAsignado: "Assigned", agendadorCita: "Creator" };
+  assert.equal(getEffectiveSetter({ ...record, pipeline: "vsl" }), "Assigned");
+  assert.equal(getEffectiveSetter({ pipeline: "vsl", agendadorCita: "Creator" }), "Creator");
+  for (const pipeline of ["oei", "lig"]) {
+    assert.equal(getEffectiveSetter({ ...record, pipeline }), "Creator");
+    assert.equal(getEffectiveSetter({ setterAsignado: "Assigned", pipeline }), "Assigned");
+  }
+});
+
+const { ExecutiveSummary } = require("../src/components/reports/ExecutiveSummary.tsx");
+const {
+  LeadsWithoutAppointmentSection,
+} = require("../src/components/reports/LeadsWithoutAppointmentSection.tsx");
+const {
+  mapLeadsWithoutAppointment,
+} = require("../src/server/mappers/leads-without-appointment.mapper.ts");
+const { EMPTY_REPORT_FILTERS, changeReportFilters } = require("../src/lib/report-filter-state.ts");
+const { hasSelectedSetter } = require("../src/lib/executive-presentation.ts");
+const unbookedFixture = () => ({
+  totalLeads: 3,
+  leadsConCita: 2,
+  leadsSinCita: 1,
+  porcentajeSinCita: 33.33,
+  porcentajeConCita: 66.67,
+  detalleSinCita: [
+    {
+      opportunityId: "unbooked-1",
+      nombreContacto: "Contacto",
+      fechaCreacion: "2026-10-03",
+      setter: "",
+      pipeline: "vsl",
+    },
+  ],
+});
+const integrated = () =>
+  mapVslReportResponse(
+    {
+      ok: true,
+      data: {
+        kpis: { total: 1, asistio: 0 },
+        leadTypeKpis: { totalLeads: 3 },
+        sales: { total: 3, rows },
+        performance: fixture(),
+        leadsVslSinCita: unbookedFixture(),
+        leadsSinCitaPorEmbudo: {
+          vsl: unbookedFixture(),
+          oei: {
+            totalLeads: 2,
+            leadsConCita: 2,
+            leadsSinCita: 0,
+            porcentajeSinCita: 0,
+            porcentajeConCita: 100,
+            detalleSinCita: [],
+          },
+        },
+      },
+    },
+    query,
+  );
+const summary = (report, filters) =>
+  renderToStaticMarkup(createElement(ExecutiveSummary, { report, filters }));
+
+test("all setters show four cards and VSL historical lead summary from actual contract", () => {
+  const r = integrated();
+  const output = summary(r, EMPTY_REPORT_FILTERS);
+  assert.equal((output.match(/text-3xl/g) || []).length, 4);
+  assert.match(output, /Total de leads/);
+  assert.match(output, /lg:grid-cols-4/);
+  const section = renderToStaticMarkup(
+    createElement(LeadsWithoutAppointmentSection, { report: r }),
+  );
+  assert.match(section, /Leads VSL sin cita creada/);
+  assert.match(section, /33.33 %/);
+  assert.match(section, /unbooked-1/);
+  assert.equal(r.leadsSinCitaPorEmbudo.vsl.totalLeads, 3);
+  assert.equal(r.kpis.total, 1);
+});
+test("Alvaro and Cinthia selections show exactly three cards and completely hide unbooked section", () => {
+  const r = integrated();
+  for (const pipeline of ["all", "vsl", "oei"])
+    for (const name of ["Alvaro Jesus Paniura Marin", "Cinthia Maquito"]) {
+      const filters = {
+        ...EMPTY_REPORT_FILTERS,
+        pipeline,
+        dateFrom: "2026-10-01",
+        dateTo: "2026-10-10",
+        closer: "Ezequiel Dario",
+        ...(pipeline === "oei" ? { booker: name } : { setter: name }),
+      };
+      const output = summary(r, filters);
+      assert.equal((output.match(/text-3xl/g) || []).length, 3);
+      assert.doesNotMatch(output, /Total de leads/);
+      assert.match(output, /sm:grid-cols-3/);
+      assert.match(output, /Total de ventas/);
+      assert.equal(
+        renderToStaticMarkup(
+          createElement(LeadsWithoutAppointmentSection, { report: { ...r, filters } }),
+        ),
+        "",
+      );
+      const executive = renderToStaticMarkup(
+        createElement(ExecutivePerformance, {
+          report: r,
+          setterSelected: hasSelectedSetter(filters),
+        }),
+      );
+      assert.doesNotMatch(executive, /sin cita creada|Detalle de disponibilidad/);
+      assert.match(executive, /Agendamientos y asistencia por setter/);
+      assert.equal(filters.dateFrom, "2026-10-01");
+      assert.equal(filters.closer, "Ezequiel Dario");
+    }
+});
+test("clearing setter restores four cards and unbooked, filter updates preserve period and closer", () => {
+  const filters = {
+    ...EMPTY_REPORT_FILTERS,
+    pipeline: "vsl",
+    dateFrom: "2026-10-01",
+    dateTo: "2026-10-10",
+    closer: "Ezequiel Dario",
+  };
+  const selected = changeReportFilters(filters, { setter: "Cinthia Maquito" });
+  assert.equal(selected.dateTo, filters.dateTo);
+  assert.equal(selected.closer, filters.closer);
+  assert.ok(hasSelectedSetter(selected));
+  const cleared = changeReportFilters(selected, { setter: "", booker: "" });
+  assert.equal(hasSelectedSetter(cleared), false);
+  assert.equal((summary(integrated(), cleared).match(/text-3xl/g) || []).length, 4);
+  assert.match(
+    renderToStaticMarkup(
+      createElement(LeadsWithoutAppointmentSection, {
+        report: { ...integrated(), filters: cleared },
+      }),
+    ),
+    /Leads VSL/,
+  );
+});
+test("OEI uses only verified OEI summary and absent contract shows availability, not false zeros", () => {
+  const r = integrated();
+  r.filters.pipeline = "oei";
+  const output = renderToStaticMarkup(createElement(LeadsWithoutAppointmentSection, { report: r }));
+  assert.match(output, /Leads OEI sin cita creada/);
+  assert.match(output, /100.00 %/);
+  assert.doesNotMatch(output, /unbooked-1/);
+  delete r.leadsSinCitaPorEmbudo;
+  assert.match(
+    renderToStaticMarkup(createElement(LeadsWithoutAppointmentSection, { report: r })),
+    /La API no entrega este indicador/,
+  );
+});
+test("unbooked contract rejects malformed and repeated records and inconsistent percentages", () => {
+  assert.ok(mapLeadsWithoutAppointment(undefined).error);
+  assert.ok(mapLeadsWithoutAppointment({}).error);
+  assert.ok(mapLeadsWithoutAppointment({ ...unbookedFixture(), totalLeads: 9 }).error);
+  assert.ok(mapLeadsWithoutAppointment({ ...unbookedFixture(), porcentajeSinCita: 99 }).error);
+  assert.ok(
+    mapLeadsWithoutAppointment({
+      ...unbookedFixture(),
+      detalleSinCita: [unbookedFixture().detalleSinCita[0], unbookedFixture().detalleSinCita[0]],
+    }).error,
+  );
+  assert.equal(
+    mapLeadsWithoutAppointment({
+      totalLeads: 0,
+      leadsConCita: 0,
+      leadsSinCita: 0,
+      detalleSinCita: [],
+    }).data.totalLeads,
+    0,
+  );
+});
+test("historical sale remains attributed by API despite meeting outside reporting month", () => {
+  const p = fixture();
+  p.conversionPorCloser[0].closer = "Ezequiel Dario";
+  const r = mapVslReportResponse(
+    {
+      ok: true,
+      data: {
+        sales: {
+          total: 3,
+          rows: [
+            {
+              pipeline: "vsl",
+              nombreContacto: "Veronica",
+              closerCita: "Ezequiel Dario",
+              fechaVenta: "2026-10-05",
+              fechaReunion: "2026-09-11",
+            },
+            ...rows.slice(1),
+          ],
+        },
+        performance: p,
+      },
+    },
+    { ...query, dateFrom: "2026-10-01", dateTo: "2026-10-10" },
+  );
+  assert.equal(r.sales.rows[0].fechaVenta, "2026-10-05");
+  assert.equal(r.sales.rows[0].fechaReunion, "2026-09-11");
+  assert.equal(r.performance.conversionPorCloser[0].ventas, 2);
+  assert.match(html(r), /Ezequiel Dario<\/td><td[^>]*>2<\/td><td[^>]*>2/);
+});

@@ -16,7 +16,7 @@ export function getEffectiveSetter(record?: ReportRecord | null): string {
   if (record?.pipeline === "oei" || record?.pipeline === "lig") {
     return record.agendadorCita || record.createdByUserName || record.setterAsignado || "";
   }
-  return record?.setterAsignado || "";
+  return record?.setterAsignado || record?.agendadorCita || record?.createdByUserName || "";
 }
 
 export function getEffectiveBooker(record?: ReportRecord | null): string {

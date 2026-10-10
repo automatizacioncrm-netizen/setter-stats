@@ -130,6 +130,39 @@ export async function readResponse<T>(response: Response): Promise<T> {
   }
   return body as T;
 }
+
+/** Read every appointment page before computing executive metrics. No partial aggregates. */
+export async function getCompleteAppointments(
+  filters: AppointmentDetailFilters,
+  signal?: AbortSignal,
+  sourceNames?: string[],
+) {
+  const first = await getAppointmentDetail(filters, 1, signal, sourceNames);
+  const pages = [first];
+  for (let page = 2; page <= first.pagination.totalPages; page += 4) {
+    const batch = await Promise.all(
+      Array.from({ length: Math.min(4, first.pagination.totalPages - page + 1) }, (_, offset) =>
+        getAppointmentDetail(filters, page + offset, signal, sourceNames),
+      ),
+    );
+    pages.push(...batch);
+  }
+  if (
+    pages.some(
+      (result, index) =>
+        result.pagination.page !== index + 1 ||
+        result.pagination.totalRecords !== first.pagination.totalRecords ||
+        result.pagination.totalPages !== first.pagination.totalPages ||
+        result.summary.asistio !== first.summary.asistio,
+    ) ||
+    pages.reduce((sum, result) => sum + result.rows.length, 0) !== first.pagination.totalRecords
+  ) {
+    throw new Error(
+      "Las páginas de citas no concilian. Actualiza el reporte para obtener una lectura completa.",
+    );
+  }
+  return pages.flatMap((result) => result.rows);
+}
 export async function getVslClosersReport(
   filters: ReportFilters,
   detail: DetailQuery,

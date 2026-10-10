@@ -133,10 +133,9 @@ export function DashboardFilters({
               onChange({ pipeline: event.target.value as "all" | "vsl" | "oei" | "lig" })
             }
           >
-            <option value="all">Todos los embudos</option>
-            <option value="vsl">VSL</option>
-            <option value="oei">OEI</option>
-            <option value="lig">LIG</option>
+            <option value="all">Todos (VSL + OEI)</option>
+            <option value="vsl">VSL | Closers</option>
+            <option value="oei">Lanzamiento I. Pagado OEI - EM</option>
           </select>
         </label>
         <label className="min-w-0">

@@ -5,7 +5,8 @@ import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 import { DashboardFilters } from "@/components/reports/DashboardFilters";
-import { KpiCard } from "@/components/reports/KpiCard";
+import { ExecutiveSummary } from "@/components/reports/ExecutiveSummary";
+import { hasSelectedSetter } from "@/lib/executive-presentation";
 import { SetterStatusTable } from "@/components/reports/SetterStatusTable";
 import { SetterStatusChart } from "@/components/reports/SetterStatusChart";
 import { ConversionSummary } from "@/components/reports/ConversionSummary";
@@ -16,6 +17,7 @@ import { RefreshButton } from "@/components/reports/RefreshButton";
 import { LoadingModal } from "@/components/reports/LoadingModal";
 import { LeadDetailTable } from "@/components/reports/LeadDetailTable";
 import { SalesSection } from "@/components/reports/SalesSection";
+import { ExecutivePerformance } from "@/components/reports/ExecutivePerformance";
 import { getPipelineCardMetrics } from "@/lib/pipeline-summary";
 import { getCanonicalSetterName, getSetterOptions } from "@/lib/setter-performance";
 import {
@@ -33,6 +35,15 @@ import type {
   ReportFilters,
   VslClosersReport,
 } from "@/types/reports";
+
+const INITIAL_DETAIL: DetailQuery = {
+  includeDetail: false,
+  search: "",
+  page: 1,
+  pageSize: 25,
+  sort: "nombreContacto",
+  direction: "asc",
+};
 
 function formatUpdatedAt(value: string) {
   const date = new Date(value);
@@ -59,14 +70,7 @@ export function VslClosersDashboard() {
   const [syncing, setSyncing] = useState(false);
   const syncInFlight = useRef(false);
   const [syncMessage, setSyncMessage] = useState("");
-  const [detail, setDetail] = useState<DetailQuery>({
-    includeDetail: false,
-    search: "",
-    page: 1,
-    pageSize: 25,
-    sort: "nombreContacto",
-    direction: "asc",
-  });
+  const [detail, setDetail] = useState<DetailQuery>(INITIAL_DETAIL);
   const [search, setSearch] = useState("");
   useEffect(() => {
     const timer = setTimeout(() => setSearch(detail.search), 300);
@@ -77,7 +81,7 @@ export function VslClosersDashboard() {
     () => ({ ...EMPTY_FILTERS, pipeline: filters.pipeline ?? "all", leadType: filters.leadType }),
     [filters.pipeline, filters.leadType],
   );
-  const contextDetail = { ...detail, includeDetail: false, search: "", page: 1 };
+  const contextDetail = INITIAL_DETAIL;
   const contextQuery = useQuery({
     queryKey: ["vsl-closers", contextFilters, contextDetail, undefined],
     queryFn: ({ signal }) => getVslClosersReport(contextFilters, contextDetail, signal),
@@ -103,25 +107,17 @@ export function VslClosersDashboard() {
             ...(context?.availableSetters ?? []),
             ...(filters.pipeline === "all" ? (context?.availableBookers ?? []) : []),
             ...(context?.setters ?? []).map((row) => row.setter),
+            ...(context?.performance?.asistenciaPorSetter ?? []).map((row) => row.setter),
           ],
     [usesBooker, context, filters.pipeline],
   );
   const person = usesBooker ? filters.booker : filters.setter;
-  const apiNormalizedSetters =
-    filters.pipeline === "vsl" ||
-    Boolean(
-      context?.setters.some((row) => row.setterEfectivo !== undefined) ||
-      [
-        ...(context?.appointmentPeople?.oeiBookers ?? []),
-        ...(context?.appointmentPeople?.ligBookers ?? []),
-      ].some((row) => row.setterEfectivo !== undefined),
-    );
+  const apiNormalizedSetters = true;
   const sourceNames = getSetterOptions(contextNames, apiNormalizedSetters).find(
     (option) =>
       option.value === (apiNormalizedSetters ? person : (getCanonicalSetterName(person) ?? person)),
   )?.sourceNames;
-  const requestSourceNames =
-    filters.pipeline === "vsl" ? undefined : person ? sourceNames : undefined;
+  const requestSourceNames = undefined;
   const validRange = isValidReportRange(filters);
   const query = useQuery({
     queryKey: ["vsl-closers", filters, { ...detail, search }, requestSourceNames],
@@ -335,31 +331,6 @@ export function VslClosersDashboard() {
     }
   }, [data, cardMetrics.totalAppointments, filters.pipeline]);
 
-  const kpiCards = useMemo(
-    () =>
-      data
-        ? [
-            { label: "Total de leads", value: data.leadTypeKpis.totalLeads },
-            {
-              label: "Total de agendamientos",
-              value: data.kpis.total,
-              ...(data.filters?.dateFrom || data.filters?.dateTo
-                ? { hint: `${data.kpis.total} citas en el período` }
-                : cardMetrics.bookingRate == null
-                  ? {}
-                  : { hint: `${cardMetrics.bookingRate}% de los leads agendaron` }),
-            },
-            {
-              label: "Asistió",
-              value: data.kpis.asistio,
-              accent: "var(--status-asistio)",
-              hint: `${attendanceRate}% de asistencia`,
-            },
-          ]
-        : [],
-    [data, cardMetrics, attendanceRate],
-  );
-
   return (
     <div
       className="min-h-screen w-full bg-background px-4 py-6"
@@ -384,7 +355,7 @@ export function VslClosersDashboard() {
               <ArrowLeft className="h-3.5 w-3.5" /> Volver a reportes
             </Link>
             <h1 className="mt-2 text-lg font-semibold tracking-tight text-foreground sm:text-xl">
-              REPORTE COMERCIAL — VSL | CLOSERS + OEI + LIG
+              REPORTE COMERCIAL — VSL | CLOSERS + OEI
             </h1>
             <p className="text-sm text-muted-foreground">
               Agenda y desempeño comercial por embudo y Setter
@@ -418,6 +389,7 @@ export function VslClosersDashboard() {
           setters={[
             ...(optionData?.availableSetters ?? []),
             ...(optionData?.setters ?? []).map((row) => row.setter),
+            ...(optionData?.performance?.asistenciaPorSetter ?? []).map((row) => row.setter),
           ]}
           bookers={optionData?.availableBookers ?? []}
           closers={optionData?.availableClosers ?? []}
@@ -451,8 +423,14 @@ export function VslClosersDashboard() {
         ) : initialLoading || isFiltering || (person && !sourceNames && contextQuery.isFetching) ? (
           <div role="status" aria-label="Actualizando reporte" className="space-y-4">
             <span className="text-xs text-muted-foreground">Actualizando reporte...</span>
-            <div className="grid gap-4 sm:grid-cols-3">
-              {[1, 2, 3].map((key) => (
+            <div
+              className={
+                hasSelectedSetter(filters)
+                  ? "grid gap-4 sm:grid-cols-3"
+                  : "grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+              }
+            >
+              {(hasSelectedSetter(filters) ? [1, 2, 3] : [1, 2, 3, 4]).map((key) => (
                 <Skeleton key={key} className="h-28 rounded-xl" />
               ))}
             </div>
@@ -483,48 +461,55 @@ export function VslClosersDashboard() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {kpiCards.map((card) => (
-                <KpiCard key={card.label} {...card} />
-              ))}
-            </div>
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-              <SetterStatusChart
-                rows={peopleRows}
-                tasaAsistencia={attendanceRate}
-                mode={peopleMode}
-              />
-              <ConversionSummary kpis={data.kpis} />
-            </div>
+            <h2 className="text-lg font-semibold">Resumen ejecutivo</h2>
+            <ExecutiveSummary report={data} filters={filters} />
+            <ExecutivePerformance
+              report={data}
+              setterSelected={hasSelectedSetter(filters)}
+              setterDetails={
+                <>
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+                    <SetterStatusChart
+                      rows={peopleRows}
+                      tasaAsistencia={attendanceRate}
+                      mode={peopleMode}
+                    />
+                    <ConversionSummary kpis={data.kpis} />
+                  </div>
 
-            {cardMetrics.totalLeads === 0 && (
-              <p>No existen registros para los filtros seleccionados.</p>
-            )}
-            <SetterStatusTable
-              rows={peopleRows}
-              totals={data.kpis}
-              mode={peopleMode}
-              showStatuses={
-                peopleMode !== "booker" || filters.pipeline === "oei" || filters.pipeline === "lig"
+                  {cardMetrics.totalLeads === 0 && (
+                    <p>No existen registros para los filtros seleccionados.</p>
+                  )}
+                  <SetterStatusTable
+                    rows={peopleRows}
+                    totals={data.kpis}
+                    mode={peopleMode}
+                    showStatuses={
+                      peopleMode !== "booker" ||
+                      filters.pipeline === "oei" ||
+                      filters.pipeline === "lig"
+                    }
+                    busy={
+                      query.isFetching ||
+                      query.isError ||
+                      !query.data ||
+                      isFiltering ||
+                      !!appointmentSelection
+                    }
+                    onDetail={(person, status, count, sourceNames) => {
+                      setAppointmentSelection(
+                        (current) =>
+                          current ?? {
+                            name: person || "Total general",
+                            count,
+                            filters: appointmentDetailFilters(filters, person, status),
+                            ...(sourceNames ? { sourceNames } : {}),
+                          },
+                      );
+                    }}
+                  />
+                </>
               }
-              busy={
-                query.isFetching ||
-                query.isError ||
-                !query.data ||
-                isFiltering ||
-                !!appointmentSelection
-              }
-              onDetail={(person, status, count, sourceNames) => {
-                setAppointmentSelection(
-                  (current) =>
-                    current ?? {
-                      name: person || "Total general",
-                      count,
-                      filters: appointmentDetailFilters(filters, person, status),
-                      ...(sourceNames ? { sourceNames } : {}),
-                    },
-                );
-              }}
             />
             {appointmentSelection && (
               <AppointmentDetailModal
@@ -534,6 +519,7 @@ export function VslClosersDashboard() {
               />
             )}
             <SalesSection
+              hideSummary
               sales={data.sales}
               available={data.salesAvailable}
               pipeline={filters.pipeline ?? "all"}
