@@ -141,7 +141,7 @@ export function ExecutivePerformance({
       </section>
       <section className={panel} aria-labelledby="setter-attendance-heading">
         <h2 id="setter-attendance-heading" className="text-lg font-semibold">
-          Agendamientos y asistencia por setter
+          Conversion de Asistencia por Setter
         </h2>
         <p className="text-sm text-muted-foreground">{activityLabel}</p>
         {error ? (

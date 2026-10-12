@@ -435,20 +435,53 @@ const integrated = () =>
 const summary = (report, filters) =>
   renderToStaticMarkup(createElement(ExecutiveSummary, { report, filters }));
 
-test("NO APLICA is between pending and attended, VSL only, safe when missing and refreshed from API", () => {
+test("VSL executive order and labels preserve original values, hints and accent indicators", () => {
+  const { executiveCards } = require("../src/lib/executive-presentation.ts");
+  const { KpiCard } = require("../src/components/reports/KpiCard.tsx");
+  const r = integrated();
+  r.vslSeteo = { seteados: 773, faltanSetear: 552, seteadosPct: 58.34, faltanSetearPct: 41.66 };
+  r.vslNoAplica = { fase: "No Aplica(No califica/No desea)", total: 139, porcentaje: 10.49 };
+  r.kpis.asistio = 466;
+  r.kpis.tasaAsistencia = 40.77;
+  r.sales.total = 45;
+  r.leadTypeKpis.totalLeads = 1325;
+  const before = JSON.stringify(r);
+  const baseline = executiveCards(r, false);
+  const output = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" });
+  const labels = ["Total de leads", "Leads seteados", "Leads asistidos", "Total de ventas", "No calificados", "Leads pendientes de seteo"];
+  for (let index = 1; index < labels.length; index++)
+    assert.ok(output.indexOf(labels[index - 1]) < output.indexOf(labels[index]));
+  for (const card of baseline.filter(card => card.label !== "Total de agendamientos")) {
+    const expected = { ...card, label: card.label === "Asistió" ? "Leads asistidos" : card.label };
+    assert.ok(output.includes(renderToStaticMarkup(createElement(KpiCard, expected))));
+  }
+  for (const props of [{label:"Leads seteados",value:773,hint:"58.34% de los leads VSL"},
+    {label:"Leads pendientes de seteo",value:552,hint:"41.66% de los leads VSL"},
+    {label:"No calificados",value:139,hint:"10.49% de los leads VSL"}])
+    assert.ok(output.includes(renderToStaticMarkup(createElement(KpiCard,props))));
+  for (const pipeline of ["oei", "lig", "all"]) {
+    const other = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline });
+    for (const card of baseline)
+      assert.ok(other.includes(renderToStaticMarkup(createElement(KpiCard,card))));
+    assert.doesNotMatch(other,/Leads asistidos|No calificados/);
+  }
+  assert.equal(JSON.stringify(r), before);
+});
+
+test("No calificados follows sales in VSL only, remains safe when missing and refreshed from API", () => {
   const r = integrated();
   r.vslNoAplica = { fase: "No Aplica(No califica/No desea)", total: 5, porcentaje: 3.88 };
   const output = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" });
-  assert.match(output, /Leads pendientes de seteo[\s\S]*No aplica[\s\S]*Asistió/);
-  assert.match(output, /No aplica[\s\S]*?>5<.*?3.88% de los leads VSL/);
+  assert.match(output, /Leads asistidos[\s\S]*Total de ventas[\s\S]*No calificados[\s\S]*Leads pendientes de seteo/);
+  assert.match(output, /No calificados[\s\S]*?>5<.*?3.88% de los leads VSL/);
   for (const pipeline of ["oei", "lig", "all"])
-    assert.doesNotMatch(summary(r, {...EMPTY_REPORT_FILTERS,pipeline}), /No aplica/);
+    assert.doesNotMatch(summary(r, {...EMPTY_REPORT_FILTERS,pipeline}), /No calificados|Leads asistidos/);
   delete r.vslNoAplica;
-  assert.match(summary(r, {...EMPTY_REPORT_FILTERS,pipeline:"vsl"}), /No aplica[\s\S]*?>—</);
+  assert.match(summary(r, {...EMPTY_REPORT_FILTERS,pipeline:"vsl"}), /No calificados[\s\S]*?>—</);
   const direct = { fase: "No Aplica(No califica/No desea)", total: 1, porcentaje: 25 };
   const fresh = mapVslReportResponse({ok:true,data:{vslNoAplica:direct}}, {...query,pipeline:"vsl",setter:"Evelyn Lopez Horna",dateFrom:"2026-09-01",dateTo:"2026-09-30"});
   assert.deepEqual(fresh.vslNoAplica,direct);
-  assert.match(summary(fresh,{...EMPTY_REPORT_FILTERS,pipeline:"vsl",setter:"Evelyn Lopez Horna"}),/No aplica[\s\S]*?>1<.*?25.00%/);
+  assert.match(summary(fresh,{...EMPTY_REPORT_FILTERS,pipeline:"vsl",setter:"Evelyn Lopez Horna"}),/No calificados[\s\S]*?>1<.*?25.00%/);
   const { mergeFilteredReports } = require("../src/lib/merge-filtered-reports.ts");
   assert.equal(mergeFilteredReports([fresh,fresh],EMPTY_REPORT_FILTERS).vslNoAplica,undefined);
 });
@@ -476,7 +509,7 @@ test("VSL replaces only bookings using API seteo counts and percentages; other f
   assert.match(output, /Leads seteados[\s\S]*?>79<.*?61.24% de los leads VSL/);
   assert.match(output, /Leads pendientes de seteo[\s\S]*?>50<.*?38.76% de los leads VSL/);
   assert.match(output, /Total de leads[\s\S]*?>3</);
-  assert.match(output, /Asistió[\s\S]*?>0</);
+  assert.match(output, /Leads asistidos[\s\S]*?>0</);
   assert.match(output, /Total de ventas[\s\S]*?>3</);
   for (const pipeline of ["oei", "lig", "all", "future-funnel"]) {
     const other = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline });

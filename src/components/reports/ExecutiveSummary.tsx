@@ -58,6 +58,25 @@ export function ExecutiveSummary({
         ]
       : [card],
   );
+  const vslOrder = [
+    "Total de leads",
+    "Leads seteados",
+    "Asistió",
+    "Total de ventas",
+    "No aplica",
+    "Leads pendientes de seteo",
+  ];
+  const orderedCards = isVsl
+    ? cards
+        .sort((a, b) => vslOrder.indexOf(a.label) - vslOrder.indexOf(b.label))
+        .map((card) =>
+          card.label === "Asistió"
+            ? { ...card, label: "Leads asistidos" }
+            : card.label === "No aplica"
+              ? { ...card, label: "No calificados" }
+              : card,
+        )
+    : cards;
   return (
     <div
       role="region"
@@ -70,7 +89,7 @@ export function ExecutiveSummary({
             : "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
       }
     >
-      {cards.map((card) => (
+      {orderedCards.map((card) => (
         <KpiCard key={card.label} {...card} />
       ))}
     </div>
