@@ -180,6 +180,24 @@ function setup(options = {}) {
   };
 }
 module.exports = { setup };
+
+test("NO APLICA uses the filtered lead cohort, exact phases, period and setter", () => {
+  const phase = "No Aplica(No califica/No desea)";
+  const opps = [opportunity("nv1", "vsl", false), opportunity("nv2", "vsl", false),
+    opportunity("nv3", "vsl", false), opportunity("no1", "oei", false), opportunity("nl1", "lig", false)];
+  opps.forEach(o => { o.Fase = phase; });
+  opps[1]["Creado el"] = "2026-09-10";
+  opps[2]["Setter asignado"] = "Evelyn Lopez Horna";
+  const h = setup({opps,appts:[]});
+  const october = h.report({pipeline:"vsl",dateFrom:"2026-10-01",dateTo:"2026-10-12"});
+  assert.equal(october.vslNoAplica.total,2);
+  assert.deepEqual(october.vslNoAplica,october.etapasPorEmbudo.porEmbudo.vsl.porEtapa.find(r => r.fase===phase));
+  assert.equal(h.report({pipeline:"vsl",dateFrom:"2026-09-01",dateTo:"2026-09-30"}).vslNoAplica.total,1);
+  assert.equal(h.report({pipeline:"vsl",setter:"Evelyn Lopez Horna"}).vslNoAplica.total,1);
+  assert.equal(h.report({pipeline:"oei"}).vslNoAplica.total,0);
+  assert.equal(h.report({pipeline:"lig"}).vslNoAplica.total,0);
+  assert.equal(h.report({pipeline:"all"}).vslNoAplica.total,3);
+});
 test("closer normalization is consistent between attended appointments and sale attribution", () => {
   const appt = { ...appointment("al1", "l1", "lig"), "Closer cita": "FIORELA BERNALES" };
   const r = setup({ appts: [appt] }).report({ pipeline: "lig" });

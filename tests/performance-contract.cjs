@@ -435,6 +435,24 @@ const integrated = () =>
 const summary = (report, filters) =>
   renderToStaticMarkup(createElement(ExecutiveSummary, { report, filters }));
 
+test("NO APLICA is between pending and attended, VSL only, safe when missing and refreshed from API", () => {
+  const r = integrated();
+  r.vslNoAplica = { fase: "No Aplica(No califica/No desea)", total: 5, porcentaje: 3.88 };
+  const output = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" });
+  assert.match(output, /Leads pendientes de seteo[\s\S]*No aplica[\s\S]*Asistió/);
+  assert.match(output, /No aplica[\s\S]*?>5<.*?3.88% de los leads VSL/);
+  for (const pipeline of ["oei", "lig", "all"])
+    assert.doesNotMatch(summary(r, {...EMPTY_REPORT_FILTERS,pipeline}), /No aplica/);
+  delete r.vslNoAplica;
+  assert.match(summary(r, {...EMPTY_REPORT_FILTERS,pipeline:"vsl"}), /No aplica[\s\S]*?>—</);
+  const direct = { fase: "No Aplica(No califica/No desea)", total: 1, porcentaje: 25 };
+  const fresh = mapVslReportResponse({ok:true,data:{vslNoAplica:direct}}, {...query,pipeline:"vsl",setter:"Evelyn Lopez Horna",dateFrom:"2026-09-01",dateTo:"2026-09-30"});
+  assert.deepEqual(fresh.vslNoAplica,direct);
+  assert.match(summary(fresh,{...EMPTY_REPORT_FILTERS,pipeline:"vsl",setter:"Evelyn Lopez Horna"}),/No aplica[\s\S]*?>1<.*?25.00%/);
+  const { mergeFilteredReports } = require("../src/lib/merge-filtered-reports.ts");
+  assert.equal(mergeFilteredReports([fresh,fresh],EMPTY_REPORT_FILTERS).vslNoAplica,undefined);
+});
+
 test("VSL replaces only bookings using API seteo counts and percentages; other funnels keep cards", () => {
   const seteo = {
     aplicaSoloA: "vsl",
@@ -443,7 +461,7 @@ test("VSL replaces only bookings using API seteo counts and percentages; other f
     faltanSetear: 50,
     seteadosPct: 61.24,
     faltanSetearPct: 38.76,
-    porEtapa: [],
+    porEtapa: [{ fase: "Lead Pendiente de Agenda", total: 50 }, { fase: "Lead Seteado/Reageanda", total: 79 }],
     seteadosRows: [],
   };
   const r = integrated();
@@ -452,8 +470,8 @@ test("VSL replaces only bookings using API seteo counts and percentages; other f
   r.vslSeteo = mappedSeteo.vslSeteo;
   const before = JSON.stringify(r);
   const output = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" });
-  assert.equal((output.match(/text-3xl/g) || []).length, 5);
-  assert.match(output, /lg:grid-cols-5/);
+  assert.equal((output.match(/text-3xl/g) || []).length, 6);
+  assert.match(output, /2xl:grid-cols-6/);
   assert.doesNotMatch(output, /Total de agendamientos/);
   assert.match(output, /Leads seteados[\s\S]*?>79<.*?61.24% de los leads VSL/);
   assert.match(output, /Leads pendientes de seteo[\s\S]*?>50<.*?38.76% de los leads VSL/);
@@ -523,11 +541,13 @@ test("missing seteo warns only for VSL and merged sources do not reuse one sourc
     exports.ExecutiveSummary({ report, filters: { ...EMPTY_REPORT_FILTERS, pipeline } });
   assert.equal(warnings.length, 0);
   exports.ExecutiveSummary({ report, filters: { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" } });
-  assert.equal(warnings.length, 1);
-  assert.match(warnings[0][0], /data.vslSeteo/);
+  assert.equal(warnings.length, 2);
+  assert.ok(warnings.some(([message]) => /data.vslSeteo/.test(message)));
+  assert.ok(warnings.some(([message]) => /data.vslNoAplica/.test(message)));
   report.vslSeteo = { seteados: 7, faltanSetear: 5 };
+  report.vslNoAplica = { fase: "No Aplica(No califica/No desea)", total: 2, porcentaje: 16.67 };
   exports.ExecutiveSummary({ report, filters: { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" } });
-  assert.equal(warnings.length, 1);
+  assert.equal(warnings.length, 2);
   const { mergeFilteredReports } = require("../src/lib/merge-filtered-reports.ts");
   assert.deepEqual(mergeFilteredReports([report], EMPTY_REPORT_FILTERS).vslSeteo, report.vslSeteo);
   assert.equal(mergeFilteredReports([report, report], EMPTY_REPORT_FILTERS).vslSeteo, undefined);
@@ -561,9 +581,9 @@ test("setter selections preserve existing cards with the VSL booking replacement
         ...(pipeline === "oei" ? { booker: name } : { setter: name }),
       };
       const output = summary(r, filters);
-      assert.equal((output.match(/text-3xl/g) || []).length, pipeline === "vsl" ? 4 : 3);
+      assert.equal((output.match(/text-3xl/g) || []).length, pipeline === "vsl" ? 5 : 3);
       assert.doesNotMatch(output, /Total de leads/);
-      assert.match(output, pipeline === "vsl" ? /lg:grid-cols-4/ : /sm:grid-cols-3/);
+      assert.match(output, pipeline === "vsl" ? /2xl:grid-cols-5/ : /sm:grid-cols-3/);
       assert.match(output, /Total de ventas/);
       assert.equal(
         renderToStaticMarkup(
@@ -583,7 +603,7 @@ test("setter selections preserve existing cards with the VSL booking replacement
       assert.equal(filters.closer, "Ezequiel Dario");
     }
 });
-test("clearing VSL setter restores five cards and unbooked, preserving period and closer", () => {
+test("clearing VSL setter restores six cards and unbooked, preserving period and closer", () => {
   const filters = {
     ...EMPTY_REPORT_FILTERS,
     pipeline: "vsl",
@@ -597,7 +617,7 @@ test("clearing VSL setter restores five cards and unbooked, preserving period an
   assert.ok(hasSelectedSetter(selected));
   const cleared = changeReportFilters(selected, { setter: "", booker: "" });
   assert.equal(hasSelectedSetter(cleared), false);
-  assert.equal((summary(integrated(), cleared).match(/text-3xl/g) || []).length, 5);
+  assert.equal((summary(integrated(), cleared).match(/text-3xl/g) || []).length, 6);
   assert.match(
     renderToStaticMarkup(
       createElement(LeadsWithoutAppointmentSection, {

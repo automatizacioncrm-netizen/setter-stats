@@ -1,0 +1,72 @@
+{
+  "inspectedAt": "2026-10-12T17:05:06.462Z",
+  "filters": {
+    "pipeline": "vsl",
+    "dateFrom": "2026-10-01",
+    "dateTo": "2026-10-12"
+  },
+  "upstream": {
+    "status": 200,
+    "ok": true,
+    "hasEtapasPorEmbudo": false,
+    "hasVslNoAplica": false
+  },
+  "vslSeteo": {
+    "totalLeadsVsl": 129,
+    "seteados": 33,
+    "faltanSetear": 96,
+    "etapasFaltanSetear": [
+      "Lead Pendiente de Agenda",
+      "Lead Agendado (Automatico)"
+    ]
+  },
+  "etapasPorEmbudo": {
+    "porEmbudo": {
+      "vsl": {
+        "totalLeads": 129,
+        "porEtapa": [
+          {
+            "fase": "Lead Pendiente de Agenda",
+            "total": 64,
+            "porcentaje": 49.61
+          },
+          {
+            "fase": "Lead Agendado (Automatico)",
+            "total": 32,
+            "porcentaje": 24.81
+          },
+          {
+            "fase": "Lead Seteado/Reageanda",
+            "total": 21,
+            "porcentaje": 16.28
+          },
+          {
+            "fase": "No Aplica(No califica/No desea)",
+            "total": 5,
+            "porcentaje": 3.88
+          },
+          {
+            "fase": "Venta Confirmada/Reserva",
+            "total": 3,
+            "porcentaje": 2.33
+          },
+          {
+            "fase": "Seguimiento (No RTA 72 hs.)",
+            "total": 2,
+            "porcentaje": 1.55
+          },
+          {
+            "fase": "Seguimiento de Venta",
+            "total": 2,
+            "porcentaje": 1.55
+          }
+        ]
+      }
+    }
+  },
+  "vslNoAplica": {
+    "fase": "No Aplica(No califica/No desea)",
+    "total": 5,
+    "porcentaje": 3.88
+  }
+}

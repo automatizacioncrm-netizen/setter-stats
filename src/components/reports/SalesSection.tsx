@@ -39,12 +39,11 @@ const baseColumns: { key: keyof SaleRow; label: string }[] = [
   { key: "fase", label: "Fase" },
   { key: "productoEvento", label: "Producto" },
   { key: "fechaVenta", label: "Fecha de venta" },
-  { key: "monedaPrecioAcordado", label: "Moneda" },
-  { key: "precioAcordadoProducto", label: "Precio acordado" },
-  { key: "montoCuota1", label: "Monto cuota 1" },
+  { key: "moneda", label: "Moneda" },
+  { key: "montoTotalAcordado", label: "Monto Total Acordado" },
+  { key: "montoUltimoPago", label: "Monto del último pago" },
   { key: "fechaReunion", label: "Fecha de reunión" },
   { key: "planPagos", label: "Plan de pagos" },
-  { key: "numeroCuotasPactadas", label: "Cuotas" },
 ];
 
 export function SalesSection({
@@ -65,8 +64,8 @@ export function SalesSection({
       sort
         ? [...detailRows].sort(
             (a, b) =>
-              (sort.key === "montoCuota1" || sort.key === "precioAcordadoProducto"
-                ? (a.monedaPrecioAcordado || "").localeCompare(b.monedaPrecioAcordado || "") ||
+              (sort.key === "montoUltimoPago" || sort.key === "montoTotalAcordado"
+                ? (a.moneda || "").localeCompare(b.moneda || "") ||
                   (a[sort.key] ?? -Infinity) - (b[sort.key] ?? -Infinity)
                 : String(saleDetailValue(a, sort.key)).localeCompare(
                     String(saleDetailValue(b, sort.key)),
@@ -137,7 +136,7 @@ export function SalesSection({
                     <tr key={index} className="border-t border-border hover:bg-accent/50">
                       {columns.map((col) => (
                         <td key={col.key} className="px-4 py-3">
-                          {col.key === "montoCuota1" || col.key === "precioAcordadoProducto" ? (
+                          {col.key === "montoUltimoPago" || col.key === "montoTotalAcordado" ? (
                             formatSaleDetailAmount(row, col.key)
                           ) : col.key === "fechaVenta" ? (
                             formatSaleQuotaDate(row.fechaVenta)

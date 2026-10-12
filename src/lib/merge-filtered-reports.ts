@@ -134,10 +134,16 @@ export function mergeFilteredReports(
     performanceError: _performanceError,
     businessMetrics: _businessMetrics,
     vslSeteo: _vslSeteo,
+    vslNoAplica: _vslNoAplica,
+    etapasPorEmbudo: _etapasPorEmbudo,
     ...base
   } = first;
   return {
     ...base,
+    ...(reports.length === 1 && first.vslNoAplica ? { vslNoAplica: first.vslNoAplica } : {}),
+    ...(reports.length === 1 && first.etapasPorEmbudo
+      ? { etapasPorEmbudo: first.etapasPorEmbudo }
+      : {}),
     ...(reports.length === 1 && first.vslSeteo ? { vslSeteo: first.vslSeteo } : {}),
     ...(reports.length === 1 && first.businessMetrics
       ? { businessMetrics: first.businessMetrics }

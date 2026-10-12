@@ -124,6 +124,8 @@ export interface VslSeteo {
 
 export interface VslClosersReport {
   vslSeteo?: VslSeteo;
+  vslNoAplica?: { fase: string; total: number; porcentaje?: number | undefined };
+  etapasPorEmbudo?: { porEmbudo?: { vsl?: { totalLeads?: unknown; porEtapa?: unknown } } };
   businessMetrics?: Record<string, unknown>;
   executiveUnavailable?: ("leads" | "appointments" | "attended" | "sales")[];
   leadsVslSinCita?: LeadsWithoutAppointment;
@@ -311,11 +313,11 @@ export interface SaleRow {
   productoEvento: string;
   fechaVenta?: string;
   fechaPrimerPago: string;
-  planPagos: string;
+  planPagos?: string;
   numeroCuotasPactadas: number;
-  moneda: string;
-  montoTotalAcordado: number;
-  montoUltimoPago: number;
+  moneda?: string;
+  montoTotalAcordado?: number | null;
+  montoUltimoPago?: number | null;
   setterAsignado: string;
   agendadorCita: string;
   createdByUserName: string;
@@ -328,7 +330,7 @@ export interface SaleRow {
   fechaAgendamiento: string;
   estadoAgenda: string;
   estadoCita: string;
-  fechaReunion: string;
+  fechaReunion?: string;
 }
 
 export interface SalesReport {

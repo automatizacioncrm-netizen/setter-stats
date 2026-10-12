@@ -12,6 +12,15 @@ export function ExecutiveSummary({
   const selected = hasSelectedSetter(filters);
   const isVsl = filters.pipeline === "vsl";
   const vslSeteo = report.vslSeteo;
+  const vslNoAplica = report.vslNoAplica;
+  useEffect(() => {
+    if (isVsl && !vslNoAplica)
+      console.warn("[vsl_report] Falta data.vslNoAplica para el resumen VSL.", {
+        pipeline: filters.pipeline,
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo,
+      });
+  }, [isVsl, vslNoAplica, filters.pipeline, filters.dateFrom, filters.dateTo]);
   useEffect(() => {
     if (isVsl && !vslSeteo) {
       console.warn("[vsl_report] Falta data.vslSeteo para el resumen VSL.", {
@@ -38,6 +47,14 @@ export function ExecutiveSummary({
             value: count(vslSeteo?.faltanSetear),
             hint: hint(vslSeteo?.faltanSetearPct),
           },
+          {
+            label: "No aplica",
+            value: count(vslNoAplica?.total),
+            hint:
+              typeof vslNoAplica?.porcentaje === "number"
+                ? `${vslNoAplica.porcentaje.toFixed(2)}% de los leads VSL`
+                : "",
+          },
         ]
       : [card],
   );
@@ -47,7 +64,7 @@ export function ExecutiveSummary({
       aria-label="Indicadores del resumen ejecutivo"
       className={
         isVsl
-          ? `grid grid-cols-1 gap-4 sm:grid-cols-2 ${selected ? "lg:grid-cols-4" : "lg:grid-cols-5"}`
+          ? `grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 ${selected ? "2xl:grid-cols-5" : "2xl:grid-cols-6"}`
           : selected
             ? "grid grid-cols-1 gap-4 sm:grid-cols-3"
             : "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"

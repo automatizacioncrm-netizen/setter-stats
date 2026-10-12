@@ -67,7 +67,7 @@ test("sales detail contract preserves new fields, empty amounts and authoritativ
   }
 });
 
-test("quota dates preserve calendar days and money distinguishes missing amounts from zero without conversions", () => {
+test("sale dates preserve calendar days and official money distinguishes missing amounts from zero without conversions", () => {
   assert.equal(
     helpers.saleDetailValue({ setterAsignado: "Agendado automático" }, "setterAsignado"),
     "",
@@ -84,11 +84,12 @@ test("quota dates preserve calendar days and money distinguishes missing amounts
       helpers
         .formatSaleDetailAmount(
           {
-            monedaPrecioAcordado: currency,
-            precioAcordadoProducto: amount,
-            montoTotalAcordado: 999,
+            moneda: currency,
+            montoTotalAcordado: amount,
+            monedaPrecioAcordado: "EUR",
+            precioAcordadoProducto: 999,
           },
-          "precioAcordadoProducto",
+          "montoTotalAcordado",
         )
         .replace(/\s/g, " ");
     assert.equal(format(1497), `${prefix}1,497.00`);
@@ -137,7 +138,7 @@ test("combined report filters preserve all new sale detail rows", () => {
   assert.equal(merged.sales.total, 2);
 });
 
-test("actual sales table shows the 16 requested columns and sorts new amounts without changing input records", () => {
+test("actual sales table shows the 15 official columns in every pipeline and sorts amounts without changing input records", () => {
   let sort = null;
   const exports = {};
   const jsx = (type, props) => ({ type, props });
@@ -172,15 +173,27 @@ test("actual sales table shows the 16 requested columns and sorts new amounts wi
       setterAsignado: "Setter API",
       agendadorCita: "Creador",
       fechaCuota1: "2026-10-09",
-      fechaVenta: "1999-01-01",
-      monedaPrecioAcordado: "USD",
-      precioAcordadoProducto: 1497,
+      fechaVenta: "2026-10-10",
+      moneda: "USD",
+      montoTotalAcordado: 1497,
+      montoUltimoPago: 1497,
+      planPagos: "Contado",
+      monedaPrecioAcordado: "EUR",
+      precioAcordadoProducto: 9999,
+      montoCuota1: 8888,
+      numeroCuotasPactadas: 99,
     },
     {
       nombreContacto: "Low",
-      fechaVenta: "1999-01-01",
-      monedaPrecioAcordado: "USD",
-      precioAcordadoProducto: 0,
+      fechaVenta: "",
+      fechaCuota1: "2026-10-01",
+      fechaReunion: "2026-10-02",
+      moneda: "USD",
+      montoTotalAcordado: 0,
+      montoUltimoPago: 0,
+      planPagos: "Cuotas",
+      monedaPrecioAcordado: "EUR",
+      precioAcordadoProducto: 19999,
     },
   ];
   const sales = {
@@ -200,7 +213,7 @@ test("actual sales table shows the 16 requested columns and sorts new amounts wi
       : !node || typeof node !== "object"
         ? ""
         : [node.props?.children].flat(Infinity).map(text).join("");
-  for (const pipeline of ["vsl", "oei", "lig"]) {
+  for (const pipeline of ["vsl", "oei", "lig", "all"]) {
     sort = null;
     let tree = exports.SalesSection({ sales, available: true, pipeline });
     const headers = nodes(tree).filter((n) => n.type === "th");
@@ -216,11 +229,10 @@ test("actual sales table shows the 16 requested columns and sorts new amounts wi
       "Producto",
       "Fecha de venta",
       "Moneda",
-      "Precio acordado",
-      "Monto cuota 1",
+      "Monto Total Acordado",
+      "Monto del último pago",
       "Fecha de reunión",
       "Plan de pagos",
-      "Cuotas",
     ]);
     let body = nodes(tree).find((n) => n.type === "tbody");
     const cells = nodes(body)
@@ -228,8 +240,16 @@ test("actual sales table shows the 16 requested columns and sorts new amounts wi
       .map(text);
     assert.equal(cells[4], "Setter API");
     assert.equal(cells[5], "Creador");
-    assert.equal(cells[9], "01/01/1999");
-    assert.equal(cells[16 + 9], "01/01/1999");
+    assert.equal(cells[9], "10/10/2026");
+    assert.equal(cells[10], "USD");
+    assert.equal(cells[11], "$1,497.00");
+    assert.equal(cells[12], "$1,497.00");
+    assert.equal(cells[14], "Contado");
+    assert.equal(cells[15 + 9], "—");
+    assert.equal(cells[15 + 11], "$0.00");
+    assert.equal(cells[15 + 12], "$0.00");
+    assert.equal(cells[15 + 14], "Cuotas");
+    assert.ok(nodes(tree).some((n) => n.props?.className === "overflow-x-auto"));
     assert.ok(!text(tree).includes("Do not display"));
     nodes(headers[11])
       .find((n) => n.type === "button")
@@ -238,5 +258,40 @@ test("actual sales table shows the 16 requested columns and sorts new amounts wi
     body = nodes(tree).find((n) => n.type === "tbody");
     assert.equal(nodes(body).filter((n) => n.type === "td")[3].props.children, "Low");
     assert.equal(rows[0].nombreContacto, "High");
+    // Official PEN data, null/absent amounts and no legacy fallbacks.
+    sort = null;
+    const examples = [
+      {
+        fechaVenta: "2026-10-12",
+        moneda: "PEN",
+        montoTotalAcordado: 6480.36,
+        montoUltimoPago: 2160.12,
+        planPagos: "Cuotas",
+      },
+      {
+        moneda: "",
+        montoTotalAcordado: null,
+        montoUltimoPago: undefined,
+        fechaCuota1: "2026-10-10",
+        fechaReunion: "2026-10-11",
+        monedaPrecioAcordado: "USD",
+        precioAcordadoProducto: 1497,
+        montoCuota1: 1497,
+      },
+    ];
+    tree = exports.SalesSection({
+      sales: { ...sales, detailRows: examples },
+      available: true,
+      pipeline,
+    });
+    const exampleCells = nodes(nodes(tree).find((n) => n.type === "tbody"))
+      .filter((n) => n.type === "td")
+      .map(text);
+    assert.equal(exampleCells[9], "12/10/2026");
+    assert.equal(exampleCells[10], "PEN");
+    assert.match(exampleCells[11], /6,480\.36/);
+    assert.match(exampleCells[12], /2,160\.12/);
+    assert.equal(exampleCells[14], "Cuotas");
+    for (const col of [9, 10, 11, 12]) assert.equal(exampleCells[15 + col], "—");
   }
 });

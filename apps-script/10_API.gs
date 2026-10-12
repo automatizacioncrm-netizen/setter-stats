@@ -4199,7 +4199,11 @@ function API_BUILD_VSL_REPORT(filtros) {
   // RESPONSE
   // ==========================================================
 
+  const etapasPorEmbudo = API_OPPORTUNITY_STAGES_(leadRegistros);
   return {
+
+    etapasPorEmbudo: etapasPorEmbudo,
+    vslNoAplica: API_VSL_NO_APLICA_(etapasPorEmbudo),
 
     report:
       "VSL | Closers + OEI + LIG",
@@ -4422,6 +4426,50 @@ function API_BUILD_VSL_REPORT(filtros) {
 // Una fila de salida = una cita real de Calendar.
 // Se deduplica por Appointment ID.
 // ============================================================
+
+// Opportunity cohort already filtered by the report; one aggregation for all phases.
+function API_OPPORTUNITY_PHASE_KEY_(fase) {
+  return String(fase || "").trim().replace(/\s+/g, " ")
+    .replace(/\s*([()/])\s*/g, "$1").toLowerCase();
+}
+
+function API_OPPORTUNITY_STAGES_(leadRegistros) {
+  const porEmbudo = {};
+  const seen = new Set();
+  (leadRegistros || []).forEach(function(r) {
+    const id = String(r.opportunityId || "");
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    const pipeline = String(r.pipeline || "");
+    if (!porEmbudo[pipeline]) porEmbudo[pipeline] = { totalLeads: 0, phases: new Map() };
+    const group = porEmbudo[pipeline];
+    const key = API_OPPORTUNITY_PHASE_KEY_(r.fase);
+    const fase = key === API_OPPORTUNITY_PHASE_KEY_("No Aplica(No califica/No desea)")
+      ? "No Aplica(No califica/No desea)" : String(r.fase || "").trim();
+    if (!group.phases.has(key)) group.phases.set(key, { fase: fase, total: 0 });
+    group.phases.get(key).total++;
+    group.totalLeads++;
+  });
+  Object.keys(porEmbudo).forEach(function(pipeline) {
+    const group = porEmbudo[pipeline];
+    group.porEtapa = Array.from(group.phases.values()).map(function(row) {
+      return { fase: row.fase, total: row.total,
+        porcentaje: Number((row.total * 100 / group.totalLeads).toFixed(2)) };
+    });
+    delete group.phases;
+  });
+  return { porEmbudo: porEmbudo };
+}
+
+function API_VSL_NO_APLICA_(etapasPorEmbudo) {
+  const fase = "No Aplica(No califica/No desea)";
+  const vsl = etapasPorEmbudo.porEmbudo.vsl;
+  const rows = vsl ? vsl.porEtapa : [];
+  const row = rows.find(function(r) {
+    return API_OPPORTUNITY_PHASE_KEY_(r.fase) === API_OPPORTUNITY_PHASE_KEY_(fase);
+  });
+  return { fase: fase, total: row ? row.total : 0, porcentaje: row ? row.porcentaje : 0 };
+}
 
 function API_BUILD_APPOINTMENT_DETAIL(filtros) {
   filtros = filtros || {};

@@ -26,11 +26,11 @@ export function saleDetailValue(row: SaleRow, key: keyof SaleRow) {
 
 export function formatSaleDetailAmount(
   row: SaleRow,
-  key: "precioAcordadoProducto" | "montoCuota1",
+  key: "montoTotalAcordado" | "montoUltimoPago",
 ) {
   const amount = row[key];
   if (amount == null) return "—";
-  return recognizedCurrency(row.monedaPrecioAcordado)
-    ? formatCurrency(amount, row.monedaPrecioAcordado || "")
+  return recognizedCurrency(row.moneda)
+    ? formatCurrency(amount, row.moneda || "")
     : financialAmount(amount, null);
 }

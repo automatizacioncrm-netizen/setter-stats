@@ -1,5 +1,6 @@
 import { mapLeadsWithoutAppointment } from "./leads-without-appointment.mapper";
 import { z } from "zod";
+import { noAplicaFields } from "./vsl-no-aplica";
 import type {
   LeadDetailRow,
   ReportKpis,
@@ -322,6 +323,7 @@ export function mapVslReportResponse(
   }
   return {
     report: str(d["report"]),
+    ...noAplicaFields(d),
     ...(vslSeteo.success ? { vslSeteo: vslSeteo.data } : {}),
     ...(d["businessMetrics"] ? { businessMetrics: object(d["businessMetrics"]) } : {}),
     ...performance,
