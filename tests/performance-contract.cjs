@@ -69,6 +69,63 @@ const mapped = (performance = fixture()) =>
   mapVslReportResponse({ ok: true, data: { sales: { total: 3, rows }, performance } }, query);
 const html = (report) => renderToStaticMarkup(createElement(ExecutivePerformance, { report }));
 
+test("closer full join matches normalized names rather than positions, preserves old ratios and both unilateral sources", () => {
+  const { joinCloserPerformance } = require("../src/lib/closer-performance.ts");
+  const { ratio } = require("../src/lib/executive-metrics.ts");
+  const attendance = [{closer:"Fiorela Bernales",agendamientos:117,citasAsistidas:44},
+    {closer:"Ezequiel Dario",agendamientos:168,citasAsistidas:82},
+    {closer:"Only attendance",agendamientos:10,citasAsistidas:5}];
+  const conversion = [{closer:"  EZEQUIEL  DARÍO  ",ventas:4,citasAsistidas:82},
+    {closer:"Fiorela Bernales",ventas:6,citasAsistidas:44},
+    {closer:"Only conversion",ventas:1,citasAsistidas:2}];
+  const before = JSON.stringify({attendance,conversion});
+  const result = joinCloserPerformance(attendance,conversion);
+  assert.equal(result.length,4);
+  for (const original of attendance.slice(0,2)) {
+    const row = result.find(r=>r.closer===original.closer);
+    assert.equal(row.agendamientos,original.agendamientos);
+    assert.equal(row.citasAsistidas,original.citasAsistidas);
+    assert.equal(row.asistenciaPct,ratio(original.citasAsistidas,original.agendamientos));
+    const source = original.closer.startsWith("Fiorela") ? conversion[1] : conversion[0];
+    assert.equal(row.ventas,source.ventas);
+    assert.equal(row.conversionPct,ratio(source.ventas,source.citasAsistidas));
+  }
+  const attendanceOnly = result.find(r=>r.closer==="Only attendance");
+  assert.equal(attendanceOnly.ventas,0);
+  assert.equal(attendanceOnly.conversionPct,0);
+  const conversionOnly = result.find(r=>r.closer==="Only conversion");
+  assert.equal(conversionOnly.agendamientos,null);
+  assert.equal(conversionOnly.asistenciaPct,null);
+  assert.equal(conversionOnly.citasAsistidas,2);
+  assert.equal(conversionOnly.ventas,1);
+  assert.equal(conversionOnly.conversionPct,50);
+  // Different source denominators must not change the existing conversion percentage.
+  const inconsistent = joinCloserPerformance([attendance[0]],[{...conversion[1],citasAsistidas:20}])[0];
+  assert.equal(inconsistent.citasAsistidas,44);
+  assert.equal(inconsistent.conversionPct,30);
+  assert.equal(JSON.stringify({attendance,conversion}),before);
+});
+
+test("one closer performance table renders all six sortable columns and attribution diagnostics across funnels",()=>{
+  for(const pipeline of ["vsl","oei","lig","all"]) {
+    const r = mapped();
+    r.filters.pipeline = pipeline;
+    const scope = pipeline==="all" ? "vsl+oei+lig" : pipeline;
+    r.performance.alcanceAsistencia = scope;
+    r.performance.alcanceConversionCloser = scope;
+    const output = html(r);
+    assert.match(output,/Desempeño comercial por closer/);
+    assert.doesNotMatch(output,/Conversión de ventas por closer|Agendamientos y asistencia por closer/);
+    const section = output.match(/aria-labelledby="closer-performance-heading"([\s\S]*?)<\/section>/)[1];
+    const labels=[...section.matchAll(/<button[^>]*>([^<]+)<svg/g)].map(m=>m[1]);
+    assert.deepEqual(labels,["Closer","Citas asignadas","Citas asistidas","% Asistencia","Ventas verificadas","% Conversión"]);
+    assert.equal((section.match(/<table /g)||[]).length,1);
+    assert.match(section,/overflow-x-auto/);
+    assert.match(section,/<details[\s\S]*Diagnóstico de atribución y alcance/);
+    assert.match(section,/ventas sin atribución verificable, conservadas en el total/);
+  }
+});
+
 test("proxy preserves all actual performance properties and commercial sales without LIG", () => {
   const report = mapped();
   assert.deepEqual(report.performance, fixture());
@@ -239,7 +296,7 @@ test("technical formulas stay in tooltips and attribution diagnostics, not loadi
   );
 });
 
-test("closer tables keep their team while setter rows come from current API activity", () => {
+test("consolidated closer table keeps present team members while setter rows come from current API activity", () => {
   const p = fixture();
   p.conversionPorCloser.push({
     closer: "Cinthia Maquito",
@@ -260,7 +317,7 @@ test("closer tables keep their team while setter rows come from current API acti
   const bodies = [...output.matchAll(/<tbody>([\s\S]*?)<\/tbody>/g)].map((m) => m[1]);
   assert.deepEqual(
     bodies.map((body) => (body.match(/<tr /g) || []).length),
-    [3, 1, 3],
+    [1, 1],
   );
   assert.doesNotMatch(output, />Joseph</);
   assert.match(output, /Ventas de otros responsables: 1/);
@@ -631,7 +688,7 @@ test("setter selections preserve existing cards with the VSL booking replacement
         }),
       );
       assert.doesNotMatch(executive, /sin cita creada|Detalle de disponibilidad/);
-      assert.match(executive, /Agendamientos y asistencia por setter/);
+      assert.match(executive, /Conversion de Asistencia por Setter/);
       assert.equal(filters.dateFrom, "2026-10-01");
       assert.equal(filters.closer, "Ezequiel Dario");
     }
@@ -722,7 +779,7 @@ test("historical sale remains attributed by API despite meeting outside reportin
   assert.equal(r.sales.rows[0].fechaVenta, "2026-10-05");
   assert.equal(r.sales.rows[0].fechaReunion, "2026-09-11");
   assert.equal(r.performance.conversionPorCloser[0].ventas, 2);
-  assert.match(html(r), /Ezequiel Dario<\/td><td[^>]*>2<\/td><td[^>]*>2/);
+  assert.match(html(r), /Ezequiel Dario<\/td><td[^>]*>—<\/td><td[^>]*>2<\/td><td[^>]*>No aplicable<\/td><td[^>]*>2/);
 });
 
 test("missing executive metrics are unavailable rather than fabricated zero counts", () => {

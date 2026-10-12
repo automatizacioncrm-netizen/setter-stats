@@ -3,8 +3,14 @@ import type { ReactNode } from "react";
 import { ratio, formatNumber } from "@/lib/executive-metrics";
 import { LeadsWithoutAppointmentSection } from "./LeadsWithoutAppointmentSection";
 import { ExecutiveTable } from "./ExecutiveTable";
+import { joinCloserPerformance } from "@/lib/closer-performance";
 
-import { REPORT_SETTERS, REPORT_CLOSER_TEAM, teamPerformanceRows } from "@/lib/report-team";
+import {
+  REPORT_SETTERS,
+  REPORT_CLOSER_TEAM,
+  teamPerformanceRows,
+  normalizePersonKey,
+} from "@/lib/report-team";
 
 const panel = "space-y-3 rounded-xl border border-border bg-surface p-5 shadow-card";
 const percent = (value: number | null) =>
@@ -40,6 +46,14 @@ export function ExecutivePerformance({
     (r) => r.closer,
     (r) => r.agendamientos,
   ).map((r) => ({ ...r, closer: r.name, agendamientos: r.count }));
+  const attendanceNames = new Set(
+    p?.asistenciaPorCloserTodosEmbudos.map((r) => normalizePersonKey(r.closer)),
+  );
+  const conversionNames = new Set(p?.conversionPorCloser.map((r) => normalizePersonKey(r.closer)));
+  const closerPerformance = joinCloserPerformance(
+    closers.filter((r) => attendanceNames.has(normalizePersonKey(r.closer))),
+    conversion.filter((r) => conversionNames.has(normalizePersonKey(r.closer))),
+  );
   const excludedSales =
     (p?.conversionPorCloser.reduce((sum, r) => sum + r.ventas, 0) ?? 0) -
     conversion.reduce((sum, r) => sum + r.ventas, 0);
@@ -74,11 +88,10 @@ export function ExecutivePerformance({
     <>
       <section className={panel} aria-labelledby="closer-performance-heading">
         <h2 id="closer-performance-heading" className="text-lg font-semibold">
-          Conversión de ventas por closer
+          Conversion de Asistencia y Venta por Closer
         </h2>
         <p className="text-sm text-muted-foreground">
-          {all ? "Ventas VSL + OEI + LIG" : "Ventas del embudo seleccionado"} · relación entre
-          eventos del período
+          Agendamientos, asistencia y conversión de ventas del embudo seleccionado
         </p>
         {error ? (
           <p role="alert" className="text-sm text-destructive">
@@ -86,8 +99,8 @@ export function ExecutivePerformance({
           </p>
         ) : (
           <ExecutiveTable
-            rows={conversion}
-            rowKey={(r) => r.closer}
+            rows={closerPerformance}
+            rowKey={(r) => r.key}
             empty="No hay actividad comercial para estos filtros."
             columns={[
               {
@@ -96,13 +109,22 @@ export function ExecutivePerformance({
                 value: (r) => r.closer,
                 render: (r) => r.closer,
               },
+              { key: "total", label: "Citas asignadas", value: (r) => r.agendamientos },
               { key: "attended", label: "Citas asistidas", value: (r) => r.citasAsistidas },
+              {
+                key: "attendanceRate",
+                label: "% Asistencia",
+                value: (r) => r.asistenciaPct,
+                render: (r) => percent(r.asistenciaPct),
+                formula:
+                  "Citas asistidas / citas asignadas × 100. Atribución por closer de la cita; esta tasa mide asistencia, no conversión de ventas.",
+              },
               { key: "sales", label: "Ventas verificadas", value: (r) => r.ventas },
               {
                 key: "rate",
                 label: "% Conversión",
-                value: (r) => ratio(r.ventas, r.citasAsistidas),
-                render: (r) => percent(ratio(r.ventas, r.citasAsistidas)),
+                value: (r) => r.conversionPct,
+                render: (r) => percent(r.conversionPct),
                 formula:
                   "Ventas atribuibles / citas asistidas × 100. Oportunidades y citas únicas, sin LIG. Relación de eventos del período, no conversión de cohorte.",
               },
@@ -180,41 +202,6 @@ export function ExecutivePerformance({
             </summary>
             <div className="mt-3 space-y-4">{setterDetails}</div>
           </details>
-        )}
-      </section>
-      <section className={panel} aria-labelledby="closer-attendance-heading">
-        <h2 id="closer-attendance-heading" className="text-lg font-semibold">
-          Agendamientos y asistencia por closer
-        </h2>
-        <p className="text-sm text-muted-foreground">{activityLabel}</p>
-        {error ? (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        ) : (
-          <ExecutiveTable
-            rows={closers}
-            rowKey={(r) => r.closer}
-            empty="No hay citas asignadas para estos filtros."
-            columns={[
-              {
-                key: "closer",
-                label: "Closer",
-                value: (r) => r.closer,
-                render: (r) => r.closer,
-              },
-              { key: "total", label: "Citas asignadas", value: (r) => r.agendamientos },
-              { key: "attended", label: "Citas asistidas", value: (r) => r.citasAsistidas },
-              {
-                key: "rate",
-                label: "% Asistencia",
-                value: (r) => ratio(r.citasAsistidas, r.agendamientos),
-                render: (r) => percent(ratio(r.citasAsistidas, r.agendamientos)),
-                formula:
-                  "Citas asistidas / citas asignadas × 100. Atribución por closer de la cita; esta tasa mide asistencia, no conversión de ventas.",
-              },
-            ]}
-          />
         )}
       </section>
       <LeadsWithoutAppointmentSection
