@@ -209,9 +209,6 @@ test("cards y secciones de agenda consumen los agregados Calendar de la misma re
   assert.equal(cards[2].hint, "45.59% de asistencia");
   assert.equal(h.find("SetterStatusTable").props.rows.length, 6);
   assert.equal(h.find("SetterStatusTable").props.totals, kpis);
-  assert.equal(h.find("SetterStatusChart").props.rows.length, 6);
-  assert.equal(h.find("SetterStatusChart").props.tasaAsistencia, 45.59);
-  assert.deepEqual(h.find("ConversionSummary").props.kpis, kpis);
 });
 
 test("period cards preserve the four independent API cohorts", () => {
@@ -246,7 +243,6 @@ test("period cards preserve the four independent API cohorts", () => {
     );
     assert.equal(cards[1].hint, `${appointments} citas en el período seleccionado`);
     assert.equal(h.find("SalesSection").props.sales.total, sales);
-    assert.equal(h.find("ConversionSummary").props.kpis.total, appointments);
   }
 });
 
@@ -494,7 +490,7 @@ test("lead type changes reset incompatible filters and survive reconciliation", 
     )[0].label,
     "Total de leads",
   );
-  assert.equal(h.find("SetterStatusTable").props.rows, h.find("SetterStatusChart").props.rows);
+  assert.equal(h.find("SetterStatusTable").props.rows.length, 1);
   await h.find("RefreshButton").props.onClick();
   h.render();
   assert.equal(h.query.options.queryKey[1].leadType, "organic");
@@ -748,15 +744,15 @@ test("focus refresh retains loaded data without starting a filter transition", (
   assert.ok(h.find("SetterStatusTable"));
 });
 
-test("Calendar charts are reused once below summary and removed from collapsed detail", () => {
+test("Calendar chart cards are absent and performance follows executive summary", () => {
   const h = harness();
   h.loaded();
-  assert.equal(h.findAll("SetterStatusChart").length, 1);
-  assert.equal(h.findAll("ConversionSummary").length, 1);
+  assert.equal(h.findAll("SetterStatusChart").length, 0);
+  assert.equal(h.findAll("ConversionSummary").length, 0);
   const detail = h.find("ExecutivePerformance").props.setterDetails;
   assert.equal(h.find("SetterStatusChart", detail), undefined);
   assert.equal(h.find("ConversionSummary", detail), undefined);
   const source = fs.readFileSync("src/pages/VslClosersDashboard.tsx", "utf8");
-  assert.ok(source.indexOf("<ExecutiveSummary") < source.indexOf("<SetterStatusChart"));
-  assert.ok(source.indexOf("<ConversionSummary") < source.indexOf("<ExecutivePerformance"));
+  assert.match(source, /<ExecutiveSummary[^>]*\/>\s*<ExecutivePerformance/);
+  assert.ok(!source.includes('aria-label="Gráficos de Calendar"'));
 });

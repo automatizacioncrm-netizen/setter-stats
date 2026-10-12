@@ -113,6 +113,7 @@ export interface LeadsWithoutAppointment {
 }
 
 export interface VslClosersReport {
+  businessMetrics?: Record<string, unknown>;
   executiveUnavailable?: ("leads" | "appointments" | "attended" | "sales")[];
   leadsVslSinCita?: LeadsWithoutAppointment;
   leadsSinCitaPorEmbudo?: Partial<Record<"vsl" | "oei", LeadsWithoutAppointment>>;

@@ -242,12 +242,12 @@ test("timeouts remain 504 and optional debug logs never include the credential",
   assert.doesNotMatch(await result.text(), /private-test-secret/);
 });
 
-test("commercial selector exposes only VSL and OEI", () => {
+test("commercial selector exposes VSL, OEI and LIG", () => {
   const source = fs.readFileSync("src/components/reports/DashboardFilters.tsx", "utf8");
-  assert.match(source, /Todos \(VSL \+ OEI\)/);
+  assert.match(source, /Todos \(VSL \+ OEI \+ LIG\)/);
   assert.match(source, /value="vsl"/);
   assert.match(source, /value="oei"/);
-  assert.doesNotMatch(source, /<option value="lig"/);
+  assert.match(source, /<option value="lig"/);
 });
 test("browser client keeps booker separate and encodes accents, + and &", async (t) => {
   setup(t);

@@ -1,6 +1,8 @@
 import { ApiError, getServerEnv } from "../config/env.server";
 export const REPORT_TIMEOUT_MS = 15_000;
 export const RECONCILE_TIMEOUT_MS = 60_000;
+export type ReconciliationAction =
+  "reconcile_all" | "reconcile_opportunities" | "reconcile_appointments";
 export interface ReportRequest {
   pipeline: "all" | "vsl" | "oei" | "lig";
   leadType: "all" | "paid" | "organic";
@@ -9,6 +11,10 @@ export interface ReportRequest {
   dateTo: string;
   setter: string;
   booker?: string;
+  vslTipo?: string | undefined;
+  dateField?: "appointmentCreated" | "meetingDate" | undefined;
+  bookingMode?: "" | "automatic" | "manual" | undefined;
+  dayGap?: string | undefined;
   status: string;
   vslOrigin: string;
   closer: string;
@@ -30,10 +36,11 @@ export type AppointmentDetailRequest = Omit<
 };
 
 async function requestScript(
-  action: "vsl_report" | "appointment_detail" | "reconcile_all",
+  action: "vsl_report" | "appointment_detail" | ReconciliationAction,
   filters?: ReportRequest | AppointmentDetailRequest,
 ) {
   const env = getServerEnv();
+  const isReconciliation = action.startsWith("reconcile_");
   const url = new URL(env.APPS_SCRIPT_URL);
   url.searchParams.set("action", action);
   url.searchParams.set("key", env.APPS_SCRIPT_SECRET);
@@ -48,9 +55,10 @@ async function requestScript(
       "booker",
       "status",
       "vslOrigin",
-      ...(action === "appointment_detail"
-        ? (["vslTipo", "dateField", "bookingMode", "dayGap"] as const)
-        : []),
+      "vslTipo",
+      "dateField",
+      "bookingMode",
+      "dayGap",
       "closer",
       "includeDetail",
       "search",
@@ -78,7 +86,7 @@ async function requestScript(
       );
   const timer = setTimeout(
     () => controller.abort(),
-    action === "reconcile_all" ? RECONCILE_TIMEOUT_MS : REPORT_TIMEOUT_MS,
+    isReconciliation ? RECONCILE_TIMEOUT_MS : REPORT_TIMEOUT_MS,
   );
   const debugReport =
     action === "vsl_report" &&
@@ -90,16 +98,16 @@ async function requestScript(
   };
   reportLog("Request received / Query params", filters);
   reportLog("Apps Script URL", url.toString());
-  if (action === "reconcile_all")
+  if (isReconciliation)
     console.info("[reconcile_all] started", { timeoutMs: RECONCILE_TIMEOUT_MS });
   try {
     const response = await fetch(url, {
-      method: action === "reconcile_all" ? "POST" : "GET",
+      method: isReconciliation ? "POST" : "GET",
       signal: controller.signal,
       redirect: "follow",
       cache: "no-store",
     });
-    if (action === "reconcile_all") {
+    if (isReconciliation) {
       const text = await response.text();
       console.info("[reconcile_all] Apps Script response", {
         status: response.status,
@@ -163,7 +171,7 @@ async function requestScript(
         error: error instanceof Error ? error.message : String(error),
         diagnostics: error instanceof ApiError ? error.diagnostics : undefined,
       });
-    if (action === "reconcile_all" && !(error instanceof ApiError)) {
+    if (isReconciliation && !(error instanceof ApiError)) {
       const cause = error instanceof Error ? error.cause : undefined;
       console.error("[reconcile_all] fetch/read failed", {
         durationMs: Date.now() - startedAt,
@@ -200,6 +208,6 @@ export function fetchVslReport(filters: ReportRequest) {
 export function fetchAppointmentDetail(filters: AppointmentDetailRequest) {
   return requestScript("appointment_detail", filters);
 }
-export function runVslReconciliation() {
-  return requestScript("reconcile_all");
+export function runVslReconciliation(action: ReconciliationAction = "reconcile_all") {
+  return requestScript(action);
 }

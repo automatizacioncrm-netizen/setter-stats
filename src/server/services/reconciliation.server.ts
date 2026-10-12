@@ -1,5 +1,6 @@
 import { runVslReconciliation } from "../adapters/apps-script.adapter.server";
 import { mapReconciliationResponse } from "../mappers/reconciliation.mapper";
-export async function reconcileVslReport() {
-  return mapReconciliationResponse(await runVslReconciliation());
+import type { ReconciliationAction } from "../adapters/apps-script.adapter.server";
+export async function reconcileVslReport(action: ReconciliationAction = "reconcile_all") {
+  return mapReconciliationResponse(await runVslReconciliation(action));
 }

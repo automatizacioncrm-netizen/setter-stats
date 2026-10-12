@@ -9,8 +9,6 @@ import { ExecutiveSummary } from "@/components/reports/ExecutiveSummary";
 import { calendarPresentation } from "@/lib/calendar-presentation";
 import { hasSelectedSetter } from "@/lib/executive-presentation";
 import { SetterStatusTable } from "@/components/reports/SetterStatusTable";
-import { SetterStatusChart } from "@/components/reports/SetterStatusChart";
-import { ConversionSummary } from "@/components/reports/ConversionSummary";
 import { appointmentDetailFilters, getVslClosersReport } from "@/services/reports";
 import { AppointmentDetailModal } from "@/components/reports/AppointmentDetailModal";
 import { triggerVslReconciliation } from "@/services/reconciliation.service";
@@ -447,24 +445,6 @@ export function VslClosersDashboard() {
           <>
             <h2 className="text-lg font-semibold">Resumen ejecutivo</h2>
             <ExecutiveSummary report={data} filters={filters} />
-            <div
-              className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
-              aria-label="Gráficos de Calendar"
-            >
-              <SetterStatusChart
-                rows={peopleRows}
-                tasaAsistencia={calendar?.kpis.tasaAsistencia ?? 0}
-                mode={peopleMode}
-                selectedSetter={person}
-                error={calendar?.error}
-              />
-              <ConversionSummary kpis={calendar?.kpis ?? data.kpis} error={calendar?.error} />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {filters.pipeline === "all"
-                ? "Actividad del personal: VSL, OEI y LIG. Las tarjetas comerciales muestran VSL + OEI."
-                : "Actividad del embudo y período seleccionados."}
-            </p>
             <ExecutivePerformance
               report={data}
               setterSelected={hasSelectedSetter(filters)}

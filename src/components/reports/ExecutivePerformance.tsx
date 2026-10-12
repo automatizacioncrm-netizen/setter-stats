@@ -1,7 +1,6 @@
 import type { VslClosersReport } from "@/types/reports";
 import type { ReactNode } from "react";
 import { ratio, formatNumber } from "@/lib/executive-metrics";
-import { getCanonicalSetterName } from "@/lib/setter-performance";
 import { LeadsWithoutAppointmentSection } from "./LeadsWithoutAppointmentSection";
 import { ExecutiveTable } from "./ExecutiveTable";
 
@@ -15,7 +14,6 @@ export function ExecutivePerformance({
   report,
   setterDetails,
   setterSelected,
-  selectedSetter = "",
 }: {
   report: VslClosersReport;
   setterDetails?: ReactNode;
@@ -33,11 +31,9 @@ export function ExecutivePerformance({
     p?.asistenciaPorSetter ?? [],
     REPORT_SETTERS,
     (r) => r.setter,
-    (r) => r.agendamientos,
+    (r) => Number(r.agendamientos),
   ).map((r) => ({ ...r, setter: r.name, agendamientos: r.count }));
-  const setters = selectedSetter
-    ? allSetters.filter((r) => r.setter === getCanonicalSetterName(selectedSetter))
-    : allSetters;
+  const setters = allSetters.filter((r) => Number(r.agendamientos) > 0);
   const closers = teamPerformanceRows(
     p?.asistenciaPorCloserTodosEmbudos ?? [],
     REPORT_CLOSER_TEAM,
@@ -51,7 +47,7 @@ export function ExecutivePerformance({
     (p?.asistenciaPorSetter.reduce((sum, r) => sum + r.agendamientos, 0) ?? 0) -
     allSetters.reduce((sum, r) => sum + r.agendamientos, 0);
   const all = report.filters.pipeline === "all";
-  const conversionScope = all ? "vsl+oei" : report.filters.pipeline;
+  const conversionScope = all ? "vsl+oei+lig" : report.filters.pipeline;
   const attendanceScope = all ? "vsl+oei+lig" : report.filters.pipeline;
   const scopeValid =
     p?.alcanceConversionCloser === conversionScope && p?.alcanceAsistencia === attendanceScope;
@@ -81,8 +77,8 @@ export function ExecutivePerformance({
           Conversión de ventas por closer
         </h2>
         <p className="text-sm text-muted-foreground">
-          {all ? "Ventas VSL + OEI" : "Ventas del embudo seleccionado"} · relación entre eventos del
-          período
+          {all ? "Ventas VSL + OEI + LIG" : "Ventas del embudo seleccionado"} · relación entre
+          eventos del período
         </p>
         {error ? (
           <p role="alert" className="text-sm text-destructive">

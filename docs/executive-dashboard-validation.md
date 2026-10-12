@@ -1,5 +1,7 @@
 # Validación del dashboard comercial — 10/10/2026
 
+Documento histórico: la integración y los filtros visuales fueron revisados posteriormente. Consultar [validación actual](frontend-api-calendar-validation.md), que sustituye las limitaciones sobre el contrato desplegado descritas aquí.
+
 ## Implementación local
 
 Configuración central en `src/lib/report-team.ts`: tres closers y seis setters, con identificadores internos estables (no son User IDs de GHL), normalización exacta de tildes, mayúsculas y espacios, y únicamente los alias confirmados por el usuario. Los selectores incluyen todo el equipo, incluso sin actividad. No hay coincidencias parciales ni mapeos inventados de IDs externos.

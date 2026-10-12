@@ -26,6 +26,63 @@ const schema = z.object({
 });
 
 export function mapReconciliationResponse(raw: unknown): ReconciliationResult {
+  const staged = z
+    .object({
+      ok: z.literal(true),
+      success: z.boolean().optional(),
+      completed: z.boolean(),
+      stage: z.string(),
+      nextAction: z.string().nullable(),
+      timestamp: z.string(),
+      resultado: z
+        .object({ success: z.literal(true), completed: z.boolean(), result: z.record(z.unknown()) })
+        .passthrough(),
+    })
+    .safeParse(raw);
+  if (staged.success) {
+    const body = staged.data;
+    const totals = {
+      reviewed: 0,
+      newRecords: 0,
+      modified: 0,
+      unchanged: 0,
+      inserted: 0,
+      updated: 0,
+      errors: 0,
+      durationSeconds: 0,
+    };
+    const fields = {
+      revisadas: "reviewed",
+      nuevas: "newRecords",
+      modificadas: "modified",
+      sinCambios: "unchanged",
+      insertadas: "inserted",
+      actualizadas: "updated",
+      errores: "errors",
+      segundos: "durationSeconds",
+    } as const;
+    const collect = (value: unknown) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return;
+      for (const [key, item] of Object.entries(value)) {
+        if (key in fields && (typeof item === "number" || typeof item === "string")) {
+          const number = Number(item);
+          if (Number.isFinite(number) && number >= 0)
+            totals[fields[key as keyof typeof fields]] += number;
+        } else if (item && typeof item === "object") collect(item);
+      }
+    };
+    collect(body.resultado.result);
+    return {
+      ...totals,
+      ok: true,
+      success: true,
+      completed: body.completed,
+      stage: body.stage,
+      nextAction: body.nextAction,
+      resultado: body.resultado,
+      timestamp: body.timestamp,
+    };
+  }
   // RECONCILIAR_TODO returns separate opportunity and Calendar counters.
   const global = z
     .object({

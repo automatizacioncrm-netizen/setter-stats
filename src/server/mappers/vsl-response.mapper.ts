@@ -296,11 +296,6 @@ export function mapVslReportResponse(
   const bookers = [...bookerTotals].map(([name, total]) => ({ name, total }));
   const appointmentClosers = namedCounts(appointmentPeople["closers"], "closer");
   const sales = salesReport(d["sales"]);
-  if (query.pipeline === "all" && sales.rows.some((row) => row.pipeline.toLowerCase() === "lig")) {
-    throw new ApiError(
-      "La versión de la API incluye ventas LIG en la vista comercial. Configura la versión VSL + OEI.",
-    );
-  }
   const performance = mapPerformance(d["performance"]);
   const unbooked = mapLeadsWithoutAppointment(d["leadsVslSinCita"]);
   const byPipeline = object(d["leadsSinCitaPorEmbudo"]);
@@ -316,6 +311,7 @@ export function mapVslReportResponse(
   }
   return {
     report: str(d["report"]),
+    ...(d["businessMetrics"] ? { businessMetrics: object(d["businessMetrics"]) } : {}),
     ...performance,
     executiveUnavailable,
     ...(unbooked.data ? { leadsVslSinCita: unbooked.data } : {}),

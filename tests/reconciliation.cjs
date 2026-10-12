@@ -11,6 +11,67 @@ require.extensions[".ts"] = (module, filename) => {
   );
 };
 const { reconciliationApi } = require("../src/server/api/reconciliation.api.server.ts");
+const { triggerVslReconciliation } = require("../src/services/reconciliation.service.ts");
+
+test("staged actions pass through the proxy and browser follows checkpoints", async (t) => {
+  const saved = {
+    fetch: global.fetch,
+    url: process.env.APPS_SCRIPT_URL,
+    secret: process.env.APPS_SCRIPT_SECRET,
+  };
+  process.env.APPS_SCRIPT_URL = "https://example.com/exec";
+  process.env.APPS_SCRIPT_SECRET = "test-secret";
+  t.after(() => {
+    global.fetch = saved.fetch;
+    for (const [key, value] of [
+      ["APPS_SCRIPT_URL", saved.url],
+      ["APPS_SCRIPT_SECRET", saved.secret],
+    ])
+      value === undefined ? delete process.env[key] : (process.env[key] = value);
+  });
+  for (const action of ["reconcile_all", "reconcile_opportunities", "reconcile_appointments"]) {
+    let calls = 0;
+    const upstream = async (url, options) => {
+      assert.equal(url.searchParams.get("action"), action);
+      assert.equal(options.method, "POST");
+      const completed = ++calls > 1;
+      return Response.json({
+        ok: true,
+        success: true,
+        completed,
+        stage: completed ? "COMPLETED" : "MISSING",
+        nextAction: completed ? null : action,
+        timestamp: "2026-10-12T12:00:00Z",
+        resultado: { success: true, completed, result: { MISSING: { nuevas: 2 } } },
+      });
+    };
+    global.fetch = upstream;
+    const response = await reconciliationApi(
+      new Request(`https://local.test/api/reports/vsl-closers/reconcile?action=${action}`, {
+        method: "POST",
+        headers: { "x-report-request": "1" },
+      }),
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.completed, false);
+    assert.equal(body.nextAction, action);
+    calls = 0;
+    const wrapper = async (url, options) => {
+      const request = new Request(new URL(url, "https://local.test"), options);
+      global.fetch = upstream;
+      try {
+        return await reconciliationApi(request);
+      } finally {
+        global.fetch = wrapper;
+      }
+    };
+    global.fetch = wrapper;
+    const result = await triggerVslReconciliation(action);
+    assert.equal(result.completed, true);
+    assert.equal(calls, 2);
+  }
+});
 
 test("global reconciliation uses the exact action and maps the observed nested response", async () => {
   const previous = {

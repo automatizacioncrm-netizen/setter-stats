@@ -129,9 +129,17 @@ export function mergeFilteredReports(
       | "availableStatuses",
   ) => [...new Set(reports.flatMap((report) => report[key] ?? []))];
   const { preset: _preset, ...applied } = filters;
-  const { performance: _performance, performanceError: _performanceError, ...base } = first;
+  const {
+    performance: _performance,
+    performanceError: _performanceError,
+    businessMetrics: _businessMetrics,
+    ...base
+  } = first;
   return {
     ...base,
+    ...(reports.length === 1 && first.businessMetrics
+      ? { businessMetrics: first.businessMetrics }
+      : {}),
     ...(reports.length > 1
       ? {
           leadsSinCitaPorEmbudo: {},

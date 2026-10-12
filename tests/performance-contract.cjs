@@ -43,9 +43,9 @@ const fixture = () => ({
     { closer: "Fiorela Bernales", agendamientos: 4, citasAsistidas: 3, asistenciaPct: 75 },
   ],
   alcanceAsistencia: "vsl+oei+lig",
-  alcanceConversionCloser: "vsl+oei",
+  alcanceConversionCloser: "vsl+oei+lig",
   diagnostics: {
-    citasLigIncluidasSoloEnActividad: 1,
+    citasLigIncluidasSoloEnActividad: 0,
     citasUnicasActividad: 4,
     ventasSinCitaAsistida: 1,
     ventasAtribucionAmbigua: 0,
@@ -75,21 +75,22 @@ test("proxy preserves all actual performance properties and commercial sales wit
   assert.equal(report.sales.total, 3);
   assert.ok(report.sales.rows.every((r) => r.pipeline !== "lig"));
 });
-test("commercial API versions that include LIG fail explicitly", () => {
-  assert.throws(
-    () =>
-      mapVslReportResponse(
-        {
-          ok: true,
-          data: {
-            sales: { total: 4, rows: [...rows, { pipeline: "lig" }] },
-            performance: fixture(),
-          },
+test("all accepts LIG commercial sales and preserves businessMetrics", () => {
+  const report = mapVslReportResponse(
+    {
+      ok: true,
+      data: {
+        sales: { total: 4, rows: [...rows, { pipeline: "lig" }] },
+        businessMetrics: {
+          conversionPorEmbudo: [{ pipeline: "lig", leads: 1, ventas: 1, conversionPct: 100 }],
         },
-        query,
-      ),
-    /incluye ventas LIG/,
+        performance: fixture(),
+      },
+    },
+    query,
   );
+  assert.equal(report.sales.rows.at(-1).pipeline, "lig");
+  assert.equal(report.businessMetrics.conversionPorEmbudo[0].ventas, 1);
 });
 test("activity includes LIG but commercial conversion uses its separate denominator", () => {
   const report = mapped();
@@ -145,7 +146,9 @@ test("empty but complete aggregates render a real empty state", () => {
   };
   const parsed = mapPerformance(p);
   assert.ok(parsed.performance);
-  assert.match(html({ filters: { pipeline: "all" }, ...parsed }), /Alvaro Jesus Paniura Marin/);
+  const output = html({ filters: { pipeline: "all" }, ...parsed });
+  assert.doesNotMatch(output, /Alvaro Jesus Paniura Marin/);
+  assert.match(output, /No hay agendamientos para estos filtros/);
 });
 test("attendance invariant rejects attended greater than assigned", () => {
   const p = fixture();
@@ -175,7 +178,7 @@ test("selected funnel scopes cannot accidentally render global activity or LIG c
     assert.doesNotMatch(html(report), /El alcance recibido no corresponde|Vista general: incluye/);
   }
 });
-test("commercial selector offers precisely all, vsl and oei", () => {
+test("commercial selector offers all, vsl, oei and lig", () => {
   const output = renderToStaticMarkup(
     createElement(DashboardFilters, {
       filters: { pipeline: "all", preset: "todos", leadType: "all" },
@@ -193,9 +196,9 @@ test("commercial selector offers precisely all, vsl and oei", () => {
   const selector = output.match(/<select aria-label="Embudo"[\s\S]*?<\/select>/)[0];
   assert.deepEqual(
     [...selector.matchAll(/<option value="([^"]*)"/g)].map((m) => m[1]),
-    ["all", "vsl", "oei"],
+    ["all", "vsl", "oei", "lig"],
   );
-  assert.match(selector, /Todos \(VSL \+ OEI\)/);
+  assert.match(selector, /Todos \(VSL \+ OEI \+ LIG\)/);
 });
 test("filter changes and combined filters use the same report request, without extra detail downloads", async (t) => {
   const saved = global.fetch;
@@ -236,7 +239,7 @@ test("technical formulas stay in tooltips and attribution diagnostics, not loadi
   );
 });
 
-test("official tables contain exactly 3, 6 and 3 rows and keep excluded totals", () => {
+test("closer tables keep their team while setter rows come from current API activity", () => {
   const p = fixture();
   p.conversionPorCloser.push({
     closer: "Cinthia Maquito",
@@ -257,13 +260,78 @@ test("official tables contain exactly 3, 6 and 3 rows and keep excluded totals",
   const bodies = [...output.matchAll(/<tbody>([\s\S]*?)<\/tbody>/g)].map((m) => m[1]);
   assert.deepEqual(
     bodies.map((body) => (body.match(/<tr /g) || []).length),
-    [3, 6, 3],
+    [3, 1, 3],
   );
-  assert.doesNotMatch(output, />Joseph<|>Closer sin nombre resuelto<|>Sin setter identificado</);
+  assert.doesNotMatch(output, />Joseph</);
   assert.match(output, /Ventas de otros responsables: 1/);
   assert.match(output, /Citas fuera del equipo de setters: 2/);
   assert.equal(report.sales.total, 3);
   assert.equal(report.performance.diagnostics.citasUnicasActividad, 6);
+});
+
+test("setter table dynamically shows only positive bookings for each result, including future funnels", () => {
+  const names = [
+    "Alvaro Jesus Paniura Marin",
+    "Jose Luis Botto Garcia",
+    "Claudia Jimena Ocampo Portilla",
+  ];
+  const aliases = ["Alvaro", "Jose Luis", "Jimena"];
+  for (const [pipeline, counts] of [
+    ["vsl", [25, 0, 0]],
+    ["oei", [0, 0, 14]],
+    ["lig", [0, 8, 0]],
+    ["all", [25, 8, 14]],
+    ["future-funnel", [0, "3", 0]],
+    ["empty-funnel", [0, 0, 0]],
+  ]) {
+    const report = mapped();
+    report.filters.pipeline = pipeline;
+    const scope = pipeline === "all" ? "vsl+oei+lig" : pipeline;
+    report.performance.alcanceAsistencia = scope;
+    report.performance.alcanceConversionCloser = scope;
+    report.performance.asistenciaPorSetter = counts.map((agendamientos, index) => ({
+      setter: aliases[index],
+      agendamientos,
+      citasAsistidas: 0,
+      asistenciaPct: 0,
+    }));
+    report.performance.asistenciaPorSetter.push({
+      setter: "Kiara Villadolid Huamantumba",
+      agendamientos: -1,
+      citasAsistidas: 0,
+      asistenciaPct: 0,
+    });
+    for (const setter of [
+      "Amaranta Alfonso Krasnova",
+      "Sin setter identificado",
+      "Otro responsable",
+    ]) {
+      report.performance.asistenciaPorSetter.push({
+        setter,
+        agendamientos: 7,
+        citasAsistidas: 1,
+        asistenciaPct: 14.29,
+      });
+    }
+    const before = JSON.stringify(report);
+    const output = renderToStaticMarkup(
+      createElement(ExecutivePerformance, { report, selectedSetter: "Setter ausente" }),
+    );
+    const section = output.match(
+      /aria-labelledby="setter-attendance-heading"([\s\S]*?)<\/section>/,
+    )[1];
+    counts.forEach((count, index) => {
+      const pattern = new RegExp(`>${names[index]}<`);
+      Number(count) > 0 ? assert.match(section, pattern) : assert.doesNotMatch(section, pattern);
+    });
+    assert.doesNotMatch(
+      section,
+      />Kiara Villadolid Huamantumba<|>Amaranta Alfonso Krasnova<|>Sin setter identificado<|>Otro responsable</,
+    );
+    if (counts.every((count) => Number(count) <= 0))
+      assert.match(section, /No hay agendamientos para estos filtros/);
+    assert.equal(JSON.stringify(report), before);
+  }
 });
 test("confirmed aliases merge into canonical IDs and unknown IDs never map to team", () => {
   const {
@@ -603,9 +671,10 @@ test("Cinthia presentation uses only her effective API states with denominator 1
   const setterSection = output.match(
     /aria-labelledby="setter-attendance-heading"([\s\S]*?)<\/section>/,
   )[1];
-  assert.equal((setterSection.match(/<tbody>[\s\S]*?<\/tbody>/)[0].match(/<tr /g) || []).length, 1);
+  assert.equal((setterSection.match(/<tbody>[\s\S]*?<\/tbody>/)[0].match(/<tr /g) || []).length, 2);
   assert.match(setterSection, /Cinthia Maquito/);
-  assert.doesNotMatch(setterSection, /Jose Luis Botto Garcia|Alvaro Jesus/);
+  assert.match(setterSection, /Jose Luis Botto Garcia/);
+  assert.doesNotMatch(setterSection, /Alvaro Jesus/);
 });
 test("clearing and switching setter restore six rows and never reuse prior person's states", () => {
   const r = calendarFixture();

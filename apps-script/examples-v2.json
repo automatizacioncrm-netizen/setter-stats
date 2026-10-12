@@ -1,0 +1,1808 @@
+{
+  "notice": "Datos simulados: respuestas generadas ejecutando la API con los MASTER de prueba.",
+  "lig": {
+    "ok": true,
+    "data": {
+      "report": "VSL | Closers + OEI + LIG",
+      "leadType": "all",
+      "leadTypeLabel": "Todos",
+      "updatedAt": "2026-10-12T14:47:16.764Z",
+      "dateSemantics": {
+        "leads": "Creado el",
+        "appointments": "_Appointment Created At",
+        "appointmentsFallback": "Fecha cita → Fecha de reunión",
+        "sales": "OEI: siempre Fecha de cuota 1. VSL/LIG: Fecha de cuota 1 desde 2026-10-01; antes Fecha de reunión. Sin rango: todas las ventas confirmadas",
+        "salesFallback": "OEI: sin respaldo de Fecha de reunión",
+        "paymentDate": "OEI: Fecha de cuota 1. VSL/LIG desde 2026-10-01: Fecha de cuota 1; histórico: Fecha de primer pago"
+      },
+      "filters": {
+        "applied": {
+          "pipeline": "lig",
+          "leadType": "all"
+        },
+        "available": {
+          "leadTypes": [],
+          "leadTypeFilterEnabled": false,
+          "pipelines": [
+            "Lanzamiento Interno Gratuito"
+          ],
+          "calendars": [
+            "Lanzamiento Interno Gratuito - EM"
+          ],
+          "setters": [
+            "Claudia Jimena Ocampo Portilla",
+            "Jose Luis Botto Garcia"
+          ],
+          "bookers": [
+            "Jimena"
+          ],
+          "statuses": [
+            "Confirmado",
+            "Asistió",
+            "Cancelado",
+            "No asistió"
+          ],
+          "dateFields": [
+            {
+              "value": "appointmentCreated",
+              "label": "Fecha de creación de cita"
+            },
+            {
+              "value": "meetingDate",
+              "label": "Fecha de cita / reunión"
+            }
+          ],
+          "bookingModes": [
+            {
+              "value": "automatic",
+              "label": "Agendado automatico"
+            },
+            {
+              "value": "manual",
+              "label": "Agendado manual"
+            }
+          ],
+          "vslOrigins": [],
+          "closers": [
+            "Fiorela Bernales"
+          ]
+        }
+      },
+      "pipelineSummary": {
+        "vsl": {
+          "key": "vsl",
+          "label": "VSL | Closers",
+          "totalLeads": 0,
+          "conCitaCalendar": 0,
+          "sinCitaCalendar": 0,
+          "estados": {
+            "agendadoCRM": 0,
+            "confirmado": 0,
+            "asistio": 0,
+            "cancelado": 0,
+            "noShow": 0,
+            "pendienteAgenda": 0,
+            "reagendado": 0
+          },
+          "calendars": [
+            {
+              "calendar": "VSL PAGADO - CIRCULO MILLONARIO",
+              "count": 0
+            },
+            {
+              "calendar": "ORGANICO - CIRCULO MILLONARIO",
+              "count": 0
+            },
+            {
+              "calendar": "VSL PAGADO - EQUIPO MILLONARIO",
+              "count": 0
+            },
+            {
+              "calendar": "ORGANICO - EQUIPO MILLONARIO",
+              "count": 0
+            }
+          ]
+        },
+        "oei": {
+          "key": "oei",
+          "label": "Lanzamiento I. Pagado OEI - EM",
+          "totalLeads": 0,
+          "conCitaCalendar": 0,
+          "sinCitaCalendar": 0,
+          "estados": {
+            "agendadoCRM": 0,
+            "confirmado": 0,
+            "asistio": 0,
+            "cancelado": 0,
+            "noShow": 0,
+            "pendienteAgenda": 0,
+            "reagendado": 0
+          },
+          "calendars": [
+            {
+              "calendar": "Equipo Millonario | OEI",
+              "count": 0
+            },
+            {
+              "calendar": "Circulo Millonario | OEI",
+              "count": 0
+            }
+          ]
+        },
+        "lig": {
+          "key": "lig",
+          "label": "Lanzamiento Interno Gratuito",
+          "totalLeads": 1,
+          "conCitaCalendar": 1,
+          "sinCitaCalendar": 0,
+          "estados": {
+            "agendadoCRM": 0,
+            "confirmado": 0,
+            "asistio": 1,
+            "cancelado": 0,
+            "noShow": 0,
+            "pendienteAgenda": 0,
+            "reagendado": 0
+          },
+          "calendars": [
+            {
+              "calendar": "Lanzamiento Interno Gratuito - EM",
+              "count": 1
+            },
+            {
+              "calendar": "Lanzamiento Interno Gratuito - CM",
+              "count": 0
+            }
+          ]
+        }
+      },
+      "kpis": {
+        "total": 1,
+        "agendadoCRM": 0,
+        "confirmado": 0,
+        "asistio": 1,
+        "cancelado": 0,
+        "noShow": 0,
+        "pendienteAgenda": 0,
+        "reagendado": 0,
+        "tasaAsistencia": 100,
+        "tasaNoShow": 0
+      },
+      "leadTypeKpis": {
+        "totalLeads": 1,
+        "totalAppointments": 1,
+        "attended": 1,
+        "attendanceRate": 100
+      },
+      "paidKpis": {
+        "totalVslPaidLeads": 0,
+        "totalAppointments": 0,
+        "attended": 0,
+        "attendanceRate": 0
+      },
+      "organicKpis": {
+        "totalVslOrganicLeads": 0,
+        "totalAppointments": 0,
+        "attended": 0,
+        "attendanceRate": 0
+      },
+      "sales": {
+        "total": 1,
+        "byStage": [
+          {
+            "stage": "Ventas",
+            "count": 1
+          }
+        ],
+        "cashByCurrency": [
+          {
+            "currency": "USD",
+            "amount": 250
+          }
+        ],
+        "productSummary": [
+          {
+            "producto": "Equipo Millonario",
+            "cantidad": 1,
+            "moneda": "USD",
+            "ticket": 1497,
+            "ticketPromedio": 1497,
+            "valorVenta": 1497,
+            "cashRecaudado": 250,
+            "porcentajeRecaudado": 16.7
+          }
+        ],
+        "salesValueByCurrency": [
+          {
+            "currency": "USD",
+            "salesValue": 1497,
+            "cashCollected": 250,
+            "collectedRate": 16.7
+          }
+        ],
+        "rows": [
+          {
+            "opportunityId": "l1",
+            "contactId": "contact-l1",
+            "setterAsignado": "Claudia Jimena Ocampo Portilla",
+            "agendadorCita": "Jimena",
+            "createdByUserName": "Jimena",
+            "closerAsignado": "Fiorela Bernales",
+            "closerCita": "Fiorela Bernales",
+            "nombreContacto": "Contacto l1",
+            "fase": "Ventas",
+            "fuente": "",
+            "productoEvento": "Equipo Millonario",
+            "fechaVenta": "2026-10-08",
+            "fechaCuota1": "2026-10-08",
+            "monedaPrecioAcordado": "USD",
+            "precioAcordadoProducto": 1497,
+            "montoCuota1": 250,
+            "fechaPrimerPago": "",
+            "planPagos": "",
+            "numeroCuotasPactadas": 0,
+            "moneda": "USD",
+            "montoTotalAcordado": 1497,
+            "montoUltimoPago": 250,
+            "fechaReunion": "2026-10-04",
+            "fechaCita": "2026-10-04",
+            "fechaAgendamiento": "2026-10-02",
+            "pipeline": "lig",
+            "secuencia": "Lanzamiento Interno Gratuito",
+            "calendarioCita": "Lanzamiento Interno Gratuito - EM",
+            "estadoAgenda": "Asistió",
+            "estadoCita": "showed"
+          }
+        ]
+      },
+      "leadsVslSinCita": {
+        "totalLeads": 0,
+        "leadsConCita": 0,
+        "leadsSinCita": 0,
+        "porcentajeSinCita": null,
+        "porcentajeConCita": null,
+        "detalleSinCita": []
+      },
+      "leadsSinCitaPorEmbudo": {
+        "vsl": {
+          "totalLeads": 0,
+          "leadsConCita": 0,
+          "leadsSinCita": 0,
+          "porcentajeSinCita": null,
+          "porcentajeConCita": null,
+          "detalleSinCita": []
+        },
+        "oei": {
+          "totalLeads": 0,
+          "leadsConCita": 0,
+          "leadsSinCita": 0,
+          "porcentajeSinCita": null,
+          "porcentajeConCita": null,
+          "detalleSinCita": []
+        },
+        "lig": {
+          "totalLeads": 1,
+          "leadsConCita": 1,
+          "leadsSinCita": 0,
+          "porcentajeSinCita": 0,
+          "porcentajeConCita": 100,
+          "detalleSinCita": []
+        }
+      },
+      "performance": {
+        "conversionPorCloser": [
+          {
+            "closer": "Fiorela Bernales",
+            "citasAsistidas": 1,
+            "ventas": 1,
+            "conversionPct": 100
+          }
+        ],
+        "asistenciaPorSetter": [
+          {
+            "setter": "Claudia Jimena Ocampo Portilla",
+            "agendamientos": 1,
+            "citasAsistidas": 1,
+            "asistenciaPct": 100
+          }
+        ],
+        "asistenciaPorCloserTodosEmbudos": [
+          {
+            "closer": "Fiorela Bernales",
+            "agendamientos": 1,
+            "citasAsistidas": 1,
+            "asistenciaPct": 100
+          }
+        ],
+        "alcanceAsistencia": "lig",
+        "alcanceConversionCloser": "lig",
+        "diagnostics": {
+          "citasLigIncluidasSoloEnActividad": 0,
+          "citasUnicasActividad": 1,
+          "ventasSinCitaAsistida": 0,
+          "ventasAtribucionAmbigua": 0,
+          "ventasUnicas": 1,
+          "citasAsistidasUnicas": 1,
+          "criterio": "Ventas por Opportunity ID / citas asistidas por Appointment ID; distintas cohortes temporales"
+        }
+      },
+      "businessMetrics": {
+        "metadata": {
+          "cash": {
+            "basis": "master_field_snapshot",
+            "historicalTotal": false,
+            "fields": [
+              "Monto de cuota 1",
+              "Monto del último pago"
+            ],
+            "rule": "OEI: Monto de cuota 1. VSL/LIG con Fecha de cuota 1 >= 2026-10-01: Monto de cuota 1; histórico: Monto del último pago.",
+            "currencyRule": "No se mezclan monedas; SIN MONEDA permanece separado.",
+            "verification": "Semántica conservada del API adjunto; no se proporcionó historial transaccional ni mapper financiero."
+          },
+          "booking": "Leads por Opportunity ID y Setter asignado; existencia de cualquier Appointment histórico asociado, sin limitar su fecha.",
+          "conversion": "Ventas por fecha comercial y leads por Creado el: cohortes distintas, puede superar 100%; null sin denominador."
+        },
+        "conversionPorCloser": [
+          {
+            "closer": "Fiorela Bernales",
+            "citasAsistidas": 1,
+            "ventas": 1,
+            "conversionPct": 100
+          }
+        ],
+        "agendamientoPorSetter": [
+          {
+            "setter": "Jose Luis Botto Garcia",
+            "leadsAsignados": 1,
+            "agendados": 1,
+            "noAgendados": 0,
+            "agendamientos": 1,
+            "agendamientoPct": 100
+          }
+        ],
+        "conversionPorEmbudo": [
+          {
+            "pipeline": "vsl",
+            "label": "VSL | Closers",
+            "leads": 0,
+            "ventas": 0,
+            "conversionPct": null
+          },
+          {
+            "pipeline": "oei",
+            "label": "Lanzamiento I. Pagado OEI - EM",
+            "leads": 0,
+            "ventas": 0,
+            "conversionPct": null
+          },
+          {
+            "pipeline": "lig",
+            "label": "Lanzamiento Interno Gratuito",
+            "leads": 1,
+            "ventas": 1,
+            "conversionPct": 100
+          }
+        ],
+        "leadsNoAgendadosVslPorMes": [],
+        "sesionesEntregadasPorCloser": [
+          {
+            "closer": "Fiorela Bernales",
+            "sesiones": 1,
+            "sesionesEntregadas": 1
+          }
+        ],
+        "cashPorEmbudo": [
+          {
+            "pipeline": "lig",
+            "moneda": "USD",
+            "cash": 250
+          }
+        ],
+        "cashPorProducto": [
+          {
+            "producto": "EM",
+            "moneda": "USD",
+            "cash": 250
+          }
+        ],
+        "cashPorEmbudoProducto": [
+          {
+            "pipeline": "lig",
+            "producto": "EM",
+            "moneda": "USD",
+            "cash": 250
+          }
+        ]
+      },
+      "rawRecords": [
+        {
+          "opportunityId": "l1",
+          "contactId": "contact-l1",
+          "nombreContacto": "Contacto l1",
+          "telefono": "+51999000111",
+          "correo": "l1@example.com",
+          "fechaCreacionOportunidad": "2026-10-01",
+          "pipeline": "lig",
+          "secuencia": "Lanzamiento Interno Gratuito",
+          "setterAsignado": "Claudia Jimena Ocampo Portilla",
+          "setterOpportunity": "Jose Luis Botto Garcia",
+          "agendadorCita": "Jimena",
+          "createdByUserName": "Jimena",
+          "bookingMode": "manual",
+          "bookingModeLabel": "Agendado manual",
+          "closerAsignado": "Fiorela Bernales",
+          "closerOpportunity": "Fiorela Bernales",
+          "closerCita": "Fiorela Bernales",
+          "calendarioCita": "Lanzamiento Interno Gratuito - EM",
+          "estadoAgenda": "Asistió",
+          "estadoCita": "showed",
+          "estadoAgendaOriginal": "",
+          "fuenteEstadoAgendamiento": "calendar",
+          "fechaAgendamiento": "2026-10-02",
+          "fechaCita": "2026-10-04",
+          "appointmentCreatedAt": "2026-10-02",
+          "fechaReunion": "2026-10-04",
+          "vslOrigen": "",
+          "vslCategoria": "organic",
+          "fase": "Ventas",
+          "fuente": "",
+          "productoEvento": "Equipo Millonario",
+          "fechaPrimerPago": "",
+          "fechaCuota1Vsl": "2026-10-08",
+          "monedaPrecioAcordado": "USD",
+          "precioAcordadoProducto": 1497,
+          "montoCuota1": 250,
+          "planPagos": "",
+          "numeroCuotasPactadas": 0,
+          "moneda": "PEN",
+          "montoTotalAcordado": 9999,
+          "montoUltimoPago": 88,
+          "leadType": "none",
+          "numeroCitasSheet": 0,
+          "numeroCitasCalculado": 1,
+          "citasVerificadas": false
+        }
+      ],
+      "vslSummary": {
+        "all": {
+          "totalLeads": 0,
+          "totalCitas": 0,
+          "asistencias": 0,
+          "ventas": 0
+        },
+        "paid": {
+          "totalLeads": 0,
+          "totalCitas": 0,
+          "asistencias": 0,
+          "ventas": 0
+        },
+        "organic": {
+          "totalLeads": 0,
+          "totalCitas": 0,
+          "asistencias": 0,
+          "ventas": 0
+        }
+      },
+      "unknownStatusCount": 0,
+      "withoutStatusCount": 0,
+      "calendarUnknownStatusCount": 0,
+      "calendarAppointmentsTotal": 1,
+      "appointmentPeople": {
+        "oeiBookers": [],
+        "ligBookers": [
+          {
+            "agendador": "Jimena",
+            "total": 1
+          }
+        ],
+        "bookers": [
+          {
+            "agendador": "Jimena",
+            "total": 1
+          }
+        ],
+        "closers": [
+          {
+            "closer": "Fiorela Bernales",
+            "total": 1
+          }
+        ]
+      },
+      "setters": [
+        {
+          "setter": "Claudia Jimena Ocampo Portilla",
+          "agendadoCRM": 0,
+          "confirmado": 0,
+          "asistio": 1,
+          "cancelado": 0,
+          "noShow": 0,
+          "pendienteAgenda": 0,
+          "reagendado": 0,
+          "total": 1
+        }
+      ],
+      "detail": {
+        "rows": [
+          {
+            "opportunityId": "l1",
+            "contactId": "contact-l1",
+            "nombreContacto": "Contacto l1",
+            "telefono": "+51999000111",
+            "correo": "l1@example.com",
+            "fechaCreacionOportunidad": "2026-10-01",
+            "pipeline": "lig",
+            "secuencia": "Lanzamiento Interno Gratuito",
+            "setterAsignado": "Claudia Jimena Ocampo Portilla",
+            "setterOpportunity": "Jose Luis Botto Garcia",
+            "agendadorCita": "Jimena",
+            "createdByUserName": "Jimena",
+            "bookingMode": "manual",
+            "bookingModeLabel": "Agendado manual",
+            "closerAsignado": "Fiorela Bernales",
+            "closerOpportunity": "Fiorela Bernales",
+            "closerCita": "Fiorela Bernales",
+            "calendarioCita": "Lanzamiento Interno Gratuito - EM",
+            "estadoAgenda": "Asistió",
+            "estadoCita": "showed",
+            "estadoAgendaOriginal": "",
+            "fuenteEstadoAgendamiento": "calendar",
+            "fechaAgendamiento": "2026-10-02",
+            "fechaCita": "2026-10-04",
+            "appointmentCreatedAt": "2026-10-02",
+            "fechaReunion": "2026-10-04",
+            "vslOrigen": "",
+            "vslCategoria": "organic",
+            "fase": "Ventas",
+            "fuente": "",
+            "productoEvento": "Equipo Millonario",
+            "fechaPrimerPago": "",
+            "fechaCuota1Vsl": "2026-10-08",
+            "monedaPrecioAcordado": "USD",
+            "precioAcordadoProducto": 1497,
+            "montoCuota1": 250,
+            "planPagos": "",
+            "numeroCuotasPactadas": 0,
+            "moneda": "PEN",
+            "montoTotalAcordado": 9999,
+            "montoUltimoPago": 88,
+            "leadType": "none",
+            "numeroCitasSheet": 0,
+            "numeroCitasCalculado": 1,
+            "citasVerificadas": false
+          }
+        ],
+        "pagination": {
+          "page": 1,
+          "pageSize": 25,
+          "totalRecords": 1,
+          "totalPages": 1
+        }
+      }
+    }
+  },
+  "all": {
+    "ok": true,
+    "data": {
+      "report": "VSL | Closers + OEI + LIG",
+      "leadType": "all",
+      "leadTypeLabel": "Todos",
+      "updatedAt": "2026-10-12T14:47:16.767Z",
+      "dateSemantics": {
+        "leads": "Creado el",
+        "appointments": "_Appointment Created At",
+        "appointmentsFallback": "Fecha cita → Fecha de reunión",
+        "sales": "OEI: siempre Fecha de cuota 1. VSL/LIG: Fecha de cuota 1 desde 2026-10-01; antes Fecha de reunión. Sin rango: todas las ventas confirmadas",
+        "salesFallback": "OEI: sin respaldo de Fecha de reunión",
+        "paymentDate": "OEI: Fecha de cuota 1. VSL/LIG desde 2026-10-01: Fecha de cuota 1; histórico: Fecha de primer pago"
+      },
+      "filters": {
+        "applied": {
+          "pipeline": "all",
+          "leadType": "all"
+        },
+        "available": {
+          "leadTypes": [],
+          "leadTypeFilterEnabled": false,
+          "pipelines": [
+            "Lanzamiento I. Pagado OEI - EM",
+            "Lanzamiento Interno Gratuito",
+            "VSL | Closers"
+          ],
+          "calendars": [
+            "Equipo Millonario | OEI",
+            "Lanzamiento Interno Gratuito - EM",
+            "VSL PAGADO - EQUIPO MILLONARIO"
+          ],
+          "setters": [
+            "Claudia Jimena Ocampo Portilla",
+            "Jose Luis Botto Garcia"
+          ],
+          "bookers": [
+            "Jimena"
+          ],
+          "statuses": [
+            "Confirmado",
+            "Asistió",
+            "Cancelado",
+            "No asistió"
+          ],
+          "dateFields": [
+            {
+              "value": "appointmentCreated",
+              "label": "Fecha de creación de cita"
+            },
+            {
+              "value": "meetingDate",
+              "label": "Fecha de cita / reunión"
+            }
+          ],
+          "bookingModes": [
+            {
+              "value": "automatic",
+              "label": "Agendado automatico"
+            },
+            {
+              "value": "manual",
+              "label": "Agendado manual"
+            }
+          ],
+          "vslOrigins": [],
+          "closers": [
+            "Fiorela Bernales"
+          ]
+        }
+      },
+      "pipelineSummary": {
+        "vsl": {
+          "key": "vsl",
+          "label": "VSL | Closers",
+          "totalLeads": 2,
+          "conCitaCalendar": 2,
+          "sinCitaCalendar": 0,
+          "estados": {
+            "agendadoCRM": 0,
+            "confirmado": 1,
+            "asistio": 1,
+            "cancelado": 0,
+            "noShow": 0,
+            "pendienteAgenda": 0,
+            "reagendado": 0
+          },
+          "calendars": [
+            {
+              "calendar": "VSL PAGADO - CIRCULO MILLONARIO",
+              "count": 0
+            },
+            {
+              "calendar": "ORGANICO - CIRCULO MILLONARIO",
+              "count": 0
+            },
+            {
+              "calendar": "VSL PAGADO - EQUIPO MILLONARIO",
+              "count": 2
+            },
+            {
+              "calendar": "ORGANICO - EQUIPO MILLONARIO",
+              "count": 0
+            }
+          ]
+        },
+        "oei": {
+          "key": "oei",
+          "label": "Lanzamiento I. Pagado OEI - EM",
+          "totalLeads": 1,
+          "conCitaCalendar": 1,
+          "sinCitaCalendar": 0,
+          "estados": {
+            "agendadoCRM": 0,
+            "confirmado": 0,
+            "asistio": 1,
+            "cancelado": 0,
+            "noShow": 0,
+            "pendienteAgenda": 0,
+            "reagendado": 0
+          },
+          "calendars": [
+            {
+              "calendar": "Equipo Millonario | OEI",
+              "count": 1
+            },
+            {
+              "calendar": "Circulo Millonario | OEI",
+              "count": 0
+            }
+          ]
+        },
+        "lig": {
+          "key": "lig",
+          "label": "Lanzamiento Interno Gratuito",
+          "totalLeads": 1,
+          "conCitaCalendar": 1,
+          "sinCitaCalendar": 0,
+          "estados": {
+            "agendadoCRM": 0,
+            "confirmado": 0,
+            "asistio": 1,
+            "cancelado": 0,
+            "noShow": 0,
+            "pendienteAgenda": 0,
+            "reagendado": 0
+          },
+          "calendars": [
+            {
+              "calendar": "Lanzamiento Interno Gratuito - EM",
+              "count": 1
+            },
+            {
+              "calendar": "Lanzamiento Interno Gratuito - CM",
+              "count": 0
+            }
+          ]
+        }
+      },
+      "kpis": {
+        "total": 4,
+        "agendadoCRM": 0,
+        "confirmado": 1,
+        "asistio": 3,
+        "cancelado": 0,
+        "noShow": 0,
+        "pendienteAgenda": 0,
+        "reagendado": 0,
+        "tasaAsistencia": 75,
+        "tasaNoShow": 0
+      },
+      "leadTypeKpis": {
+        "totalLeads": 4,
+        "totalAppointments": 4,
+        "attended": 3,
+        "attendanceRate": 75
+      },
+      "paidKpis": {
+        "totalVslPaidLeads": 2,
+        "totalAppointments": 2,
+        "attended": 1,
+        "attendanceRate": 50
+      },
+      "organicKpis": {
+        "totalVslOrganicLeads": 0,
+        "totalAppointments": 0,
+        "attended": 0,
+        "attendanceRate": 0
+      },
+      "sales": {
+        "total": 3,
+        "byStage": [
+          {
+            "stage": "Ventas",
+            "count": 1
+          },
+          {
+            "stage": "Ventas Confirmadas",
+            "count": 2
+          }
+        ],
+        "cashByCurrency": [
+          {
+            "currency": "USD",
+            "amount": 750
+          }
+        ],
+        "productSummary": [
+          {
+            "producto": "Equipo Millonario",
+            "cantidad": 3,
+            "moneda": "USD",
+            "ticket": 1497,
+            "ticketPromedio": 1497,
+            "valorVenta": 4491,
+            "cashRecaudado": 750,
+            "porcentajeRecaudado": 16.7
+          }
+        ],
+        "salesValueByCurrency": [
+          {
+            "currency": "USD",
+            "salesValue": 4491,
+            "cashCollected": 750,
+            "collectedRate": 16.7
+          }
+        ],
+        "rows": [
+          {
+            "opportunityId": "v1",
+            "contactId": "contact-v1",
+            "setterAsignado": "Claudia Jimena Ocampo Portilla",
+            "agendadorCita": "Jimena",
+            "createdByUserName": "Jimena",
+            "closerAsignado": "Fiorela Bernales",
+            "closerCita": "Fiorela Bernales",
+            "nombreContacto": "Contacto v1",
+            "fase": "Ventas Confirmadas",
+            "fuente": "VSL FUNNEL",
+            "productoEvento": "Equipo Millonario",
+            "fechaVenta": "2026-10-08",
+            "fechaCuota1": "2026-10-08",
+            "monedaPrecioAcordado": "USD",
+            "precioAcordadoProducto": 1497,
+            "montoCuota1": 250,
+            "fechaPrimerPago": "",
+            "planPagos": "",
+            "numeroCuotasPactadas": 0,
+            "moneda": "USD",
+            "montoTotalAcordado": 1497,
+            "montoUltimoPago": 250,
+            "fechaReunion": "2026-10-04",
+            "fechaCita": "2026-10-04",
+            "fechaAgendamiento": "2026-10-02",
+            "pipeline": "vsl",
+            "secuencia": "VSL | Closers",
+            "calendarioCita": "VSL PAGADO - EQUIPO MILLONARIO",
+            "estadoAgenda": "Asistió",
+            "estadoCita": "showed"
+          },
+          {
+            "opportunityId": "o1",
+            "contactId": "contact-o1",
+            "setterAsignado": "Claudia Jimena Ocampo Portilla",
+            "agendadorCita": "Jimena",
+            "createdByUserName": "Jimena",
+            "closerAsignado": "Fiorela Bernales",
+            "closerCita": "Fiorela Bernales",
+            "nombreContacto": "Contacto o1",
+            "fase": "Ventas Confirmadas",
+            "fuente": "",
+            "productoEvento": "Equipo Millonario",
+            "fechaVenta": "2026-10-08",
+            "fechaCuota1": "2026-10-08",
+            "monedaPrecioAcordado": "USD",
+            "precioAcordadoProducto": 1497,
+            "montoCuota1": 250,
+            "fechaPrimerPago": "",
+            "planPagos": "",
+            "numeroCuotasPactadas": 0,
+            "moneda": "USD",
+            "montoTotalAcordado": 1497,
+            "montoUltimoPago": 250,
+            "fechaReunion": "2026-10-04",
+            "fechaCita": "2026-10-04",
+            "fechaAgendamiento": "2026-10-02",
+            "pipeline": "oei",
+            "secuencia": "Lanzamiento I. Pagado OEI - EM",
+            "calendarioCita": "Equipo Millonario | OEI",
+            "estadoAgenda": "Asistió",
+            "estadoCita": "showed"
+          },
+          {
+            "opportunityId": "l1",
+            "contactId": "contact-l1",
+            "setterAsignado": "Claudia Jimena Ocampo Portilla",
+            "agendadorCita": "Jimena",
+            "createdByUserName": "Jimena",
+            "closerAsignado": "Fiorela Bernales",
+            "closerCita": "Fiorela Bernales",
+            "nombreContacto": "Contacto l1",
+            "fase": "Ventas",
+            "fuente": "",
+            "productoEvento": "Equipo Millonario",
+            "fechaVenta": "2026-10-08",
+            "fechaCuota1": "2026-10-08",
+            "monedaPrecioAcordado": "USD",
+            "precioAcordadoProducto": 1497,
+            "montoCuota1": 250,
+            "fechaPrimerPago": "",
+            "planPagos": "",
+            "numeroCuotasPactadas": 0,
+            "moneda": "USD",
+            "montoTotalAcordado": 1497,
+            "montoUltimoPago": 250,
+            "fechaReunion": "2026-10-04",
+            "fechaCita": "2026-10-04",
+            "fechaAgendamiento": "2026-10-02",
+            "pipeline": "lig",
+            "secuencia": "Lanzamiento Interno Gratuito",
+            "calendarioCita": "Lanzamiento Interno Gratuito - EM",
+            "estadoAgenda": "Asistió",
+            "estadoCita": "showed"
+          }
+        ]
+      },
+      "leadsVslSinCita": {
+        "totalLeads": 2,
+        "leadsConCita": 1,
+        "leadsSinCita": 1,
+        "porcentajeSinCita": 50,
+        "porcentajeConCita": 50,
+        "detalleSinCita": [
+          {
+            "opportunityId": "v2",
+            "nombreContacto": "Contacto v2",
+            "fechaCreacion": "2026-10-01",
+            "setter": "Jose Luis Botto Garcia",
+            "pipeline": "vsl"
+          }
+        ]
+      },
+      "leadsSinCitaPorEmbudo": {
+        "vsl": {
+          "totalLeads": 2,
+          "leadsConCita": 1,
+          "leadsSinCita": 1,
+          "porcentajeSinCita": 50,
+          "porcentajeConCita": 50,
+          "detalleSinCita": [
+            {
+              "opportunityId": "v2",
+              "nombreContacto": "Contacto v2",
+              "fechaCreacion": "2026-10-01",
+              "setter": "Jose Luis Botto Garcia",
+              "pipeline": "vsl"
+            }
+          ]
+        },
+        "oei": {
+          "totalLeads": 1,
+          "leadsConCita": 1,
+          "leadsSinCita": 0,
+          "porcentajeSinCita": 0,
+          "porcentajeConCita": 100,
+          "detalleSinCita": []
+        },
+        "lig": {
+          "totalLeads": 1,
+          "leadsConCita": 1,
+          "leadsSinCita": 0,
+          "porcentajeSinCita": 0,
+          "porcentajeConCita": 100,
+          "detalleSinCita": []
+        }
+      },
+      "performance": {
+        "conversionPorCloser": [
+          {
+            "closer": "Fiorela Bernales",
+            "citasAsistidas": 3,
+            "ventas": 3,
+            "conversionPct": 100
+          }
+        ],
+        "asistenciaPorSetter": [
+          {
+            "setter": "Claudia Jimena Ocampo Portilla",
+            "agendamientos": 4,
+            "citasAsistidas": 3,
+            "asistenciaPct": 75
+          }
+        ],
+        "asistenciaPorCloserTodosEmbudos": [
+          {
+            "closer": "Fiorela Bernales",
+            "agendamientos": 4,
+            "citasAsistidas": 3,
+            "asistenciaPct": 75
+          }
+        ],
+        "alcanceAsistencia": "vsl+oei+lig",
+        "alcanceConversionCloser": "vsl+oei+lig",
+        "diagnostics": {
+          "citasLigIncluidasSoloEnActividad": 0,
+          "citasUnicasActividad": 4,
+          "ventasSinCitaAsistida": 0,
+          "ventasAtribucionAmbigua": 0,
+          "ventasUnicas": 3,
+          "citasAsistidasUnicas": 3,
+          "criterio": "Ventas por Opportunity ID / citas asistidas por Appointment ID; distintas cohortes temporales"
+        }
+      },
+      "businessMetrics": {
+        "metadata": {
+          "cash": {
+            "basis": "master_field_snapshot",
+            "historicalTotal": false,
+            "fields": [
+              "Monto de cuota 1",
+              "Monto del último pago"
+            ],
+            "rule": "OEI: Monto de cuota 1. VSL/LIG con Fecha de cuota 1 >= 2026-10-01: Monto de cuota 1; histórico: Monto del último pago.",
+            "currencyRule": "No se mezclan monedas; SIN MONEDA permanece separado.",
+            "verification": "Semántica conservada del API adjunto; no se proporcionó historial transaccional ni mapper financiero."
+          },
+          "booking": "Leads por Opportunity ID y Setter asignado; existencia de cualquier Appointment histórico asociado, sin limitar su fecha.",
+          "conversion": "Ventas por fecha comercial y leads por Creado el: cohortes distintas, puede superar 100%; null sin denominador."
+        },
+        "conversionPorCloser": [
+          {
+            "closer": "Fiorela Bernales",
+            "citasAsistidas": 3,
+            "ventas": 3,
+            "conversionPct": 100
+          }
+        ],
+        "agendamientoPorSetter": [
+          {
+            "setter": "Jose Luis Botto Garcia",
+            "leadsAsignados": 4,
+            "agendados": 3,
+            "noAgendados": 1,
+            "agendamientos": 3,
+            "agendamientoPct": 75
+          }
+        ],
+        "conversionPorEmbudo": [
+          {
+            "pipeline": "vsl",
+            "label": "VSL | Closers",
+            "leads": 2,
+            "ventas": 1,
+            "conversionPct": 50
+          },
+          {
+            "pipeline": "oei",
+            "label": "Lanzamiento I. Pagado OEI - EM",
+            "leads": 1,
+            "ventas": 1,
+            "conversionPct": 100
+          },
+          {
+            "pipeline": "lig",
+            "label": "Lanzamiento Interno Gratuito",
+            "leads": 1,
+            "ventas": 1,
+            "conversionPct": 100
+          }
+        ],
+        "leadsNoAgendadosVslPorMes": [
+          {
+            "month": "2026-10",
+            "leads": 2,
+            "agendados": 1,
+            "noAgendados": 1,
+            "noAgendadosPct": 50
+          }
+        ],
+        "sesionesEntregadasPorCloser": [
+          {
+            "closer": "Fiorela Bernales",
+            "sesiones": 3,
+            "sesionesEntregadas": 3
+          }
+        ],
+        "cashPorEmbudo": [
+          {
+            "pipeline": "vsl",
+            "moneda": "USD",
+            "cash": 250
+          },
+          {
+            "pipeline": "oei",
+            "moneda": "USD",
+            "cash": 250
+          },
+          {
+            "pipeline": "lig",
+            "moneda": "USD",
+            "cash": 250
+          }
+        ],
+        "cashPorProducto": [
+          {
+            "producto": "EM",
+            "moneda": "USD",
+            "cash": 750
+          }
+        ],
+        "cashPorEmbudoProducto": [
+          {
+            "pipeline": "vsl",
+            "producto": "EM",
+            "moneda": "USD",
+            "cash": 250
+          },
+          {
+            "pipeline": "oei",
+            "producto": "EM",
+            "moneda": "USD",
+            "cash": 250
+          },
+          {
+            "pipeline": "lig",
+            "producto": "EM",
+            "moneda": "USD",
+            "cash": 250
+          }
+        ]
+      },
+      "rawRecords": [
+        {
+          "opportunityId": "v1",
+          "contactId": "contact-v1",
+          "nombreContacto": "Contacto v1",
+          "telefono": "+51999000111",
+          "correo": "v1@example.com",
+          "fechaCreacionOportunidad": "2026-10-01",
+          "pipeline": "vsl",
+          "secuencia": "VSL | Closers",
+          "setterAsignado": "Claudia Jimena Ocampo Portilla",
+          "setterOpportunity": "Jose Luis Botto Garcia",
+          "agendadorCita": "Jimena",
+          "createdByUserName": "Jimena",
+          "bookingMode": "manual",
+          "bookingModeLabel": "Agendado manual",
+          "closerAsignado": "Fiorela Bernales",
+          "closerOpportunity": "Fiorela Bernales",
+          "closerCita": "Fiorela Bernales",
+          "calendarioCita": "VSL PAGADO - EQUIPO MILLONARIO",
+          "estadoAgenda": "Asistió",
+          "estadoCita": "showed",
+          "estadoAgendaOriginal": "",
+          "fuenteEstadoAgendamiento": "calendar",
+          "fechaAgendamiento": "2026-10-02",
+          "fechaCita": "2026-10-04",
+          "appointmentCreatedAt": "2026-10-02",
+          "fechaReunion": "2026-10-04",
+          "vslOrigen": "",
+          "vslCategoria": "paid",
+          "fase": "Ventas Confirmadas",
+          "fuente": "VSL FUNNEL",
+          "productoEvento": "Equipo Millonario",
+          "fechaPrimerPago": "",
+          "fechaCuota1Vsl": "2026-10-08",
+          "monedaPrecioAcordado": "USD",
+          "precioAcordadoProducto": 1497,
+          "montoCuota1": 250,
+          "planPagos": "",
+          "numeroCuotasPactadas": 0,
+          "moneda": "PEN",
+          "montoTotalAcordado": 9999,
+          "montoUltimoPago": 88,
+          "leadType": "paid",
+          "numeroCitasSheet": 0,
+          "numeroCitasCalculado": 2,
+          "citasVerificadas": false
+        },
+        {
+          "opportunityId": "v2",
+          "contactId": "contact-v2",
+          "nombreContacto": "Contacto v2",
+          "telefono": "+51999000111",
+          "correo": "v2@example.com",
+          "fechaCreacionOportunidad": "2026-10-01",
+          "pipeline": "vsl",
+          "secuencia": "VSL | Closers",
+          "setterAsignado": "Jose Luis Botto Garcia",
+          "setterOpportunity": "Jose Luis Botto Garcia",
+          "agendadorCita": "Agendado automatico",
+          "createdByUserName": "",
+          "bookingMode": "automatic",
+          "bookingModeLabel": "Agendado automatico",
+          "closerAsignado": "Fiorela Bernales",
+          "closerOpportunity": "Fiorela Bernales",
+          "closerCita": "",
+          "calendarioCita": "",
+          "estadoAgenda": "",
+          "estadoCita": "",
+          "estadoAgendaOriginal": "",
+          "fuenteEstadoAgendamiento": "opportunity",
+          "fechaAgendamiento": "2026-10-04",
+          "fechaCita": "",
+          "appointmentCreatedAt": "",
+          "fechaReunion": "2026-10-04",
+          "vslOrigen": "",
+          "vslCategoria": "paid",
+          "fase": "Nuevo",
+          "fuente": "VSL FUNNEL",
+          "productoEvento": "Equipo Millonario",
+          "fechaPrimerPago": "",
+          "fechaCuota1Vsl": "2026-10-08",
+          "monedaPrecioAcordado": "USD",
+          "precioAcordadoProducto": 1497,
+          "montoCuota1": 250,
+          "planPagos": "",
+          "numeroCuotasPactadas": 0,
+          "moneda": "PEN",
+          "montoTotalAcordado": 9999,
+          "montoUltimoPago": 88,
+          "leadType": "paid",
+          "numeroCitasSheet": 0,
+          "numeroCitasCalculado": 0,
+          "citasVerificadas": true
+        },
+        {
+          "opportunityId": "o1",
+          "contactId": "contact-o1",
+          "nombreContacto": "Contacto o1",
+          "telefono": "+51999000111",
+          "correo": "o1@example.com",
+          "fechaCreacionOportunidad": "2026-10-01",
+          "pipeline": "oei",
+          "secuencia": "Lanzamiento I. Pagado OEI - EM",
+          "setterAsignado": "Claudia Jimena Ocampo Portilla",
+          "setterOpportunity": "Jose Luis Botto Garcia",
+          "agendadorCita": "Jimena",
+          "createdByUserName": "Jimena",
+          "bookingMode": "manual",
+          "bookingModeLabel": "Agendado manual",
+          "closerAsignado": "Fiorela Bernales",
+          "closerOpportunity": "Fiorela Bernales",
+          "closerCita": "Fiorela Bernales",
+          "calendarioCita": "Equipo Millonario | OEI",
+          "estadoAgenda": "Asistió",
+          "estadoCita": "showed",
+          "estadoAgendaOriginal": "",
+          "fuenteEstadoAgendamiento": "calendar",
+          "fechaAgendamiento": "2026-10-02",
+          "fechaCita": "2026-10-04",
+          "appointmentCreatedAt": "2026-10-02",
+          "fechaReunion": "2026-10-04",
+          "vslOrigen": "",
+          "vslCategoria": "organic",
+          "fase": "Ventas Confirmadas",
+          "fuente": "",
+          "productoEvento": "Equipo Millonario",
+          "fechaPrimerPago": "",
+          "fechaCuota1Vsl": "2026-10-08",
+          "monedaPrecioAcordado": "USD",
+          "precioAcordadoProducto": 1497,
+          "montoCuota1": 250,
+          "planPagos": "",
+          "numeroCuotasPactadas": 0,
+          "moneda": "PEN",
+          "montoTotalAcordado": 9999,
+          "montoUltimoPago": 88,
+          "leadType": "none",
+          "numeroCitasSheet": 0,
+          "numeroCitasCalculado": 1,
+          "citasVerificadas": false
+        },
+        {
+          "opportunityId": "l1",
+          "contactId": "contact-l1",
+          "nombreContacto": "Contacto l1",
+          "telefono": "+51999000111",
+          "correo": "l1@example.com",
+          "fechaCreacionOportunidad": "2026-10-01",
+          "pipeline": "lig",
+          "secuencia": "Lanzamiento Interno Gratuito",
+          "setterAsignado": "Claudia Jimena Ocampo Portilla",
+          "setterOpportunity": "Jose Luis Botto Garcia",
+          "agendadorCita": "Jimena",
+          "createdByUserName": "Jimena",
+          "bookingMode": "manual",
+          "bookingModeLabel": "Agendado manual",
+          "closerAsignado": "Fiorela Bernales",
+          "closerOpportunity": "Fiorela Bernales",
+          "closerCita": "Fiorela Bernales",
+          "calendarioCita": "Lanzamiento Interno Gratuito - EM",
+          "estadoAgenda": "Asistió",
+          "estadoCita": "showed",
+          "estadoAgendaOriginal": "",
+          "fuenteEstadoAgendamiento": "calendar",
+          "fechaAgendamiento": "2026-10-02",
+          "fechaCita": "2026-10-04",
+          "appointmentCreatedAt": "2026-10-02",
+          "fechaReunion": "2026-10-04",
+          "vslOrigen": "",
+          "vslCategoria": "organic",
+          "fase": "Ventas",
+          "fuente": "",
+          "productoEvento": "Equipo Millonario",
+          "fechaPrimerPago": "",
+          "fechaCuota1Vsl": "2026-10-08",
+          "monedaPrecioAcordado": "USD",
+          "precioAcordadoProducto": 1497,
+          "montoCuota1": 250,
+          "planPagos": "",
+          "numeroCuotasPactadas": 0,
+          "moneda": "PEN",
+          "montoTotalAcordado": 9999,
+          "montoUltimoPago": 88,
+          "leadType": "none",
+          "numeroCitasSheet": 0,
+          "numeroCitasCalculado": 1,
+          "citasVerificadas": false
+        }
+      ],
+      "vslSummary": {
+        "all": {
+          "totalLeads": 2,
+          "totalCitas": 2,
+          "asistencias": 1,
+          "ventas": 1
+        },
+        "paid": {
+          "totalLeads": 2,
+          "totalCitas": 2,
+          "asistencias": 1,
+          "ventas": 1
+        },
+        "organic": {
+          "totalLeads": 0,
+          "totalCitas": 0,
+          "asistencias": 0,
+          "ventas": 0
+        }
+      },
+      "unknownStatusCount": 0,
+      "withoutStatusCount": 0,
+      "calendarUnknownStatusCount": 0,
+      "calendarAppointmentsTotal": 4,
+      "appointmentPeople": {
+        "oeiBookers": [
+          {
+            "agendador": "Jimena",
+            "total": 1
+          }
+        ],
+        "ligBookers": [
+          {
+            "agendador": "Jimena",
+            "total": 1
+          }
+        ],
+        "bookers": [
+          {
+            "agendador": "Jimena",
+            "total": 1
+          },
+          {
+            "agendador": "Jimena",
+            "total": 1
+          }
+        ],
+        "closers": [
+          {
+            "closer": "Fiorela Bernales",
+            "total": 4
+          }
+        ]
+      },
+      "setters": [
+        {
+          "setter": "Claudia Jimena Ocampo Portilla",
+          "agendadoCRM": 0,
+          "confirmado": 1,
+          "asistio": 3,
+          "cancelado": 0,
+          "noShow": 0,
+          "pendienteAgenda": 0,
+          "reagendado": 0,
+          "total": 4
+        }
+      ],
+      "detail": {
+        "rows": [
+          {
+            "opportunityId": "v1",
+            "contactId": "contact-v1",
+            "nombreContacto": "Contacto v1",
+            "telefono": "+51999000111",
+            "correo": "v1@example.com",
+            "fechaCreacionOportunidad": "2026-10-01",
+            "pipeline": "vsl",
+            "secuencia": "VSL | Closers",
+            "setterAsignado": "Claudia Jimena Ocampo Portilla",
+            "setterOpportunity": "Jose Luis Botto Garcia",
+            "agendadorCita": "Jimena",
+            "createdByUserName": "Jimena",
+            "bookingMode": "manual",
+            "bookingModeLabel": "Agendado manual",
+            "closerAsignado": "Fiorela Bernales",
+            "closerOpportunity": "Fiorela Bernales",
+            "closerCita": "Fiorela Bernales",
+            "calendarioCita": "VSL PAGADO - EQUIPO MILLONARIO",
+            "estadoAgenda": "Asistió",
+            "estadoCita": "showed",
+            "estadoAgendaOriginal": "",
+            "fuenteEstadoAgendamiento": "calendar",
+            "fechaAgendamiento": "2026-10-02",
+            "fechaCita": "2026-10-04",
+            "appointmentCreatedAt": "2026-10-02",
+            "fechaReunion": "2026-10-04",
+            "vslOrigen": "",
+            "vslCategoria": "paid",
+            "fase": "Ventas Confirmadas",
+            "fuente": "VSL FUNNEL",
+            "productoEvento": "Equipo Millonario",
+            "fechaPrimerPago": "",
+            "fechaCuota1Vsl": "2026-10-08",
+            "monedaPrecioAcordado": "USD",
+            "precioAcordadoProducto": 1497,
+            "montoCuota1": 250,
+            "planPagos": "",
+            "numeroCuotasPactadas": 0,
+            "moneda": "PEN",
+            "montoTotalAcordado": 9999,
+            "montoUltimoPago": 88,
+            "leadType": "paid",
+            "numeroCitasSheet": 0,
+            "numeroCitasCalculado": 2,
+            "citasVerificadas": false
+          },
+          {
+            "opportunityId": "v2",
+            "contactId": "contact-v2",
+            "nombreContacto": "Contacto v2",
+            "telefono": "+51999000111",
+            "correo": "v2@example.com",
+            "fechaCreacionOportunidad": "2026-10-01",
+            "pipeline": "vsl",
+            "secuencia": "VSL | Closers",
+            "setterAsignado": "Jose Luis Botto Garcia",
+            "setterOpportunity": "Jose Luis Botto Garcia",
+            "agendadorCita": "Agendado automatico",
+            "createdByUserName": "",
+            "bookingMode": "automatic",
+            "bookingModeLabel": "Agendado automatico",
+            "closerAsignado": "Fiorela Bernales",
+            "closerOpportunity": "Fiorela Bernales",
+            "closerCita": "",
+            "calendarioCita": "",
+            "estadoAgenda": "",
+            "estadoCita": "",
+            "estadoAgendaOriginal": "",
+            "fuenteEstadoAgendamiento": "opportunity",
+            "fechaAgendamiento": "2026-10-04",
+            "fechaCita": "",
+            "appointmentCreatedAt": "",
+            "fechaReunion": "2026-10-04",
+            "vslOrigen": "",
+            "vslCategoria": "paid",
+            "fase": "Nuevo",
+            "fuente": "VSL FUNNEL",
+            "productoEvento": "Equipo Millonario",
+            "fechaPrimerPago": "",
+            "fechaCuota1Vsl": "2026-10-08",
+            "monedaPrecioAcordado": "USD",
+            "precioAcordadoProducto": 1497,
+            "montoCuota1": 250,
+            "planPagos": "",
+            "numeroCuotasPactadas": 0,
+            "moneda": "PEN",
+            "montoTotalAcordado": 9999,
+            "montoUltimoPago": 88,
+            "leadType": "paid",
+            "numeroCitasSheet": 0,
+            "numeroCitasCalculado": 0,
+            "citasVerificadas": true
+          },
+          {
+            "opportunityId": "o1",
+            "contactId": "contact-o1",
+            "nombreContacto": "Contacto o1",
+            "telefono": "+51999000111",
+            "correo": "o1@example.com",
+            "fechaCreacionOportunidad": "2026-10-01",
+            "pipeline": "oei",
+            "secuencia": "Lanzamiento I. Pagado OEI - EM",
+            "setterAsignado": "Claudia Jimena Ocampo Portilla",
+            "setterOpportunity": "Jose Luis Botto Garcia",
+            "agendadorCita": "Jimena",
+            "createdByUserName": "Jimena",
+            "bookingMode": "manual",
+            "bookingModeLabel": "Agendado manual",
+            "closerAsignado": "Fiorela Bernales",
+            "closerOpportunity": "Fiorela Bernales",
+            "closerCita": "Fiorela Bernales",
+            "calendarioCita": "Equipo Millonario | OEI",
+            "estadoAgenda": "Asistió",
+            "estadoCita": "showed",
+            "estadoAgendaOriginal": "",
+            "fuenteEstadoAgendamiento": "calendar",
+            "fechaAgendamiento": "2026-10-02",
+            "fechaCita": "2026-10-04",
+            "appointmentCreatedAt": "2026-10-02",
+            "fechaReunion": "2026-10-04",
+            "vslOrigen": "",
+            "vslCategoria": "organic",
+            "fase": "Ventas Confirmadas",
+            "fuente": "",
+            "productoEvento": "Equipo Millonario",
+            "fechaPrimerPago": "",
+            "fechaCuota1Vsl": "2026-10-08",
+            "monedaPrecioAcordado": "USD",
+            "precioAcordadoProducto": 1497,
+            "montoCuota1": 250,
+            "planPagos": "",
+            "numeroCuotasPactadas": 0,
+            "moneda": "PEN",
+            "montoTotalAcordado": 9999,
+            "montoUltimoPago": 88,
+            "leadType": "none",
+            "numeroCitasSheet": 0,
+            "numeroCitasCalculado": 1,
+            "citasVerificadas": false
+          },
+          {
+            "opportunityId": "l1",
+            "contactId": "contact-l1",
+            "nombreContacto": "Contacto l1",
+            "telefono": "+51999000111",
+            "correo": "l1@example.com",
+            "fechaCreacionOportunidad": "2026-10-01",
+            "pipeline": "lig",
+            "secuencia": "Lanzamiento Interno Gratuito",
+            "setterAsignado": "Claudia Jimena Ocampo Portilla",
+            "setterOpportunity": "Jose Luis Botto Garcia",
+            "agendadorCita": "Jimena",
+            "createdByUserName": "Jimena",
+            "bookingMode": "manual",
+            "bookingModeLabel": "Agendado manual",
+            "closerAsignado": "Fiorela Bernales",
+            "closerOpportunity": "Fiorela Bernales",
+            "closerCita": "Fiorela Bernales",
+            "calendarioCita": "Lanzamiento Interno Gratuito - EM",
+            "estadoAgenda": "Asistió",
+            "estadoCita": "showed",
+            "estadoAgendaOriginal": "",
+            "fuenteEstadoAgendamiento": "calendar",
+            "fechaAgendamiento": "2026-10-02",
+            "fechaCita": "2026-10-04",
+            "appointmentCreatedAt": "2026-10-02",
+            "fechaReunion": "2026-10-04",
+            "vslOrigen": "",
+            "vslCategoria": "organic",
+            "fase": "Ventas",
+            "fuente": "",
+            "productoEvento": "Equipo Millonario",
+            "fechaPrimerPago": "",
+            "fechaCuota1Vsl": "2026-10-08",
+            "monedaPrecioAcordado": "USD",
+            "precioAcordadoProducto": 1497,
+            "montoCuota1": 250,
+            "planPagos": "",
+            "numeroCuotasPactadas": 0,
+            "moneda": "PEN",
+            "montoTotalAcordado": 9999,
+            "montoUltimoPago": 88,
+            "leadType": "none",
+            "numeroCitasSheet": 0,
+            "numeroCitasCalculado": 1,
+            "citasVerificadas": false
+          }
+        ],
+        "pagination": {
+          "page": 1,
+          "pageSize": 25,
+          "totalRecords": 4,
+          "totalPages": 1
+        }
+      }
+    }
+  },
+  "appointment_detail": {
+    "ok": true,
+    "data": {
+      "report": "Appointment Detail",
+      "updatedAt": "2026-10-12T14:47:16.769Z",
+      "dateSemantics": {
+        "appointmentCreated": "_Appointment Created At",
+        "meetingDate": "Fecha cita → Fecha de reunión"
+      },
+      "filters": {
+        "applied": {
+          "pipeline": "lig",
+          "leadType": "all",
+          "calendar": "",
+          "dateFrom": "",
+          "dateTo": "",
+          "dateField": "appointmentCreated",
+          "setter": "",
+          "booker": "",
+          "bookingMode": "",
+          "dayGap": "2",
+          "status": "",
+          "vslOrigin": "",
+          "vslTipo": "all",
+          "closer": "",
+          "search": ""
+        },
+        "available": {
+          "dateFields": [
+            {
+              "value": "appointmentCreated",
+              "label": "Fecha de creación de cita"
+            },
+            {
+              "value": "meetingDate",
+              "label": "Fecha de cita / reunión"
+            }
+          ],
+          "bookingModes": [
+            {
+              "value": "automatic",
+              "label": "Agendado automatico"
+            },
+            {
+              "value": "manual",
+              "label": "Agendado manual"
+            }
+          ],
+          "dayGaps": [
+            {
+              "value": "2",
+              "label": "2 días",
+              "days": 2
+            }
+          ]
+        }
+      },
+      "summary": {
+        "total": 1,
+        "confirmado": 0,
+        "asistio": 1,
+        "cancelado": 0,
+        "noShow": 0,
+        "tasaAsistencia": 100
+      },
+      "rows": [
+        {
+          "appointmentId": "al1",
+          "opportunityId": "l1",
+          "contactId": "contact-l1",
+          "contacto": "Contacto l1",
+          "calendar": "Lanzamiento Interno Gratuito - EM",
+          "setter": "Claudia Jimena Ocampo Portilla",
+          "booker": "Jimena",
+          "status": "Asistió",
+          "producto": "Equipo Millonario",
+          "appointmentCreatedAt": "2026-10-02",
+          "appointmentUpdatedAt": "2026-10-03T12:00:00Z",
+          "nombreContacto": "Contacto l1",
+          "telefono": "+51999000111",
+          "correo": "l1@example.com",
+          "pipeline": "lig",
+          "secuencia": "Lanzamiento Interno Gratuito",
+          "agendadoPor": "Claudia Jimena Ocampo Portilla",
+          "setterEfectivo": "Claudia Jimena Ocampo Portilla",
+          "setterAsignado": "Jose Luis Botto Garcia",
+          "creadoPorCita": "Jimena",
+          "creadoPorCitaNormalizado": "Claudia Jimena Ocampo Portilla",
+          "responsablesAgendamiento": [
+            "Jose Luis Botto Garcia",
+            "Claudia Jimena Ocampo Portilla"
+          ],
+          "bookingMode": "manual",
+          "bookingModeLabel": "Agendado manual",
+          "calendario": "Lanzamiento Interno Gratuito - EM",
+          "estado": "Asistió",
+          "estadoCitaRaw": "showed",
+          "fechaCreacionCita": "2026-10-02",
+          "fechaReunion": "2026-10-04",
+          "fechaCita": "2026-10-04",
+          "diferenciaDias": 2,
+          "diferenciaDiasLabel": "2 días",
+          "closer": "Fiorela Bernales",
+          "closerCita": "Fiorela Bernales",
+          "closerOpportunity": "Fiorela Bernales",
+          "leadType": "none",
+          "vslCategoria": "organic",
+          "vslOrigen": ""
+        }
+      ],
+      "pagination": {
+        "page": 1,
+        "pageSize": 50,
+        "totalRecords": 1,
+        "totalPages": 1
+      }
+    }
+  },
+  "businessMetrics": {
+    "metadata": {
+      "cash": {
+        "basis": "master_field_snapshot",
+        "historicalTotal": false,
+        "fields": [
+          "Monto de cuota 1",
+          "Monto del último pago"
+        ],
+        "rule": "OEI: Monto de cuota 1. VSL/LIG con Fecha de cuota 1 >= 2026-10-01: Monto de cuota 1; histórico: Monto del último pago.",
+        "currencyRule": "No se mezclan monedas; SIN MONEDA permanece separado.",
+        "verification": "Semántica conservada del API adjunto; no se proporcionó historial transaccional ni mapper financiero."
+      },
+      "booking": "Leads por Opportunity ID y Setter asignado; existencia de cualquier Appointment histórico asociado, sin limitar su fecha.",
+      "conversion": "Ventas por fecha comercial y leads por Creado el: cohortes distintas, puede superar 100%; null sin denominador."
+    },
+    "conversionPorCloser": [
+      {
+        "closer": "Fiorela Bernales",
+        "citasAsistidas": 3,
+        "ventas": 3,
+        "conversionPct": 100
+      }
+    ],
+    "agendamientoPorSetter": [
+      {
+        "setter": "Jose Luis Botto Garcia",
+        "leadsAsignados": 4,
+        "agendados": 3,
+        "noAgendados": 1,
+        "agendamientos": 3,
+        "agendamientoPct": 75
+      }
+    ],
+    "conversionPorEmbudo": [
+      {
+        "pipeline": "vsl",
+        "label": "VSL | Closers",
+        "leads": 2,
+        "ventas": 1,
+        "conversionPct": 50
+      },
+      {
+        "pipeline": "oei",
+        "label": "Lanzamiento I. Pagado OEI - EM",
+        "leads": 1,
+        "ventas": 1,
+        "conversionPct": 100
+      },
+      {
+        "pipeline": "lig",
+        "label": "Lanzamiento Interno Gratuito",
+        "leads": 1,
+        "ventas": 1,
+        "conversionPct": 100
+      }
+    ],
+    "leadsNoAgendadosVslPorMes": [
+      {
+        "month": "2026-10",
+        "leads": 2,
+        "agendados": 1,
+        "noAgendados": 1,
+        "noAgendadosPct": 50
+      }
+    ],
+    "sesionesEntregadasPorCloser": [
+      {
+        "closer": "Fiorela Bernales",
+        "sesiones": 3,
+        "sesionesEntregadas": 3
+      }
+    ],
+    "cashPorEmbudo": [
+      {
+        "pipeline": "vsl",
+        "moneda": "USD",
+        "cash": 250
+      },
+      {
+        "pipeline": "oei",
+        "moneda": "USD",
+        "cash": 250
+      },
+      {
+        "pipeline": "lig",
+        "moneda": "USD",
+        "cash": 250
+      }
+    ],
+    "cashPorProducto": [
+      {
+        "producto": "EM",
+        "moneda": "USD",
+        "cash": 750
+      }
+    ],
+    "cashPorEmbudoProducto": [
+      {
+        "pipeline": "vsl",
+        "producto": "EM",
+        "moneda": "USD",
+        "cash": 250
+      },
+      {
+        "pipeline": "oei",
+        "producto": "EM",
+        "moneda": "USD",
+        "cash": 250
+      },
+      {
+        "pipeline": "lig",
+        "producto": "EM",
+        "moneda": "USD",
+        "cash": 250
+      }
+    ]
+  }
+}
