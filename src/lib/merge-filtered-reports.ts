@@ -133,10 +133,12 @@ export function mergeFilteredReports(
     performance: _performance,
     performanceError: _performanceError,
     businessMetrics: _businessMetrics,
+    vslSeteo: _vslSeteo,
     ...base
   } = first;
   return {
     ...base,
+    ...(reports.length === 1 && first.vslSeteo ? { vslSeteo: first.vslSeteo } : {}),
     ...(reports.length === 1 && first.businessMetrics
       ? { businessMetrics: first.businessMetrics }
       : {}),

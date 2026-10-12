@@ -435,6 +435,104 @@ const integrated = () =>
 const summary = (report, filters) =>
   renderToStaticMarkup(createElement(ExecutiveSummary, { report, filters }));
 
+test("VSL replaces only bookings using API seteo counts and percentages; other funnels keep cards", () => {
+  const seteo = {
+    aplicaSoloA: "vsl",
+    totalLeadsVsl: 129,
+    seteados: 79,
+    faltanSetear: 50,
+    seteadosPct: 61.24,
+    faltanSetearPct: 38.76,
+    porEtapa: [],
+    seteadosRows: [],
+  };
+  const r = integrated();
+  const mappedSeteo = mapVslReportResponse({ ok: true, data: { vslSeteo: seteo } }, query);
+  assert.deepEqual(mappedSeteo.vslSeteo, seteo);
+  r.vslSeteo = mappedSeteo.vslSeteo;
+  const before = JSON.stringify(r);
+  const output = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" });
+  assert.equal((output.match(/text-3xl/g) || []).length, 5);
+  assert.match(output, /lg:grid-cols-5/);
+  assert.doesNotMatch(output, /Total de agendamientos/);
+  assert.match(output, /Leads seteados[\s\S]*?>79<.*?61.24% de los leads VSL/);
+  assert.match(output, /Leads pendientes de seteo[\s\S]*?>50<.*?38.76% de los leads VSL/);
+  assert.match(output, /Total de leads[\s\S]*?>3</);
+  assert.match(output, /Asistió[\s\S]*?>0</);
+  assert.match(output, /Total de ventas[\s\S]*?>3</);
+  for (const pipeline of ["oei", "lig", "all", "future-funnel"]) {
+    const other = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline });
+    assert.equal((other.match(/text-3xl/g) || []).length, 4);
+    assert.match(other, /Total de agendamientos/);
+    assert.doesNotMatch(other, /Leads seteados|Leads pendientes de seteo/);
+  }
+  r.vslSeteo = {
+    ...seteo,
+    seteados: 7,
+    faltanSetear: 5,
+    seteadosPct: 12.34,
+    faltanSetearPct: 56.78,
+  };
+  const refreshed = summary(r, {
+    ...EMPTY_REPORT_FILTERS,
+    pipeline: "vsl",
+    dateFrom: "2026-10-01",
+    dateTo: "2026-10-31",
+  });
+  assert.match(refreshed, /Leads seteados[\s\S]*?>7<.*?12.34%/);
+  assert.match(refreshed, /Leads pendientes de seteo[\s\S]*?>5<.*?56.78%/);
+  // Percentages above deliberately disagree with the counts: frontend must not recompute them.
+  r.vslSeteo = seteo;
+  assert.equal(JSON.stringify(r), before);
+});
+
+test("missing VSL seteo uses dashes and never invents zero; API zero remains zero", () => {
+  const r = integrated();
+  const missing = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" });
+  assert.match(missing, /Leads seteados[\s\S]*?>—</);
+  assert.match(missing, /Leads pendientes de seteo[\s\S]*?>—</);
+  assert.doesNotMatch(missing, /% de los leads VSL/);
+  r.vslSeteo = { seteados: 0, faltanSetear: 0, seteadosPct: 0, faltanSetearPct: 0 };
+  assert.match(
+    summary(r, { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" }),
+    /Leads seteados[\s\S]*?>0<.*?0% de los leads VSL/,
+  );
+});
+
+test("missing seteo warns only for VSL and merged sources do not reuse one source's classification", () => {
+  const exports = {};
+  const warnings = [];
+  const code = ts.transpileModule(
+    fs.readFileSync("src/components/reports/ExecutiveSummary.tsx", "utf8"),
+    {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+    },
+  ).outputText;
+  require("node:vm").runInNewContext(code, {
+    exports,
+    console: { warn: (...args) => warnings.push(args) },
+    require: (name) =>
+      name === "react"
+        ? { ...require("react"), useEffect: (fn) => fn() }
+        : name === "./KpiCard"
+          ? require("../src/components/reports/KpiCard.tsx")
+          : require(name),
+  });
+  const report = integrated();
+  for (const pipeline of ["oei", "lig", "all"])
+    exports.ExecutiveSummary({ report, filters: { ...EMPTY_REPORT_FILTERS, pipeline } });
+  assert.equal(warnings.length, 0);
+  exports.ExecutiveSummary({ report, filters: { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" } });
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0][0], /data.vslSeteo/);
+  report.vslSeteo = { seteados: 7, faltanSetear: 5 };
+  exports.ExecutiveSummary({ report, filters: { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" } });
+  assert.equal(warnings.length, 1);
+  const { mergeFilteredReports } = require("../src/lib/merge-filtered-reports.ts");
+  assert.deepEqual(mergeFilteredReports([report], EMPTY_REPORT_FILTERS).vslSeteo, report.vslSeteo);
+  assert.equal(mergeFilteredReports([report, report], EMPTY_REPORT_FILTERS).vslSeteo, undefined);
+});
+
 test("all setters show four cards and VSL historical lead summary from actual contract", () => {
   const r = integrated();
   const output = summary(r, EMPTY_REPORT_FILTERS);
@@ -450,7 +548,7 @@ test("all setters show four cards and VSL historical lead summary from actual co
   assert.equal(r.leadsSinCitaPorEmbudo.vsl.totalLeads, 3);
   assert.equal(r.kpis.total, 1);
 });
-test("Alvaro and Cinthia selections show exactly three cards and completely hide unbooked section", () => {
+test("setter selections preserve existing cards with the VSL booking replacement", () => {
   const r = integrated();
   for (const pipeline of ["all", "vsl", "oei"])
     for (const name of ["Alvaro Jesus Paniura Marin", "Cinthia Maquito"]) {
@@ -463,9 +561,9 @@ test("Alvaro and Cinthia selections show exactly three cards and completely hide
         ...(pipeline === "oei" ? { booker: name } : { setter: name }),
       };
       const output = summary(r, filters);
-      assert.equal((output.match(/text-3xl/g) || []).length, 3);
+      assert.equal((output.match(/text-3xl/g) || []).length, pipeline === "vsl" ? 4 : 3);
       assert.doesNotMatch(output, /Total de leads/);
-      assert.match(output, /sm:grid-cols-3/);
+      assert.match(output, pipeline === "vsl" ? /lg:grid-cols-4/ : /sm:grid-cols-3/);
       assert.match(output, /Total de ventas/);
       assert.equal(
         renderToStaticMarkup(
@@ -485,7 +583,7 @@ test("Alvaro and Cinthia selections show exactly three cards and completely hide
       assert.equal(filters.closer, "Ezequiel Dario");
     }
 });
-test("clearing setter restores four cards and unbooked, filter updates preserve period and closer", () => {
+test("clearing VSL setter restores five cards and unbooked, preserving period and closer", () => {
   const filters = {
     ...EMPTY_REPORT_FILTERS,
     pipeline: "vsl",
@@ -499,7 +597,7 @@ test("clearing setter restores four cards and unbooked, filter updates preserve 
   assert.ok(hasSelectedSetter(selected));
   const cleared = changeReportFilters(selected, { setter: "", booker: "" });
   assert.equal(hasSelectedSetter(cleared), false);
-  assert.equal((summary(integrated(), cleared).match(/text-3xl/g) || []).length, 4);
+  assert.equal((summary(integrated(), cleared).match(/text-3xl/g) || []).length, 5);
   assert.match(
     renderToStaticMarkup(
       createElement(LeadsWithoutAppointmentSection, {

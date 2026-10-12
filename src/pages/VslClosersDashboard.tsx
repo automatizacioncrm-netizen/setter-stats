@@ -407,14 +407,22 @@ export function VslClosersDashboard() {
             <span className="text-xs text-muted-foreground">Actualizando reporte...</span>
             <div
               className={
-                hasSelectedSetter(filters)
-                  ? "grid gap-4 sm:grid-cols-3"
-                  : "grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+                filters.pipeline === "vsl"
+                  ? `grid gap-4 sm:grid-cols-2 ${hasSelectedSetter(filters) ? "lg:grid-cols-4" : "lg:grid-cols-5"}`
+                  : hasSelectedSetter(filters)
+                    ? "grid gap-4 sm:grid-cols-3"
+                    : "grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
               }
             >
-              {(hasSelectedSetter(filters) ? [1, 2, 3] : [1, 2, 3, 4]).map((key) => (
-                <Skeleton key={key} className="h-28 rounded-xl" />
-              ))}
+              {Array.from(
+                {
+                  length:
+                    (hasSelectedSetter(filters) ? 3 : 4) + (filters.pipeline === "vsl" ? 1 : 0),
+                },
+                (_, key) => (
+                  <Skeleton key={key} className="h-28 rounded-xl" />
+                ),
+              )}
             </div>
             <Skeleton className="h-80 rounded-xl" />
             <Skeleton className="h-64 rounded-xl" />

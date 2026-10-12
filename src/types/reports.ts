@@ -112,7 +112,18 @@ export interface LeadsWithoutAppointment {
     | undefined;
 }
 
+export interface VslSeteo {
+  aplicaSoloA?: string | undefined;
+  totalLeadsVsl?: number | null | undefined;
+  seteados?: number | null | undefined;
+  faltanSetear?: number | null | undefined;
+  seteadosPct?: number | null | undefined;
+  faltanSetearPct?: number | null | undefined;
+  [key: string]: unknown;
+}
+
 export interface VslClosersReport {
+  vslSeteo?: VslSeteo;
   businessMetrics?: Record<string, unknown>;
   executiveUnavailable?: ("leads" | "appointments" | "attended" | "sales")[];
   leadsVslSinCita?: LeadsWithoutAppointment;

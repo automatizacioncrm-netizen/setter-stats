@@ -161,6 +161,17 @@ export function mapVslReportResponse(
   if (!parsed.success)
     throw new ApiError("Apps Script devolvió una respuesta de reporte inválida.");
   const d = parsed.data.data;
+  const vslSeteo = z
+    .object({
+      aplicaSoloA: z.string().optional(),
+      totalLeadsVsl: z.number().finite().nonnegative().nullable().optional(),
+      seteados: z.number().finite().nonnegative().nullable().optional(),
+      faltanSetear: z.number().finite().nonnegative().nullable().optional(),
+      seteadosPct: z.number().finite().nullable().optional(),
+      faltanSetearPct: z.number().finite().nullable().optional(),
+    })
+    .passthrough()
+    .safeParse(d["vslSeteo"]);
   const available = object(object(d["filters"])["available"]);
   const rawKpis = object(d["kpis"]);
   const legacyKpis = object(d["leadTypeKpis"]);
@@ -311,6 +322,7 @@ export function mapVslReportResponse(
   }
   return {
     report: str(d["report"]),
+    ...(vslSeteo.success ? { vslSeteo: vslSeteo.data } : {}),
     ...(d["businessMetrics"] ? { businessMetrics: object(d["businessMetrics"]) } : {}),
     ...performance,
     executiveUnavailable,
