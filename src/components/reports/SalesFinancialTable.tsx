@@ -31,14 +31,14 @@ export function SalesFinancialTable({ sales }: { sales: SalesReport }) {
               {
                 key: "paid",
                 label: "Monto total Abonado",
-                value: (r) => r.quota,
+                value: (r) => r.paid,
                 formula: "Suma de las cuotas 1 registradas del grupo. Si faltan importes, la suma es parcial.",
                 render: (r) => (
                   <>
-                    {financialAmount(r.quota, r.currency || r.currencySource)}
-                    {r.missingQuota > 0 && (
+                    {financialAmount(r.paid, r.currency || r.currencySource)}
+                    {r.missingPaid > 0 && (
                       <small className="block text-amber-700">
-                        Suma parcial · {r.missingQuota} sin importe
+                        Suma parcial · {r.missingPaid} sin importe
                       </small>
                     )}
                   </>

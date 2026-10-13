@@ -114,6 +114,8 @@ export interface FinancialGroup {
   sales: number;
   price: number;
   quota: number;
+  paid: number;
+  missingPaid: number;
   missingPrice: number;
   missingQuota: number;
   excess: number;
@@ -145,6 +147,8 @@ export function financialSummary(sales: SalesReport) {
           r.monedaPrecioAcordado,
           r.precioAcordadoProducto,
           r.montoCuota1,
+          r.moneda,
+          r.montoUltimoPago,
         ]);
       if (signature(previous) !== signature(row)) conflictingIds = true;
     } else {
@@ -159,7 +163,7 @@ export function financialSummary(sales: SalesReport) {
   for (const row of rows) {
     const pipeline = row.pipeline.trim() || "Sin embudo";
     const product = row.productoEvento.trim() || "Sin producto";
-    const currencySource = row.monedaPrecioAcordado?.trim().toUpperCase() || "";
+    const currencySource = (row.moneda || row.monedaPrecioAcordado)?.trim().toUpperCase() || "";
     const currency = recognizedCurrency(currencySource);
     // Keep unrecognized codes separate too: no implicit currency conversion.
     const id = JSON.stringify([pipeline, product, currencySource]);
@@ -171,6 +175,8 @@ export function financialSummary(sales: SalesReport) {
       sales: 0,
       price: 0,
       quota: 0,
+      paid: 0,
+      missingPaid: 0,
       missingPrice: 0,
       missingQuota: 0,
       excess: 0,
@@ -181,6 +187,10 @@ export function financialSummary(sales: SalesReport) {
     group.sales++;
     const price = row.precioAcordadoProducto;
     const quota = row.montoCuota1;
+    // Match the amount displayed as “Monto de cuota 1” in the sales detail.
+    const paid = row.montoUltimoPago ?? row.montoCuota1;
+    if (amountPresent(paid)) group.paid += paid;
+    else group.missingPaid++;
     if (amountPresent(price)) {
       group.price += price;
       if (price === 0) group.zeroPrice++;

@@ -112,6 +112,24 @@ test("new financial fields never fall back to legacy fields or reference prices"
   assert.equal(r.missingPrice, 1);
   assert.equal(r.reference, 1497);
 });
+
+test("total paid sums the quota amounts displayed in sales detail with their currency", () => {
+  const rows = [
+    sale({ pipeline: "vsl", productoEvento: "Circulo Millonario", monedaPrecioAcordado: "", montoCuota1: null, moneda: "USD", montoUltimoPago: 4000 }),
+    sale({ pipeline: "vsl", productoEvento: "Circulo Millonario", monedaPrecioAcordado: "", montoCuota1: null, moneda: "USD", montoUltimoPago: 3000 }),
+    sale({ pipeline: "vsl", productoEvento: "Equipo Millonario", monedaPrecioAcordado: "", montoCuota1: null, moneda: "USD", montoUltimoPago: 1765 }),
+  ];
+  const groups = financialSummary(report(rows)).groups;
+  assert.equal(groups[0].paid, 7000);
+  assert.equal(groups[0].currency, "USD");
+  assert.equal(groups[0].missingPaid, 0);
+  assert.equal(groups[1].paid, 1765);
+  const html = renderToStaticMarkup(createElement(SalesFinancialTable, { sales: report(rows) }));
+  assert.match(html, /USD 7,000.00/);
+  assert.match(html, /USD 1,765.00/);
+  assert.doesNotMatch(html, /Suma parcial/);
+  assert.equal(financialSummary(report([sale({ montoUltimoPago: 0 })])).groups[0].paid, 0);
+});
 test("unknown currencies remain distinct and suppress financial percentages", () => {
   const groups = financialSummary(
     report([sale({ monedaPrecioAcordado: "" }), sale({ monedaPrecioAcordado: "XYZ" })]),
