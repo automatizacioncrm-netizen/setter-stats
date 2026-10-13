@@ -141,7 +141,8 @@ test("references match only known products and remain in USD", () => {
   const html = renderToStaticMarkup(
     createElement(SalesFinancialTable, { sales: report([sale({ monedaPrecioAcordado: "PEN" })]) }),
   );
-  assert.match(html, /USD 1,497.00/);
+  assert.doesNotMatch(html, /USD 1,497.00|Precio de referencia unitario/);
+  assert.match(html, /Monto total Abonado/);
   assert.match(html, /PEN 750.00/);
 });
 test("complete sale IDs deduplicate without relying on contact names or appointments", () => {
@@ -303,8 +304,8 @@ test("sales render one financial table, retain commercial cards and sales detail
   assert.match(html, /Resumen total de Ventas por Embudo y Producto/);
   assert.match(html, /Ventas y recaudación por embudo y producto/);
   assert.doesNotMatch(html, /Valor total de ticket de venta|Cash recaudado|% Recaudado/);
-  assert.match(html, /133.60 %/);
-  assert.match(html, /Revisar: 1 ventas/);
+  assert.match(html, /Monto total Abonado/);
+  assert.doesNotMatch(html, /Precio de referencia unitario|Precio acordado total|Cuota 1 registrada|% Cuota 1 \/ Precio acordado/);
 });
 
 test("executive sections consume performance without appointment requests", () => {

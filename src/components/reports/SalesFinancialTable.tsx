@@ -1,5 +1,5 @@
 import type { SalesReport } from "@/types/reports";
-import { financialSummary, financialAmount, formatNumber } from "@/lib/executive-metrics";
+import { financialSummary, financialAmount } from "@/lib/executive-metrics";
 import { ExecutiveTable } from "./ExecutiveTable";
 
 export function SalesFinancialTable({ sales }: { sales: SalesReport }) {
@@ -10,7 +10,7 @@ export function SalesFinancialTable({ sales }: { sales: SalesReport }) {
         Ventas y recaudación por embudo y producto
       </h3>
       <p className="text-sm text-muted-foreground">
-        Precio acordado y primera cuota registrada. Cada moneda se presenta por separado.
+        El monto total abonado suma las cuotas 1 registradas. Los importes se presentan por moneda.
       </p>
       {!summary.complete ? (
         <p role="status" className="rounded-lg bg-muted p-4 text-sm">
@@ -20,56 +20,22 @@ export function SalesFinancialTable({ sales }: { sales: SalesReport }) {
       ) : (
         <>
           <ExecutiveTable
-            minWidth="min-w-[1100px]"
+            minWidth="min-w-[600px]"
             rows={summary.groups}
             rowKey={(row) => JSON.stringify([row.pipeline, row.product, row.currencySource])}
             empty="No existen ventas para los filtros seleccionados."
             columns={[
               { key: "pipeline", label: "Embudo", value: (r) => r.pipeline.toUpperCase() },
               { key: "product", label: "Producto", value: (r) => r.product },
-              {
-                key: "currency",
-                label: "Moneda",
-                value: (r) => r.currencySource || "Sin moneda",
-                render: (r) =>
-                  r.currency ||
-                  (r.currencySource ? `No reconocida (${r.currencySource})` : "Sin moneda"),
-              },
               { key: "sales", label: "Ventas", value: (r) => r.sales },
               {
-                key: "reference",
-                label: "Precio de referencia unitario",
-                value: (r) => r.reference,
-                formula:
-                  "CM: USD 10,558.70 · EM: USD 1,497.00. Referencia comercial en USD; no sustituye el precio acordado ni representa cobros o una conversión monetaria.",
-                render: (r) => (r.reference == null ? "—" : financialAmount(r.reference, "USD")),
-              },
-              {
-                key: "price",
-                label: "Precio acordado total",
-                value: (r) => r.price,
-                formula:
-                  "Suma de precioAcordadoProducto de las oportunidades del grupo. Si faltan importes, la suma es parcial.",
-                render: (r) => (
-                  <>
-                    {financialAmount(r.price, r.currency)}
-                    {r.missingPrice > 0 && (
-                      <small className="block text-amber-700">
-                        Suma parcial · {r.missingPrice} sin importe
-                      </small>
-                    )}
-                  </>
-                ),
-              },
-              {
-                key: "quota",
-                label: "Cuota 1 registrada",
+                key: "paid",
+                label: "Monto total Abonado",
                 value: (r) => r.quota,
-                formula:
-                  "Suma de montoCuota1. No incluye pagos posteriores. Si faltan importes, la suma es parcial.",
+                formula: "Suma de las cuotas 1 registradas del grupo. Si faltan importes, la suma es parcial.",
                 render: (r) => (
                   <>
-                    {financialAmount(r.quota, r.currency)}
+                    {financialAmount(r.quota, r.currency || r.currencySource)}
                     {r.missingQuota > 0 && (
                       <small className="block text-amber-700">
                         Suma parcial · {r.missingQuota} sin importe
@@ -78,34 +44,8 @@ export function SalesFinancialTable({ sales }: { sales: SalesReport }) {
                   </>
                 ),
               },
-              {
-                key: "rate",
-                label: "% Cuota 1 / Precio acordado",
-                value: (r) => r.rate,
-                formula:
-                  "Cuota 1 registrada / precio acordado total × 100. No aplicable con moneda desconocida, importes incompletos o precio total ≤ 0. No se limita al 100%.",
-                render: (r) => (
-                  <>
-                    {r.rate == null ? "No aplicable" : `${formatNumber(r.rate)} %`}
-                    {r.excess > 0 && (
-                      <small className="block text-amber-700">
-                        Revisar: {r.excess} ventas con cuota 1 mayor al precio
-                      </small>
-                    )}
-                    {r.zeroPrice > 0 && (
-                      <small className="block text-amber-700">
-                        {r.zeroPrice} ventas con precio en cero
-                      </small>
-                    )}
-                  </>
-                ),
-              },
             ]}
           />
-          <p className="text-xs text-muted-foreground">
-            Las referencias se muestran siempre en USD y no se suman. Las ventas con observaciones
-            permanecen en el conteo comercial.
-          </p>
           {!summary.idsVerified && (
             <details className="text-xs text-muted-foreground">
               <summary className="cursor-pointer">Identificación de ventas</summary>
