@@ -29,21 +29,18 @@ export function SalesSummaryCards({ sales }: { sales: SalesReport }) {
 }
 
 const baseColumns: { key: keyof SaleRow; label: string }[] = [
-  { key: "pipeline", label: "Embudo" },
-  { key: "secuencia", label: "Secuencia" },
+  { key: "secuencia", label: "Embudo" },
   { key: "calendarioCita", label: "Calendario" },
-  { key: "nombreContacto", label: "Nombre del contacto" },
+  { key: "nombreContacto", label: "Nombre del contacto (lead)" },
   { key: "setterAsignado", label: "Setter" },
-  { key: "agendadorCita", label: "Agendador" },
   { key: "closerCita", label: "Closer cita" },
   { key: "fase", label: "Fase" },
   { key: "productoEvento", label: "Producto" },
-  { key: "fechaVenta", label: "Fecha de venta" },
-  { key: "moneda", label: "Moneda" },
-  { key: "montoTotalAcordado", label: "Monto Total Acordado" },
-  { key: "montoUltimoPago", label: "Monto del último pago" },
-  { key: "fechaReunion", label: "Fecha de reunión" },
-  { key: "planPagos", label: "Plan de pagos" },
+  { key: "fechaVenta", label: "Fecha de cuota 1" },
+  { key: "moneda", label: "Tipo de Moneda" },
+  { key: "montoTotalAcordado", label: "Precio Acordado del Producto" },
+  { key: "montoUltimoPago", label: "Monto de cuota 1" },
+  { key: "planPagos", label: "Modalidad de Pagos" },
 ];
 
 export function SalesSection({
@@ -100,7 +97,7 @@ export function SalesSection({
           <SalesFinancialTable sales={sales} />
           <div className="overflow-hidden rounded-lg border border-border">
             <h3 className="border-b border-border px-4 py-3 text-sm font-semibold">
-              Detalle de ventas filtradas
+              Resumen total de Ventas por Embudo y Producto
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[850px] text-sm">

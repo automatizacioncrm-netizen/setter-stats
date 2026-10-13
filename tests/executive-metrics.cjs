@@ -300,7 +300,7 @@ test("sales render one financial table, retain commercial cards and sales detail
     }),
   );
   assert.match(html, /Total de ventas/);
-  assert.match(html, /Detalle de ventas filtradas/);
+  assert.match(html, /Resumen total de Ventas por Embudo y Producto/);
   assert.match(html, /Ventas y recaudación por embudo y producto/);
   assert.doesNotMatch(html, /Valor total de ticket de venta|Cash recaudado|% Recaudado/);
   assert.match(html, /133.60 %/);

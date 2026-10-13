@@ -114,7 +114,7 @@ test("one closer performance table renders all six sortable columns and attribut
     r.performance.alcanceAsistencia = scope;
     r.performance.alcanceConversionCloser = scope;
     const output = html(r);
-    assert.match(output,/Desempeño comercial por closer/);
+    assert.match(output,/Conversion de Asistencia y Venta por Closer/);
     assert.doesNotMatch(output,/Conversión de ventas por closer|Agendamientos y asistencia por closer/);
     const section = output.match(/aria-labelledby="closer-performance-heading"([\s\S]*?)<\/section>/)[1];
     const labels=[...section.matchAll(/<button[^>]*>([^<]+)<svg/g)].map(m=>m[1]);
@@ -492,6 +492,40 @@ const integrated = () =>
 const summary = (report, filters) =>
   renderToStaticMarkup(createElement(ExecutiveSummary, { report, filters }));
 
+test("VSL landing presentation uses three cards with existing percentages and preserves lead details", () => {
+  const r = integrated();
+  const existing = r.leadsSinCitaPorEmbudo.vsl;
+  const data = {...existing,totalLeads:134,leadsConCita:62,leadsSinCita:72,porcentajeConCita:46.27,porcentajeSinCita:53.73};
+  r.leadsSinCitaPorEmbudo.vsl = data;
+  const before = JSON.stringify(r);
+  const output = renderToStaticMarkup(createElement(LeadsWithoutAppointmentSection,{report:r}));
+  assert.match(output,/Conversión de Landing VSL Ads \(Automático\)/);
+  assert.equal((output.match(/text-3xl/g)||[]).length,3);
+  assert.match(output,/Total de leads[\s\S]*?>134</);
+  assert.match(output,/Leads agendados \(Automático\)[\s\S]*?>62<.*?46.27 % de los leads/);
+  assert.match(output,/Leads pendientes de agenda[\s\S]*?>72<.*?53.73 % de los leads/);
+  assert.ok(output.indexOf("Total de leads") < output.indexOf("Leads agendados (Automático)"));
+  assert.ok(output.indexOf("Leads agendados (Automático)") < output.indexOf("Leads pendientes de agenda"));
+  assert.doesNotMatch(output,/% Sin agendamiento|% Con agendamiento|Total de leads únicos/);
+  assert.match(output,/Detalle de leads pendientes de agenda \(1 de 72\)/);
+  assert.match(output,/unbooked-1/);
+  assert.match(output,/Oportunidades únicas creadas en el período seleccionado, vinculadas con sus citas históricas de cualquier fecha/);
+  assert.equal(data.totalLeads,data.leadsConCita+data.leadsSinCita);
+  assert.equal(Math.round((data.porcentajeConCita+data.porcentajeSinCita)*100),10000);
+  assert.equal(JSON.stringify(r),before);
+  // Presentation must use the supplied percentage, even when it differs from count ratios.
+  data.porcentajeConCita = 12.34;
+  data.porcentajeSinCita = 87.66;
+  const fresh = renderToStaticMarkup(createElement(LeadsWithoutAppointmentSection,{report:r}));
+  assert.match(fresh,/12.34 % de los leads/);
+  assert.match(fresh,/87.66 % de los leads/);
+  r.filters.pipeline = "oei";
+  const oei = renderToStaticMarkup(createElement(LeadsWithoutAppointmentSection,{report:r}));
+  assert.match(oei,/Leads OEI sin cita creada/);
+  assert.equal((oei.match(/text-3xl/g)||[]).length,5);
+  assert.match(oei,/% Sin agendamiento|% Con agendamiento/);
+});
+
 test("VSL executive order and labels preserve original values, hints and accent indicators", () => {
   const { executiveCards } = require("../src/lib/executive-presentation.ts");
   const { KpiCard } = require("../src/components/reports/KpiCard.tsx");
@@ -652,7 +686,7 @@ test("all setters show four cards and VSL historical lead summary from actual co
   const section = renderToStaticMarkup(
     createElement(LeadsWithoutAppointmentSection, { report: r }),
   );
-  assert.match(section, /Leads VSL sin cita creada/);
+  assert.match(section, /Conversión de Landing VSL Ads \(Automático\)/);
   assert.match(section, /33.33 %/);
   assert.match(section, /unbooked-1/);
   assert.equal(r.leadsSinCitaPorEmbudo.vsl.totalLeads, 3);
@@ -687,7 +721,7 @@ test("setter selections preserve existing cards with the VSL booking replacement
           setterSelected: hasSelectedSetter(filters),
         }),
       );
-      assert.doesNotMatch(executive, /sin cita creada|Detalle de disponibilidad/);
+      assert.doesNotMatch(executive, /sin cita creada|Conversión de Landing VSL Ads|Detalle de disponibilidad/);
       assert.match(executive, /Conversion de Asistencia por Setter/);
       assert.equal(filters.dateFrom, "2026-10-01");
       assert.equal(filters.closer, "Ezequiel Dario");
@@ -714,7 +748,7 @@ test("clearing VSL setter restores six cards and unbooked, preserving period and
         report: { ...integrated(), filters: cleared },
       }),
     ),
-    /Leads VSL/,
+    /Conversión de Landing VSL Ads/,
   );
 });
 test("OEI uses only verified OEI summary and absent contract shows availability, not false zeros", () => {

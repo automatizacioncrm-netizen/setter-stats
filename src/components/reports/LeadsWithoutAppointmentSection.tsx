@@ -26,7 +26,9 @@ export function LeadsWithoutAppointmentSection({
       aria-labelledby="unbooked-heading"
     >
       <h2 id="unbooked-heading" className="text-lg font-semibold">
-        Leads {pipeline.toUpperCase()} sin cita creada
+        {pipeline === "vsl"
+          ? "Conversión de Landing VSL Ads (Automático)"
+          : "Leads OEI sin cita creada"}
       </h2>
       <p className="text-sm text-muted-foreground">
         Oportunidades únicas creadas en el período seleccionado, vinculadas con sus citas históricas
@@ -39,16 +41,45 @@ export function LeadsWithoutAppointmentSection({
       ) : (
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <KpiCard label="Total de leads únicos" value={data.totalLeads} />
-            <KpiCard label="Leads con cita" value={data.leadsConCita} />
-            <KpiCard label="Leads sin cita" value={data.leadsSinCita} />
-            <KpiCard label="% Sin agendamiento" value={percent(data.porcentajeSinCita)} />
-            <KpiCard label="% Con agendamiento" value={percent(data.porcentajeConCita)} />
+            {pipeline === "vsl" ? (
+              <>
+                <KpiCard label="Total de leads" value={data.totalLeads} />
+                <KpiCard
+                  label="Leads agendados (Automático)"
+                  value={data.leadsConCita}
+                  hint={
+                    data.porcentajeConCita == null
+                      ? "No disponible"
+                      : `${percent(data.porcentajeConCita)} de los leads`
+                  }
+                />
+                <KpiCard
+                  label="Leads pendientes de agenda"
+                  value={data.leadsSinCita}
+                  hint={
+                    data.porcentajeSinCita == null
+                      ? "No disponible"
+                      : `${percent(data.porcentajeSinCita)} de los leads`
+                  }
+                />
+              </>
+            ) : (
+              <>
+                <KpiCard label="Total de leads únicos" value={data.totalLeads} />
+                <KpiCard label="Leads con cita" value={data.leadsConCita} />
+                <KpiCard label="Leads sin cita" value={data.leadsSinCita} />
+                <KpiCard label="% Sin agendamiento" value={percent(data.porcentajeSinCita)} />
+                <KpiCard label="% Con agendamiento" value={percent(data.porcentajeConCita)} />
+              </>
+            )}
           </div>
           {data.detalleSinCita && (
             <details>
               <summary className="cursor-pointer text-sm font-medium">
-                Detalle de leads sin cita ({data.detalleSinCita.length} de {data.leadsSinCita})
+                {pipeline === "vsl"
+                  ? "Detalle de leads pendientes de agenda"
+                  : "Detalle de leads sin cita"}{" "}
+                ({data.detalleSinCita.length} de {data.leadsSinCita})
               </summary>
               <div className="mt-3">
                 <ExecutiveTable
