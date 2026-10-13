@@ -33,7 +33,7 @@ const baseColumns: { key: keyof SaleRow; label: string }[] = [
   { key: "calendarioCita", label: "Calendario" },
   { key: "nombreContacto", label: "Nombre del contacto (lead)" },
   { key: "setterAsignado", label: "Setter" },
-  { key: "closerCita", label: "Closer cita" },
+  { key: "closerCita", label: "Closer" },
   { key: "fase", label: "Fase" },
   { key: "productoEvento", label: "Producto" },
   { key: "fechaVenta", label: "Fecha de cuota 1" },

@@ -130,6 +130,29 @@ test("total paid sums the quota amounts displayed in sales detail with their cur
   assert.doesNotMatch(html, /Suma parcial/);
   assert.equal(financialSummary(report([sale({ montoUltimoPago: 0 })])).groups[0].paid, 0);
 });
+test("USD presentation consolidates currencies locally and preserves original sales detail", () => {
+  const rows = [
+    sale({ pipeline: "lig", productoEvento: "Equipo Millonario", moneda: "USD", montoUltimoPago: 1497 }),
+    sale({ pipeline: "lig", productoEvento: "Equipo Millonario", moneda: "PEN", monedaPrecioAcordado: "PEN", montoUltimoPago: 2160.12 }),
+    sale({ pipeline: "vsl", productoEvento: "Equipo Millonario", moneda: "USD", montoUltimoPago: 10 }),
+  ];
+  const data = report(rows);
+  const original = JSON.stringify(data);
+  rows.forEach(Object.freeze);
+  Object.freeze(rows);
+  const summaryBefore = financialSummary(data);
+  const html = renderToStaticMarkup(createElement(SalesFinancialTable, { sales: data }));
+  assert.match(html, /USD 2,132.33/);
+  assert.match(html, /USD 10.00/);
+  assert.equal((html.match(/<tbody>[\s\S]*?<\/tbody>/)[0].match(/<tr /g) || []).length, 2);
+  assert.match(html, />2<\/td>/);
+  assert.equal(JSON.stringify(data), original);
+  assert.deepEqual(financialSummary(data), summaryBefore);
+  const detail = renderToStaticMarkup(createElement(SalesSection, { sales: data, available: true, pipeline: "all" })).split("Resumen total de Ventas por Embudo y Producto")[1];
+  assert.match(detail, /S\/\s*2,160.12/);
+  assert.match(detail, /\$1,497.00/);
+});
+
 test("unknown currencies remain distinct and suppress financial percentages", () => {
   const groups = financialSummary(
     report([sale({ monedaPrecioAcordado: "" }), sale({ monedaPrecioAcordado: "XYZ" })]),
@@ -161,7 +184,7 @@ test("references match only known products and remain in USD", () => {
   );
   assert.doesNotMatch(html, /USD 1,497.00|Precio de referencia unitario/);
   assert.match(html, /Monto total Abonado/);
-  assert.match(html, /PEN 750.00/);
+  assert.match(html, /USD 220.59/);
 });
 test("complete sale IDs deduplicate without relying on contact names or appointments", () => {
   const r = sale({ opportunityId: "op-1" });
