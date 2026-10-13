@@ -86,6 +86,49 @@ export function ExecutivePerformance({
     : "Actividad del embudo seleccionado";
   return (
     <>
+      <section className={panel} aria-labelledby="setter-attendance-heading">
+        <h2 id="setter-attendance-heading" className="text-lg font-semibold">
+          Conversion de Asistencia por Setter
+        </h2>
+        <p className="text-sm text-muted-foreground">{activityLabel}</p>
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : (
+          <ExecutiveTable
+            rows={setters}
+            rowKey={(r) => r.setter}
+            empty="No hay agendamientos para estos filtros."
+            columns={[
+              {
+                key: "setter",
+                label: "Setter",
+                value: (r) => r.setter,
+                render: (r) => r.setter,
+              },
+              { key: "total", label: "Agendamientos", value: (r) => r.agendamientos },
+              { key: "attended", label: "Citas asistidas", value: (r) => r.citasAsistidas },
+              {
+                key: "rate",
+                label: "% Asistencia",
+                value: (r) => ratio(r.citasAsistidas, r.agendamientos),
+                render: (r) => percent(ratio(r.citasAsistidas, r.agendamientos)),
+                formula:
+                  "Citas asistidas / agendamientos únicos × 100. VSL: setter asignado, con creador de cita como respaldo. OEI/LIG: creador de cita, con setter asignado como respaldo. Sin agendamientos: no aplicable.",
+              },
+            ]}
+          />
+        )}
+        {setterDetails && (
+          <details className="border-t border-border pt-3">
+            <summary className="cursor-pointer text-sm font-medium">
+              Estados de Calendar y detalle de citas
+            </summary>
+            <div className="mt-3 space-y-4">{setterDetails}</div>
+          </details>
+        )}
+      </section>
       <section className={panel} aria-labelledby="closer-performance-heading">
         <h2 id="closer-performance-heading" className="text-lg font-semibold">
           Conversion de Asistencia y Venta por Closer
@@ -158,49 +201,6 @@ export function ExecutivePerformance({
                 Citas: {report.dateSemantics.appointments}. Ventas: {report.dateSemantics.sales}.
               </p>
             )}
-          </details>
-        )}
-      </section>
-      <section className={panel} aria-labelledby="setter-attendance-heading">
-        <h2 id="setter-attendance-heading" className="text-lg font-semibold">
-          Conversion de Asistencia por Setter
-        </h2>
-        <p className="text-sm text-muted-foreground">{activityLabel}</p>
-        {error ? (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        ) : (
-          <ExecutiveTable
-            rows={setters}
-            rowKey={(r) => r.setter}
-            empty="No hay agendamientos para estos filtros."
-            columns={[
-              {
-                key: "setter",
-                label: "Setter",
-                value: (r) => r.setter,
-                render: (r) => r.setter,
-              },
-              { key: "total", label: "Agendamientos", value: (r) => r.agendamientos },
-              { key: "attended", label: "Citas asistidas", value: (r) => r.citasAsistidas },
-              {
-                key: "rate",
-                label: "% Asistencia",
-                value: (r) => ratio(r.citasAsistidas, r.agendamientos),
-                render: (r) => percent(ratio(r.citasAsistidas, r.agendamientos)),
-                formula:
-                  "Citas asistidas / agendamientos únicos × 100. VSL: setter asignado, con creador de cita como respaldo. OEI/LIG: creador de cita, con setter asignado como respaldo. Sin agendamientos: no aplicable.",
-              },
-            ]}
-          />
-        )}
-        {setterDetails && (
-          <details className="border-t border-border pt-3">
-            <summary className="cursor-pointer text-sm font-medium">
-              Estados de Calendar y detalle de citas
-            </summary>
-            <div className="mt-3 space-y-4">{setterDetails}</div>
           </details>
         )}
       </section>
