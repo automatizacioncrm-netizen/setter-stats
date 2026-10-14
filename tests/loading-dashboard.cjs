@@ -205,7 +205,7 @@ test("cards y secciones de agenda consumen los agregados Calendar de la misma re
     cards.map((card) => card.value),
     [1828, 783, 357, "No disponible"],
   );
-  assert.equal(cards[1].hint, "783 citas en el período seleccionado");
+  assert.equal(cards[1].hint, "42.8% de los leads");
   assert.equal(cards[2].hint, "45.59% de asistencia");
   assert.equal(h.find("SetterStatusTable").props.rows.length, 6);
   assert.equal(h.find("SetterStatusTable").props.totals, kpis);
@@ -241,7 +241,7 @@ test("period cards preserve the four independent API cohorts", () => {
       cards.map((card) => card.value),
       [leads, appointments, appointments, "No disponible"],
     );
-    assert.equal(cards[1].hint, `${appointments} citas en el período seleccionado`);
+    assert.equal(cards[1].hint, leads > 0 ? `${appointments * 100}% de los leads` : "Porcentaje no disponible");
     assert.equal(h.find("SalesSection").props.sales.total, sales);
   }
 });

@@ -123,11 +123,22 @@ export interface VslSeteo {
   [key: string]: unknown;
 }
 
+export interface LigNoCalificados {
+  aplicaSoloA: string;
+  criterioFecha: string;
+  campoOrigen: string;
+  etapasNoCalificadas: string[];
+  totalLeads: number;
+  noCalificados: number;
+  noCalificadosPct: number;
+  detalleNoCalificados: Array<{ fase: string; total: number }>;
+}
+
 export interface VslClosersReport {
   vslSeteo?: VslSeteo;
   vslNoAplica?: { fase: string; total: number; porcentaje?: number | undefined };
   etapasPorEmbudo?: { porEmbudo?: { vsl?: { totalLeads?: unknown; porEtapa?: unknown } } };
-  businessMetrics?: Record<string, unknown>;
+  businessMetrics?: Record<string, unknown> & { ligNoCalificados?: LigNoCalificados };
   executiveUnavailable?: ("leads" | "appointments" | "attended" | "sales")[];
   leadsVslSinCita?: LeadsWithoutAppointment;
   leadsSinCitaPorEmbudo?: Partial<Record<"vsl" | "oei", LeadsWithoutAppointment>>;

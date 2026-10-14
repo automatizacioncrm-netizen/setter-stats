@@ -620,6 +620,76 @@ test("VSL landing presentation uses three cards with existing percentages and pr
   assert.match(oei, /% Sin agendamiento|% Con agendamiento/);
 });
 
+test("LIG no calificados renders the API values after sales, without recalculating stages", () => {
+  const r = integrated();
+  const metric = {
+    aplicaSoloA: "lig",
+    criterioFecha: "Creado el",
+    campoOrigen: "OPPORTUNITIES_MASTER.Fase",
+    etapasNoCalificadas: ["No existe número", "No interesado/No desea"],
+    totalLeads: 999,
+    noCalificados: 86,
+    noCalificadosPct: 0.67,
+    // Deliberately differs from the official total: React must never sum these.
+    detalleNoCalificados: [{ fase: "No existe número", total: 1234 }],
+  };
+  const mapped = mapVslReportResponse(
+    { ok: true, data: { businessMetrics: { ligNoCalificados: metric } } },
+    { ...query, pipeline: "lig" },
+  );
+  assert.deepEqual(mapped.businessMetrics.ligNoCalificados, metric);
+  r.businessMetrics = mapped.businessMetrics;
+  const before = JSON.stringify(r);
+  for (const booker of ["", "Ana"]) {
+    const output = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline: "lig", booker });
+    assert.match(
+      output,
+      /Total de ventas[\s\S]*No calificados[\s\S]*?>86<.*?0.67% de los leads LIG/,
+    );
+    assert.equal((output.match(/text-3xl/g) || []).length, booker ? 4 : 5);
+    assert.match(output, /grid-cols-1.*sm:grid-cols-2/);
+    assert.match(output, booker ? /lg:grid-cols-4/ : /lg:grid-cols-5/);
+  }
+  for (const pipeline of ["all", "oei", "vsl"]) {
+    const withMetric = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline });
+    assert.equal(
+      withMetric,
+      summary({ ...r, businessMetrics: undefined }, { ...EMPTY_REPORT_FILTERS, pipeline }),
+    );
+    assert.doesNotMatch(withMetric, /de los leads LIG/);
+  }
+  assert.equal(JSON.stringify(r), before);
+  for (const businessMetrics of [
+    undefined,
+    {},
+    { ligNoCalificados: { noCalificados: 0, noCalificadosPct: 0 } },
+  ]) {
+    assert.match(
+      summary({ ...r, businessMetrics }, { ...EMPTY_REPORT_FILTERS, pipeline: "lig" }),
+      /No calificados[\s\S]*?>0<.*?0% de los leads LIG/,
+    );
+  }
+});
+
+test("seteo percentage uses total leads and the selected funnel", () => {
+  const { executiveCards } = require("../src/lib/executive-presentation.ts");
+  const r = integrated();
+  r.leadTypeKpis.totalLeads = 5583;
+  r.kpis.total = 39;
+  for (const pipeline of ["oei", "lig"]) {
+    const card = executiveCards(r, false, pipeline)[1];
+    assert.equal(card.hint, `0.7% de los leads ${pipeline.toUpperCase()}`);
+    assert.equal(executiveCards(r, true, pipeline)[0].hint, card.hint);
+  }
+  r.kpis.total = 0;
+  assert.equal(executiveCards(r, false)[1].hint, "0% de los leads");
+  r.leadTypeKpis.totalLeads = 0;
+  assert.equal(executiveCards(r, false)[1].hint, "Porcentaje no disponible");
+  r.leadTypeKpis.totalLeads = 5583;
+  r.executiveUnavailable = ["leads"];
+  assert.equal(executiveCards(r, false)[1].hint, "Porcentaje no disponible");
+});
+
 test("VSL executive order and labels preserve original values, hints and accent indicators", () => {
   const { executiveCards } = require("../src/lib/executive-presentation.ts");
   const { KpiCard } = require("../src/components/reports/KpiCard.tsx");
@@ -643,8 +713,8 @@ test("VSL executive order and labels preserve original values, hints and accent 
   ];
   for (let index = 1; index < labels.length; index++)
     assert.ok(output.indexOf(labels[index - 1]) < output.indexOf(labels[index]));
-  for (const card of baseline.filter((card) => card.label !== "Total de agendamientos")) {
-    const expected = { ...card, label: card.label === "Asistió" ? "Leads asistidos" : card.label };
+  for (const card of baseline.filter((card) => card.label !== "Leads seteados")) {
+    const expected = card;
     assert.ok(output.includes(renderToStaticMarkup(createElement(KpiCard, expected))));
   }
   for (const props of [
@@ -655,9 +725,9 @@ test("VSL executive order and labels preserve original values, hints and accent 
     assert.ok(output.includes(renderToStaticMarkup(createElement(KpiCard, props))));
   for (const pipeline of ["oei", "lig", "all"]) {
     const other = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline });
-    for (const card of baseline)
+    for (const card of executiveCards(r, false, pipeline))
       assert.ok(other.includes(renderToStaticMarkup(createElement(KpiCard, card))));
-    assert.doesNotMatch(other, /Leads asistidos|No calificados/);
+    if (pipeline !== "lig") assert.doesNotMatch(other, /No calificados/);
   }
   assert.equal(JSON.stringify(r), before);
 });
@@ -671,11 +741,8 @@ test("No calificados follows sales in VSL only, remains safe when missing and re
     /Leads asistidos[\s\S]*Total de ventas[\s\S]*No calificados[\s\S]*Leads pendientes de seteo/,
   );
   assert.match(output, /No calificados[\s\S]*?>5<.*?3.88% de los leads VSL/);
-  for (const pipeline of ["oei", "lig", "all"])
-    assert.doesNotMatch(
-      summary(r, { ...EMPTY_REPORT_FILTERS, pipeline }),
-      /No calificados|Leads asistidos/,
-    );
+  for (const pipeline of ["oei", "all"])
+    assert.doesNotMatch(summary(r, { ...EMPTY_REPORT_FILTERS, pipeline }), /No calificados/);
   delete r.vslNoAplica;
   assert.match(
     summary(r, { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" }),
@@ -731,9 +798,10 @@ test("VSL replaces only bookings using API seteo counts and percentages; other f
   assert.match(output, /Total de ventas[\s\S]*?>3</);
   for (const pipeline of ["oei", "lig", "all", "future-funnel"]) {
     const other = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline });
-    assert.equal((other.match(/text-3xl/g) || []).length, 4);
-    assert.match(other, /Total de agendamientos/);
-    assert.doesNotMatch(other, /Leads seteados|Leads pendientes de seteo/);
+    assert.equal((other.match(/text-3xl/g) || []).length, pipeline === "lig" ? 5 : 4);
+    assert.match(other, /Leads seteados/);
+    assert.match(other, /Leads asistidos/);
+    assert.doesNotMatch(other, /Total de agendamientos|Leads pendientes de seteo/);
   }
   r.vslSeteo = {
     ...seteo,

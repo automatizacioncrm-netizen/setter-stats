@@ -11,6 +11,8 @@ export function ExecutiveSummary({
 }) {
   const selected = hasSelectedSetter(filters);
   const isVsl = filters.pipeline === "vsl";
+  const isLig = filters.pipeline === "lig";
+  const ligNoCalificados = report.businessMetrics?.ligNoCalificados;
   const vslSeteo = report.vslSeteo;
   const vslNoAplica = report.vslNoAplica;
   useEffect(() => {
@@ -34,8 +36,10 @@ export function ExecutiveSummary({
     typeof value === "number" && Number.isFinite(value) ? value : "—";
   const hint = (value: number | null | undefined) =>
     typeof value === "number" && Number.isFinite(value) ? `${value}% de los leads VSL` : "";
-  const cards = executiveCards(report, selected).flatMap<ComponentProps<typeof KpiCard>>((card) =>
-    isVsl && card.label === "Total de agendamientos"
+  const cards = executiveCards(report, selected, filters.pipeline).flatMap<
+    ComponentProps<typeof KpiCard>
+  >((card) =>
+    isVsl && card.label === "Leads seteados"
       ? [
           {
             label: "Leads seteados",
@@ -61,21 +65,22 @@ export function ExecutiveSummary({
   const vslOrder = [
     "Total de leads",
     "Leads seteados",
-    "Asistió",
+    "Leads asistidos",
     "Total de ventas",
     "No aplica",
     "Leads pendientes de seteo",
   ];
+  if (isLig) {
+    cards.push({
+      label: "No calificados",
+      value: ligNoCalificados?.noCalificados ?? 0,
+      hint: `${ligNoCalificados?.noCalificadosPct ?? 0}% de los leads LIG`,
+    });
+  }
   const orderedCards = isVsl
     ? cards
         .sort((a, b) => vslOrder.indexOf(a.label) - vslOrder.indexOf(b.label))
-        .map((card) =>
-          card.label === "Asistió"
-            ? { ...card, label: "Leads asistidos" }
-            : card.label === "No aplica"
-              ? { ...card, label: "No calificados" }
-              : card,
-        )
+        .map((card) => (card.label === "No aplica" ? { ...card, label: "No calificados" } : card))
     : cards;
   return (
     <div
@@ -84,9 +89,11 @@ export function ExecutiveSummary({
       className={
         isVsl
           ? `grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 ${selected ? "2xl:grid-cols-5" : "2xl:grid-cols-6"}`
-          : selected
-            ? "grid grid-cols-1 gap-4 sm:grid-cols-3"
-            : "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+          : isLig
+            ? `grid grid-cols-1 gap-4 sm:grid-cols-2 ${selected ? "lg:grid-cols-4" : "lg:grid-cols-5"}`
+            : selected
+              ? "grid grid-cols-1 gap-4 sm:grid-cols-3"
+              : "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
       }
     >
       {orderedCards.map((card) => (
