@@ -471,6 +471,7 @@ export function VslClosersDashboard() {
               setterSelected={hasSelectedSetter(filters)}
               selectedSetter={person}
               onCalendarToggle={setCalendarOpen}
+              closerDetailFilters={filters}
               setterDetails={
                 <>
                   {cardMetrics.totalLeads === 0 && (

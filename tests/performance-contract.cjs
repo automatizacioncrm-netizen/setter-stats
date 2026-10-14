@@ -31,6 +31,128 @@ const { DashboardFilters } = require("../src/components/reports/DashboardFilters
 const { renderToStaticMarkup } = require("react-dom/server");
 const { createElement } = require("react");
 const { getVslClosersReport } = require("../src/services/reports.ts");
+test("closer Calendar groups appointment IDs once across all four states and sums visible totals", () => {
+  const { groupCloserCalendar } = require("../src/lib/closer-calendar-detail.ts");
+  const rows = [];
+  for (const [closer, counts] of [
+    ["Closer A", [6, 10, 4, 5]],
+    ["Closer B", [4, 8, 2, 2]],
+    ["Closer C", [0, 6, 0, 1]],
+  ])
+    for (const [index, estado] of ["Confirmado", "Asistió", "Cancelado", "No asistió"].entries())
+      for (let n = 0; n < counts[index]; n++)
+        rows.push({
+          appointmentId: `${closer}-${estado}-${n}`,
+          opportunityId: "same-opportunity",
+          closer,
+          estado,
+          fechaReunion: "2026-10-20",
+          fechaCreacionCita: "2026-10-05",
+        });
+  const before = JSON.stringify(rows);
+  const view = groupCloserCalendar([...rows, rows[0], rows[6]]);
+  assert.equal(view.rows.length, 3);
+  assert.equal(view.totals.totalCitas, 48);
+  assert.equal(view.totals.asistio, 24);
+  for (const row of view.rows)
+    assert.equal(row.totalCitas, row.confirmado + row.asistio + row.cancelado + row.noAsistio);
+  assert.equal(view.rows[0].totalCitas, 25);
+  assert.equal((view.rows[0].asistio / view.rows[0].totalCitas) * 100, 40);
+  assert.equal((view.totals.asistio / view.totals.totalCitas) * 100, 50);
+  assert.equal(
+    groupCloserCalendar(rows.filter((x) => x.closer === "Closer A")).totals.totalCitas,
+    25,
+  );
+  assert.equal(groupCloserCalendar([]).rows.length, 0);
+  assert.throws(() => groupCloserCalendar([{ estado: "Asistió", closer: "A" }]), /Appointment ID/);
+  assert.equal(JSON.stringify(rows), before);
+});
+
+test("closer diagnostic uses the existing paginated detail endpoint with meetingDate and current filters", async () => {
+  const { closerCalendarFilters } = require("../src/lib/closer-calendar-detail.ts");
+  const { getCompleteAppointments } = require("../src/services/reports.ts");
+  const filters = closerCalendarFilters({
+    ...EMPTY_REPORT_FILTERS,
+    pipeline: "vsl",
+    dateFrom: "2026-10-15",
+    dateTo: "2026-10-25",
+    calendar: "Calendar",
+    setter: "Setter",
+    closer: "Closer elegido",
+    estadoAgenda: "Confirmado",
+    vslOrigen: "Origen",
+  });
+  assert.equal(filters.dateField, "meetingDate");
+  const calls = [];
+  const previous = global.fetch;
+  global.fetch = async (input) => {
+    const p = new URL(input, "https://local.test").searchParams;
+    calls.push(p);
+    const page = Number(p.get("page"));
+    return {
+      ok: true,
+      json: async () => ({
+        rows: [{ appointmentId: `id-${page}`, closer: "Closer elegido", estado: "Confirmado" }],
+        summary: { asistio: 0 },
+        pagination: { page, pageSize: 50, totalPages: 2, totalRecords: 2 },
+      }),
+    };
+  };
+  try {
+    assert.equal((await getCompleteAppointments(filters)).length, 2);
+    assert.equal(calls.length, 2);
+    for (const p of calls)
+      for (const [key, value] of Object.entries({
+        action: "appointment_detail",
+        dateField: "meetingDate",
+        pipeline: "vsl",
+        dateFrom: "2026-10-15",
+        dateTo: "2026-10-25",
+        calendar: "Calendar",
+        setter: "Setter",
+        closer: "Closer elegido",
+        status: "Confirmado",
+        vslOrigin: "Origen",
+      }))
+        assert.equal(p.get(key), value, key);
+  } finally {
+    global.fetch = previous;
+  }
+});
+
+test("closer Calendar table renders the weighted footer and success, loading and empty states", () => {
+  const { QueryClient, QueryClientProvider } = require("@tanstack/react-query");
+  const { CloserCalendarDetail } = require("../src/components/reports/CloserCalendarDetail.tsx");
+  const {
+    closerCalendarFilters,
+    groupCloserCalendar,
+  } = require("../src/lib/closer-calendar-detail.ts");
+  const filters = { ...EMPTY_REPORT_FILTERS, pipeline: "lig" };
+  const client = new QueryClient();
+  const key = ["closer-calendar-detail", closerCalendarFilters(filters)];
+  const render = () =>
+    renderToStaticMarkup(
+      createElement(
+        QueryClientProvider,
+        { client },
+        createElement(CloserCalendarDetail, { filters }),
+      ),
+    );
+  assert.match(render(), /Cargando detalle de citas/);
+  client.setQueryData(
+    key,
+    groupCloserCalendar([
+      { appointmentId: "1", closer: "Closer de la API", estado: "Asistió" },
+      { appointmentId: "2", closer: "Closer de la API", estado: "Confirmado" },
+    ]),
+  );
+  assert.match(render(), /Closer de la API/);
+  assert.match(render(), /Total equipo visible/);
+  assert.doesNotMatch(render(), /% Asistió|50.00 %/);
+  client.setQueryData(key, groupCloserCalendar([]));
+  assert.match(render(), /No hay citas para los filtros seleccionados/);
+  client.clear();
+});
 
 const fixture = () => ({
   conversionPorCloser: [
@@ -141,7 +263,7 @@ test("one closer performance table renders all six sortable columns and attribut
     assert.equal((section.match(/<table /g) || []).length, 1);
     assert.match(section, /overflow-x-auto/);
     assert.match(section, /<details[\s\S]*Diagnóstico de atribución y alcance/);
-    assert.match(section, /ventas sin atribución verificable, conservadas en el total/);
+    assert.doesNotMatch(section, /ventas sin atribución verificable, conservadas en el total/);
   }
 });
 
@@ -187,7 +309,7 @@ test("unattributed sales remain in commercial totals and separate diagnostics", 
       p.diagnostics.ventasAtribucionAmbigua,
     report.sales.total,
   );
-  assert.match(html(report), /1 ventas sin atribución verificable/);
+  assert.doesNotMatch(html(report), /ventas sin atribución verificable/);
 });
 test("ambiguous closer attribution is preserved without arbitrary reassignment", () => {
   const p = fixture();
@@ -195,7 +317,7 @@ test("ambiguous closer attribution is preserved without arbitrary reassignment",
   p.diagnostics.ventasAtribucionAmbigua = 1;
   const report = mapped(p);
   assert.equal(report.performance.conversionPorCloser[0].ventas, 2);
-  assert.match(html(report), /Atribución ambigua: 1/);
+  assert.doesNotMatch(html(report), /Atribución ambigua:/);
 });
 test("incomplete and invalid performance never become zero counts or perpetual loading", () => {
   for (const p of [undefined, {}, { ...fixture(), asistenciaPorSetter: undefined }]) {
@@ -402,8 +524,7 @@ test("consolidated closer table keeps present team members while setter rows com
     [1, 1],
   );
   assert.doesNotMatch(output, />Joseph</);
-  assert.match(output, /Ventas de otros responsables: 1/);
-  assert.match(output, /Citas fuera del equipo de setters: 2/);
+  assert.doesNotMatch(output, /Ventas de otros responsables:|Citas fuera del equipo de setters:/);
   assert.equal(report.sales.total, 3);
   assert.equal(report.performance.diagnostics.citasUnicasActividad, 6);
 });

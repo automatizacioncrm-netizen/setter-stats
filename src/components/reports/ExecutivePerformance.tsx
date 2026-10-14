@@ -1,5 +1,6 @@
-import type { VslClosersReport } from "@/types/reports";
-import type { ReactNode } from "react";
+import type { VslClosersReport, ReportFilters } from "@/types/reports";
+import { useState, type ReactNode } from "react";
+import { CloserCalendarDetail } from "./CloserCalendarDetail";
 import { ratio, formatNumber } from "@/lib/executive-metrics";
 import { LeadsWithoutAppointmentSection } from "./LeadsWithoutAppointmentSection";
 import { ExecutiveTable } from "./ExecutiveTable";
@@ -21,13 +22,16 @@ export function ExecutivePerformance({
   setterDetails,
   onCalendarToggle,
   setterSelected,
+  closerDetailFilters,
 }: {
   report: VslClosersReport;
   setterDetails?: ReactNode;
   onCalendarToggle?: (open: boolean) => void;
   setterSelected?: boolean;
   selectedSetter?: string;
+  closerDetailFilters?: ReportFilters;
 }) {
+  const [closerDetailOpen, setCloserDetailOpen] = useState(false);
   const p = report.performance;
   const conversion = teamPerformanceRows(
     p?.conversionPorCloser ?? [],
@@ -56,12 +60,6 @@ export function ExecutivePerformance({
     closers.filter((r) => attendanceNames.has(normalizePersonKey(r.closer))),
     conversion.filter((r) => conversionNames.has(normalizePersonKey(r.closer))),
   );
-  const excludedSales =
-    (p?.conversionPorCloser.reduce((sum, r) => sum + r.ventas, 0) ?? 0) -
-    conversion.reduce((sum, r) => sum + r.ventas, 0);
-  const excludedActivity =
-    (p?.asistenciaPorSetter.reduce((sum, r) => sum + r.agendamientos, 0) ?? 0) -
-    allSetters.reduce((sum, r) => sum + r.agendamientos, 0);
   const all = report.filters.pipeline === "all";
   const conversionScope = all ? "vsl+oei+lig" : report.filters.pipeline;
   const attendanceScope = all ? "vsl+oei+lig" : report.filters.pipeline;
@@ -75,14 +73,6 @@ export function ExecutivePerformance({
         ? "El alcance recibido no corresponde a los filtros seleccionados."
         : null);
   const diagnostics = p?.diagnostics;
-  const pending =
-    typeof diagnostics?.ventasSinCitaAsistida === "number"
-      ? diagnostics.ventasSinCitaAsistida
-      : null;
-  const ambiguous =
-    typeof diagnostics?.ventasAtribucionAmbigua === "number"
-      ? diagnostics.ventasAtribucionAmbigua
-      : null;
   const activityLabel = all
     ? "Vista general: incluye citas de VSL, OEI y LIG"
     : "Actividad del embudo seleccionado";
@@ -179,32 +169,16 @@ export function ExecutivePerformance({
             ]}
           />
         )}
-        {!error && pending != null && ambiguous != null && (
-          <p className="text-sm text-muted-foreground">
-            {pending + ambiguous} ventas sin atribución verificable, conservadas en el total
-            comercial.
-          </p>
-        )}
         {diagnostics && (
-          <details className="text-xs text-muted-foreground">
+          <details
+            className="text-xs text-muted-foreground"
+            onToggle={(event) => setCloserDetailOpen(event.currentTarget.open)}
+          >
             <summary className="cursor-pointer">Diagnóstico de atribución y alcance</summary>
-            <p className="mt-2">
-              Ventas de otros responsables: {excludedSales}. Citas fuera del equipo de setters:{" "}
-              {excludedActivity}. Sin cita asistida: {pending ?? "No disponible"}. Atribución
-              ambigua: {ambiguous ?? "No disponible"}.
-            </p>
-            <p>
-              {typeof diagnostics.criterio === "string"
-                ? diagnostics.criterio
-                : "Criterio no informado."}
-            </p>
-            <p>
-              Conversión: {p?.alcanceConversionCloser}. Actividad: {p?.alcanceAsistencia}.
-            </p>
-            {report.dateSemantics && (
-              <p>
-                Citas: {report.dateSemantics.appointments}. Ventas: {report.dateSemantics.sales}.
-              </p>
+            {closerDetailOpen && (
+              <CloserCalendarDetail
+                filters={closerDetailFilters ?? { ...report.filters, preset: "custom" }}
+              />
             )}
           </details>
         )}
