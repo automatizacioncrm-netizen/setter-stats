@@ -19,10 +19,12 @@ const percent = (value: number | null) =>
 export function ExecutivePerformance({
   report,
   setterDetails,
+  onCalendarToggle,
   setterSelected,
 }: {
   report: VslClosersReport;
   setterDetails?: ReactNode;
+  onCalendarToggle?: (open: boolean) => void;
   setterSelected?: boolean;
   selectedSetter?: string;
 }) {
@@ -121,7 +123,10 @@ export function ExecutivePerformance({
           />
         )}
         {setterDetails && (
-          <details className="border-t border-border pt-3">
+          <details
+            className="border-t border-border pt-3"
+            onToggle={(event) => onCalendarToggle?.(event.currentTarget.open)}
+          >
             <summary className="cursor-pointer text-sm font-medium">
               Estados de Calendar y detalle de citas
             </summary>

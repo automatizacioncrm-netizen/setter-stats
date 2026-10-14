@@ -71,6 +71,7 @@ export function VslClosersDashboard() {
   const syncInFlight = useRef(false);
   const [syncMessage, setSyncMessage] = useState("");
   const [detail, setDetail] = useState<DetailQuery>(INITIAL_DETAIL);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [search, setSearch] = useState("");
   useEffect(() => {
     const timer = setTimeout(() => setSearch(detail.search), 300);
@@ -119,6 +120,13 @@ export function VslClosersDashboard() {
   )?.sourceNames;
   const requestSourceNames = undefined;
   const validRange = isValidReportRange(filters);
+  const calendarDetail = useQuery({
+    queryKey: ["vsl-closers-calendar-detail", filters, { ...detail, search }],
+    queryFn: ({ signal }) =>
+      getVslClosersReport(filters, { ...detail, search, includeDetail: true }, signal),
+    enabled: calendarOpen && validRange,
+    retry: false,
+  });
   const query = useQuery({
     queryKey: ["vsl-closers", filters, { ...detail, search }, requestSourceNames],
     queryFn: ({ signal }) =>
@@ -182,6 +190,7 @@ export function VslClosersDashboard() {
   const runFilterTransition = useCallback(
     (apply: () => void) => {
       setAppointmentSelection(null);
+      setCalendarOpen(false);
       cancelFilterTransition();
       const version = ++filterVersion.current;
       setIsFiltering(true);
@@ -461,6 +470,7 @@ export function VslClosersDashboard() {
               report={data}
               setterSelected={hasSelectedSetter(filters)}
               selectedSetter={person}
+              onCalendarToggle={setCalendarOpen}
               setterDetails={
                 <>
                   {cardMetrics.totalLeads === 0 && (
@@ -471,6 +481,7 @@ export function VslClosersDashboard() {
                     selectedSetter={person}
                     error={calendar?.error}
                     totals={data.kpis}
+                    calendarTotals={calendar?.kpis}
                     mode={peopleMode}
                     showStatuses={
                       peopleMode !== "booker" ||
@@ -497,6 +508,19 @@ export function VslClosersDashboard() {
                       );
                     }}
                   />
+                  {calendarOpen &&
+                    (calendarDetail.isError ? (
+                      <p role="status">No se pudo cargar el detalle de citas.</p>
+                    ) : (
+                      <LeadDetailTable
+                        rows={calendarDetail.data?.detail ?? []}
+                        total={calendarDetail.data?.detailTotal ?? 0}
+                        page={calendarDetail.data?.detailPage ?? detail.page}
+                        query={{ ...detail, includeDetail: true }}
+                        onChange={(next) => setDetail((prev) => ({ ...prev, ...next }))}
+                        busy={calendarDetail.isFetching}
+                      />
+                    ))}
                 </>
               }
             />

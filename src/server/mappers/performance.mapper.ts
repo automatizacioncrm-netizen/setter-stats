@@ -26,6 +26,8 @@ const schema = z.object({
   diagnostics: z.object({
     citasLigIncluidasSoloEnActividad: count.optional(),
     citasUnicasActividad: count.optional(),
+    citasUnicasActividadSetter: count.optional(),
+    citasUnicasActividadCloser: count.optional(),
     ventasSinCitaAsistida: count.optional(),
     ventasAtribucionAmbigua: count.optional(),
     ventasUnicas: count.optional(),
@@ -73,13 +75,20 @@ export function mapPerformance(
   const assigned = p.conversionPorCloser.reduce((sum, row) => sum + row.ventas, 0);
   const activity = p.asistenciaPorSetter.reduce((sum, row) => sum + row.agendamientos, 0);
   const expectedSetterAppointments =
-    reconciliation?.setterAppointmentsTotal ?? d.citasUnicasActividad;
+    d.citasUnicasActividadSetter ??
+    reconciliation?.setterAppointmentsTotal ??
+    d.citasUnicasActividad;
+  const closerActivity = p.asistenciaPorCloserTodosEmbudos.reduce(
+    (sum, row) => sum + row.agendamientos,
+    0,
+  );
   if (
     (d.ventasUnicas != null &&
       d.ventasSinCitaAsistida != null &&
       d.ventasAtribucionAmbigua != null &&
       assigned + d.ventasSinCitaAsistida + d.ventasAtribucionAmbigua !== d.ventasUnicas) ||
-    (expectedSetterAppointments != null && activity !== expectedSetterAppointments)
+    (expectedSetterAppointments != null && activity !== expectedSetterAppointments) ||
+    (d.citasUnicasActividadCloser != null && closerActivity !== d.citasUnicasActividadCloser)
   ) {
     return {
       performanceError: "Los indicadores de desempeño no concilian con los totales de la API.",

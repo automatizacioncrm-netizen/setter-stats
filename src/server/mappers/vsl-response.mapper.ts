@@ -318,6 +318,7 @@ export function mapVslReportResponse(
   if (
     query.pipeline === "vsl" &&
     performance.performance &&
+    performance.performance.diagnostics["citasUnicasActividadSetter"] == null &&
     setterAppointmentsTotal !== kpis.total
   ) {
     delete performance.performance;
@@ -338,6 +339,9 @@ export function mapVslReportResponse(
   }
   return {
     report: str(d["report"]),
+    calendarStatusesAvailable: ["confirmado", "asistio", "cancelado", "noShow"].every((key) =>
+      hasCount(rawKpis[key]),
+    ),
     ...noAplicaFields(d),
     ...(vslSeteo.success ? { vslSeteo: vslSeteo.data } : {}),
     ...(d["businessMetrics"] ? { businessMetrics: object(d["businessMetrics"]) } : {}),

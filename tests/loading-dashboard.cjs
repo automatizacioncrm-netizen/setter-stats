@@ -82,6 +82,8 @@ function harness(autoFrames = true) {
       if (name === "@tanstack/react-query")
         return {
           useQuery: (options) => {
+            if (options.queryKey[0] === "vsl-closers-calendar-detail")
+              query.calendarOptions = options;
             query.options = options;
             return query;
           },
@@ -241,7 +243,10 @@ test("period cards preserve the four independent API cohorts", () => {
       cards.map((card) => card.value),
       [leads, appointments, appointments, "No disponible"],
     );
-    assert.equal(cards[1].hint, leads > 0 ? `${appointments * 100}% de los leads` : "Porcentaje no disponible");
+    assert.equal(
+      cards[1].hint,
+      leads > 0 ? `${appointments * 100}% de los leads` : "Porcentaje no disponible",
+    );
     assert.equal(h.find("SalesSection").props.sales.total, sales);
   }
 });
@@ -742,6 +747,58 @@ test("focus refresh retains loaded data without starting a filter transition", (
   h.render();
   assert.equal(h.find("LoadingModal").props.open, false);
   assert.ok(h.find("SetterStatusTable"));
+});
+
+test("Calendar detail is lazy, requests includeDetail=true and preserves active filters", async () => {
+  const h = harness();
+  h.loaded();
+  assert.equal(h.query.calendarOptions.enabled, false);
+  h.find("DashboardFilters").props.onChange({ pipeline: "lig" });
+  h.render();
+  h.advance(400);
+  h.find("DashboardFilters").props.onChange({
+    dateFrom: "2026-10-01",
+    dateTo: "2026-10-14",
+    booker: "Jimena",
+    calendar: "LIG",
+    closer: "Fiorela Bernales",
+    estadoAgenda: "Confirmado",
+    vslOrigen: "Origen",
+  });
+  h.render();
+  h.advance(400);
+  h.find("ExecutivePerformance").props.onCalendarToggle(true);
+  h.render();
+  assert.equal(h.query.calendarOptions.enabled, true);
+  const previous = global.fetch;
+  let url;
+  global.fetch = async (input) => {
+    url = new URL(input, "https://local.test");
+    return { ok: true, json: async () => ({ ok: true, data: {} }) };
+  };
+  try {
+    await h.query.calendarOptions.queryFn({ signal: undefined });
+  } finally {
+    global.fetch = previous;
+  }
+  for (const [key, value] of Object.entries({
+    includeDetail: "true",
+    pipeline: "lig",
+    dateFrom: "2026-10-01",
+    dateTo: "2026-10-14",
+    booker: "Jimena",
+    calendar: "LIG",
+    closer: "Fiorela Bernales",
+    status: "Confirmado",
+    vslOrigin: "Origen",
+    search: "",
+    sort: "nombreContacto",
+    direction: "asc",
+  }))
+    assert.equal(url.searchParams.get(key), value, key);
+  h.find("ExecutivePerformance").props.onCalendarToggle(false);
+  h.render();
+  assert.equal(h.query.calendarOptions.enabled, false);
 });
 
 test("Calendar chart cards are absent and performance follows executive summary", () => {

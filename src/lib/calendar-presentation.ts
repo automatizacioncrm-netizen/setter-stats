@@ -3,7 +3,20 @@ import { getCanonicalSetterName, getVisibleSetterRows } from "./setter-performan
 import { ratio } from "./executive-metrics";
 /** Reuse API Calendar status buckets. Never infer missing distributions from performance totals. */
 export function calendarPresentation(report: VslClosersReport, selectedSetter = "") {
-  const rows = getVisibleSetterRows(report.setters, selectedSetter);
+  const rows = getVisibleSetterRows(report.setters, selectedSetter).map((row) => ({
+    ...row,
+    total: [row.confirmado, row.asistio, row.cancelado, row.noShow].every(
+      (value) => typeof value === "number" && Number.isFinite(value),
+    )
+      ? (row.confirmado ?? 0) +
+          row.asistio +
+          row.cancelado +
+          row.noShow +
+          row.agendadoCRM +
+          row.pendienteAgenda +
+          row.reagendado || row.total
+      : row.total,
+  }));
   const selected = getCanonicalSetterName(selectedSetter);
   const kpis: ReportKpis = selected
     ? rows.reduce(
@@ -36,25 +49,32 @@ export function calendarPresentation(report: VslClosersReport, selectedSetter = 
     kpis.tasaNoShow = ratio(kpis.noShow, kpis.total) ?? 0;
   }
   let error: string | undefined;
-  const performance = report.performance;
-  const expected = selected
-    ? performance?.asistenciaPorSetter
-        .filter((row) => getCanonicalSetterName(row.setter) === selected)
-        .reduce((sum, row) => sum + row.agendamientos, 0)
-    : report.filters.pipeline === "vsl"
-      ? report.kpis.total
-      : performance?.diagnostics.citasUnicasActividad;
-  const total = selected ? kpis.total : report.setters.reduce((sum, row) => sum + row.total, 0);
-  if (report.performanceError || expected == null)
-    error = "La API no permite verificar el alcance de los estados de Calendar.";
-  else if (total !== expected)
-    error = `La API entrega ${expected} citas de actividad, pero el desglose de estados disponible cubre ${total}. No hay información suficiente para graficar este alcance.`;
-  else if (
+  const available =
+    report.calendarStatusesAvailable ??
+    [report.kpis.confirmado, report.kpis.asistio, report.kpis.cancelado, report.kpis.noShow].every(
+      (value) => typeof value === "number" && Number.isFinite(value) && value >= 0,
+    );
+  // Calendar buckets have their own scope; performance uses different dates/states.
+  if (available) {
+    if (!selected || report.filters?.setter || report.filters?.booker)
+      Object.assign(kpis, report.kpis);
+    kpis.total =
+      (kpis.confirmado ?? 0) +
+      kpis.asistio +
+      kpis.cancelado +
+      kpis.noShow +
+      kpis.agendadoCRM +
+      kpis.pendienteAgenda +
+      kpis.reagendado;
+    kpis.tasaAsistencia = ratio(kpis.asistio, kpis.total) ?? 0;
+    kpis.tasaNoShow = ratio(kpis.noShow, kpis.total) ?? 0;
+  } else error = "La API no permite verificar el alcance de los estados de Calendar.";
+  if (
     selected &&
-    performance?.asistenciaPorSetter
-      .filter((row) => getCanonicalSetterName(row.setter) === selected)
-      .reduce((sum, row) => sum + row.citasAsistidas, 0) !== kpis.asistio
+    !report.filters?.setter &&
+    !report.filters?.booker &&
+    !report.setters.some((row) => getCanonicalSetterName(row.setter) === selected)
   )
-    error = "Las asistencias por setter no concilian con el desglose de estados recibido.";
+    error = "La API no entregó el desglose de Calendar del responsable seleccionado.";
   return { rows, kpis, error, selectedSetter: selected || "" };
 }

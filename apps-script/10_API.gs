@@ -1,17 +1,14 @@
 // ============================================================
 // 10_API
 //
-// API REPORT HUB - VSL | CLOSERS + OEI + LIG
+// API REPORT HUB - VSL | CLOSERS + OEI
 //
 // POST:
 //   action=vsl_reconciliar (compatibilidad)
 //   action=reconcile_all
-//   action=reconcile_opportunities
-//   action=reconcile_appointments
 //
 // GET:
 //   action=vsl_report
-//   action=appointment_detail
 //
 // leadType:
 //   paid     -> Fuente contiene "VSL FUNNEL"
@@ -40,125 +37,201 @@
 // IMPORTANTE:
 // - NO agrega un LockService exterior porque cada reconciliador
 //   ya administra su propio lock.
-// - Cada etapa respeta los checkpoints de su reconciliador.
+// - OPM_FULL_SYNC usa checkpoint. Si todavía no termina, esta
+//   función devuelve completed:false y NO ejecuta appointments.
+//   El frontend debe volver a llamar action=reconcile_all.
 // ============================================================
 
 const API_RECON = {
   OPP_STAGE_PROPERTY: "API_RECON_OPPORTUNITIES_STAGE_V2",
-  ALL_STAGE_PROPERTY: "API_RECON_ALL_STAGE_V2",
-  APPT_STAGE_PROPERTY: "API_RECON_APPOINTMENTS_STAGE_V2"
+  ALL_STAGE_PROPERTY: "API_RECON_ALL_STAGE_V2"
 };
 
-// These properties track orchestration only. Never reset worker checkpoints.
-function API_RECON_GET_STAGE_(name, fallback) {
-  return PropertiesService.getScriptProperties().getProperty(name) || fallback;
+function API_RECON_GET_STAGE_(propertyName, fallback) {
+  return PropertiesService.getScriptProperties().getProperty(propertyName) || fallback;
 }
-function API_RECON_SET_STAGE_(name, stage) {
-  PropertiesService.getScriptProperties().setProperty(name, stage);
+
+function API_RECON_SET_STAGE_(propertyName, stage) {
+  PropertiesService.getScriptProperties().setProperty(propertyName, stage);
 }
-function API_RECON_CLEAR_STAGE_(name) {
-  PropertiesService.getScriptProperties().deleteProperty(name);
+
+function API_RECON_CLEAR_STAGE_(propertyName) {
+  PropertiesService.getScriptProperties().deleteProperty(propertyName);
 }
-function API_RECON_RUN_(propertyName, action, includeOpportunities, includeAppointments) {
-  const stages = [];
-  if (includeOpportunities) stages.push(
-    ["MISSING", "OPM_SYNC_MISSING_ONLY"],
-    ["UPDATED", "OPM_SYNC_UPDATED_ONLY"]
-  );
-  if (includeAppointments) stages.push(
-    ["APPOINTMENTS", "APPOINTMENTS_MASTER_RECONCILIAR"],
-    ["COUNTS", "OPM_ACTUALIZAR_NUMERO_CITAS"]
-  );
-  const workers = {
-    OPM_SYNC_MISSING_ONLY: typeof OPM_SYNC_MISSING_ONLY === "function" ? OPM_SYNC_MISSING_ONLY : null,
-    OPM_SYNC_UPDATED_ONLY: typeof OPM_SYNC_UPDATED_ONLY === "function" ? OPM_SYNC_UPDATED_ONLY : null,
-    APPOINTMENTS_MASTER_RECONCILIAR: typeof APPOINTMENTS_MASTER_RECONCILIAR === "function" ? APPOINTMENTS_MASTER_RECONCILIAR : null,
-    OPM_ACTUALIZAR_NUMERO_CITAS: typeof OPM_ACTUALIZAR_NUMERO_CITAS === "function" ? OPM_ACTUALIZAR_NUMERO_CITAS : null
-  };
-  let stage = API_RECON_GET_STAGE_(propertyName, stages[0][0]);
-  // Existing orchestration properties from the supplied API.
-  if (stage === "OPPORTUNITIES") stage = "MISSING";
-  let index = stages.findIndex(item => item[0] === stage);
-  if (index < 0) throw Object.assign(new Error("Etapa desconocida: " + stage), { stage });
-  const startedAt = new Date().toISOString();
-  const result = {};
-  try {
-    for (; index < stages.length; index++) {
-      stage = stages[index][0];
-      const functionName = stages[index][1];
-      if (!workers[functionName]) throw new Error("No existe " + functionName + "().");
-      API_RECON_SET_STAGE_(propertyName, stage);
-      const workerResult = workers[functionName]();
-      result[stage] = workerResult == null ? null : workerResult;
-      if (workerResult && (workerResult.success === false || workerResult.ok === false)) {
-        throw new Error(workerResult.error || functionName + " devolvió un error.");
-      }
-      // V2 Opportunity workers must explicitly confirm completion.
-      // Legacy appointment/count workers may be synchronous and return no completed flag.
-      const incomplete = stage === "MISSING" || stage === "UPDATED"
-        ? !workerResult || workerResult.completed !== true
-        : workerResult && workerResult.completed === false;
-      if (incomplete) return {
-        success: true, completed: false, stage, nextAction: action, result,
-        startedAt, finishedAt: new Date().toISOString()
-      };
-      if (index + 1 < stages.length) {
-        API_RECON_SET_STAGE_(propertyName, stages[index + 1][0]);
-        // Give each long-running Opportunity phase its own Apps Script execution.
-        if (stage === "MISSING" || stage === "UPDATED") return {
-          success: true, completed: false, stage: stages[index + 1][0] + "_PENDING",
-          nextAction: action, result, startedAt, finishedAt: new Date().toISOString()
-        };
-      }
-    }
-    API_RECON_CLEAR_STAGE_(propertyName);
-    return { success: true, completed: true, stage: "COMPLETED", nextAction: null,
-      result, startedAt, finishedAt: new Date().toISOString() };
-  } catch (error) {
-    error.stage = stage;
-    console.error("API RECON ERROR", { action, stage, error: error.message, stack: error.stack });
-    throw error;
-  }
-}
+
+// OPPORTUNITIES_MASTER se reconcilia con los dos procesos V2:
+// 1) faltantes; 2) existentes cuyo GHL Updated At cambió.
 function API_RECONCILIAR_OPPORTUNITIES() {
-  return API_RECON_RUN_(API_RECON.OPP_STAGE_PROPERTY, "reconcile_opportunities", true, false);
+  if (typeof OPM_SYNC_MISSING_ONLY !== "function") {
+    throw new Error("No existe OPM_SYNC_MISSING_ONLY().");
+  }
+  if (typeof OPM_SYNC_UPDATED_ONLY !== "function") {
+    throw new Error("No existe OPM_SYNC_UPDATED_ONLY().");
+  }
+
+  const startedAt = new Date();
+  let stage = API_RECON_GET_STAGE_(API_RECON.OPP_STAGE_PROPERTY, "MISSING");
+
+  if (stage === "MISSING") {
+    const result = OPM_SYNC_MISSING_ONLY();
+    if (result && result.success === false) {
+      throw new Error(result.error || "MISSING_ONLY devolvió success:false.");
+    }
+    if (!result || result.completed !== true) {
+      return {
+        success: true, completed: false, stage: "MISSING",
+        nextAction: "CALL_RECONCILE_OPPORTUNITIES_AGAIN",
+        result: result || null,
+        startedAt: startedAt.toISOString(), finishedAt: new Date().toISOString()
+      };
+    }
+    // No iniciamos UPDATED en la misma llamada: MISSING puede haber consumido
+    // casi todo el tiempo máximo de Apps Script.
+    API_RECON_SET_STAGE_(API_RECON.OPP_STAGE_PROPERTY, "UPDATED");
+    return {
+      success: true, completed: false, stage: "UPDATED_PENDING",
+      nextAction: "CALL_RECONCILE_OPPORTUNITIES_AGAIN",
+      result: result,
+      startedAt: startedAt.toISOString(), finishedAt: new Date().toISOString()
+    };
+  }
+
+  const result = OPM_SYNC_UPDATED_ONLY();
+  if (result && result.success === false) {
+    throw new Error(result.error || "UPDATED_ONLY devolvió success:false.");
+  }
+  if (!result || result.completed !== true) {
+    return {
+      success: true, completed: false, stage: "UPDATED",
+      nextAction: "CALL_RECONCILE_OPPORTUNITIES_AGAIN",
+      result: result || null,
+      startedAt: startedAt.toISOString(), finishedAt: new Date().toISOString()
+    };
+  }
+
+  API_RECON_CLEAR_STAGE_(API_RECON.OPP_STAGE_PROPERTY);
+  return {
+    success: true, completed: true, stage: "COMPLETED", nextAction: null,
+    result: result,
+    startedAt: startedAt.toISOString(), finishedAt: new Date().toISOString()
+  };
 }
+
+// APPOINTMENTS_MASTER se reconcilia por separado y después recalcula
+// Numero de citas en OPPORTUNITIES_MASTER.
 function API_RECONCILIAR_APPOINTMENTS() {
-  return API_RECON_RUN_(API_RECON.APPT_STAGE_PROPERTY, "reconcile_appointments", false, true);
+  if (typeof APPOINTMENTS_MASTER_RECONCILIAR !== "function") {
+    throw new Error("No existe APPOINTMENTS_MASTER_RECONCILIAR().");
+  }
+  if (typeof OPM_ACTUALIZAR_NUMERO_CITAS !== "function") {
+    throw new Error("No existe OPM_ACTUALIZAR_NUMERO_CITAS().");
+  }
+
+  const startedAt = new Date();
+  const appointments = APPOINTMENTS_MASTER_RECONCILIAR();
+  if (appointments && appointments.success === false) {
+    throw new Error(appointments.error || "APPOINTMENTS_MASTER devolvió success:false.");
+  }
+  const appointmentCounts = OPM_ACTUALIZAR_NUMERO_CITAS();
+  if (appointmentCounts && appointmentCounts.success === false) {
+    throw new Error(appointmentCounts.error || "No se pudo actualizar Numero de citas.");
+  }
+
+  return {
+    success: true, completed: true, stage: "COMPLETED",
+    appointments: appointments || null,
+    appointmentCounts: appointmentCounts || null,
+    startedAt: startedAt.toISOString(), finishedAt: new Date().toISOString()
+  };
 }
+
+// Compatibilidad: reconciliación completa, pero respetando la separación.
+// El frontend repite reconcile_all mientras completed=false.
 function RECONCILIAR_TODO() {
-  return API_RECON_RUN_(API_RECON.ALL_STAGE_PROPERTY, "reconcile_all", true, true);
+  let stage = API_RECON_GET_STAGE_(API_RECON.ALL_STAGE_PROPERTY, "OPPORTUNITIES");
+
+  if (stage === "OPPORTUNITIES") {
+    const opportunities = API_RECONCILIAR_OPPORTUNITIES();
+    if (!opportunities.completed) {
+      return {
+        success: true, completed: false, stage: "OPPORTUNITIES_MASTER",
+        nextAction: "CALL_RECONCILE_ALL_AGAIN", opportunities: opportunities,
+        appointments: null, appointmentCounts: null
+      };
+    }
+    API_RECON_SET_STAGE_(API_RECON.ALL_STAGE_PROPERTY, "APPOINTMENTS");
+    return {
+      success: true, completed: false, stage: "APPOINTMENTS_PENDING",
+      nextAction: "CALL_RECONCILE_ALL_AGAIN", opportunities: opportunities,
+      appointments: null, appointmentCounts: null
+    };
+  }
+
+  const appointments = API_RECONCILIAR_APPOINTMENTS();
+  API_RECON_CLEAR_STAGE_(API_RECON.ALL_STAGE_PROPERTY);
+  return {
+    success: true, completed: true, stage: "COMPLETED", nextAction: null,
+    opportunities: null,
+    appointments: appointments.appointments || null,
+    appointmentCounts: appointments.appointmentCounts || null
+  };
 }
+
 function API_POST_RESULT_(functionName, result, retryAction) {
   const completed = Boolean(result && result.completed === true);
-  // Keep the supplied API's nested aliases alongside the staged result map.
-  result.opportunities = result.result.MISSING || result.result.UPDATED || null;
-  result.appointments = result.result.APPOINTMENTS || null;
-  result.appointmentCounts = result.result.COUNTS || null;
-  return API_JSON_RESPONSE({ ok: true, success: true, completed, funcion: functionName,
-    stage: result.stage, nextAction: completed ? null : retryAction,
-    mensaje: completed ? "Reconciliación completada" : "Continuar desde checkpoint.",
-    resultado: result, timestamp: new Date().toISOString() });
+  return API_JSON_RESPONSE({
+    ok: true,
+    completed: completed,
+    funcion: functionName,
+    stage: result && result.stage ? result.stage : null,
+    mensaje: completed ? "Reconciliación completada" : "Reconciliación en progreso; continuar desde checkpoint.",
+    nextAction: completed ? null : retryAction,
+    resultado: result || null,
+    timestamp: new Date().toISOString()
+  });
 }
+
 function doPost(e) {
-  let action = "";
   try {
-    action = API_GET_PARAM(e, "action");
-    const routes = {
-      reconcile_opportunities: ["API_RECONCILIAR_OPPORTUNITIES", API_RECONCILIAR_OPPORTUNITIES],
-      reconcile_appointments: ["API_RECONCILIAR_APPOINTMENTS", API_RECONCILIAR_APPOINTMENTS],
-      reconcile_all: ["RECONCILIAR_TODO", RECONCILIAR_TODO],
-      vsl_reconciliar: ["RECONCILIAR_TODO", RECONCILIAR_TODO]
-    };
-    if (!Object.prototype.hasOwnProperty.call(routes, action)) throw new Error("Acción no válida");
-    if (!API_VALIDATE_SECRET(e)) throw new Error("Unauthorized");
-    const route = routes[action];
-    return API_POST_RESULT_(route[0], route[1](), action === "vsl_reconciliar" ? "reconcile_all" : action);
+    const action = API_GET_PARAM(e, "action");
+
+    if (["vsl_reconciliar", "reconcile_all", "reconcile_opportunities", "reconcile_appointments"].indexOf(action) !== -1) {
+      if (!API_VALIDATE_SECRET(e)) {
+        return API_JSON_RESPONSE({ ok: false, completed: false, error: "Unauthorized" });
+      }
+    }
+
+    if (action === "reconcile_opportunities") {
+      return API_POST_RESULT_(
+        "API_RECONCILIAR_OPPORTUNITIES",
+        API_RECONCILIAR_OPPORTUNITIES(),
+        "CALL_RECONCILE_OPPORTUNITIES_AGAIN"
+      );
+    }
+
+    if (action === "reconcile_appointments") {
+      return API_POST_RESULT_(
+        "API_RECONCILIAR_APPOINTMENTS",
+        API_RECONCILIAR_APPOINTMENTS(),
+        null
+      );
+    }
+
+    if (action === "vsl_reconciliar" || action === "reconcile_all") {
+      return API_POST_RESULT_(
+        "RECONCILIAR_TODO",
+        RECONCILIAR_TODO(),
+        "CALL_RECONCILE_ALL_AGAIN"
+      );
+    }
+
+    return API_JSON_RESPONSE({ ok: false, completed: false, error: "Acción no válida" });
   } catch (error) {
-    console.error("API POST ERROR", { action, stage: error.stage || null, error: error.message });
-    return API_JSON_RESPONSE({ ok: false, success: false, completed: false,
-      stage: error.stage || null, nextAction: null, resultado: null, error: error.message,
-      timestamp: new Date().toISOString() });
+    console.error("API POST ERROR | " + error.message);
+    return API_JSON_RESPONSE({
+      ok: false, completed: false, error: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
 }
 
@@ -585,7 +658,7 @@ function API_NORMALIZE_LEAD_TYPE(
 // NORMALIZAR FILTRO DE PIPELINE
 //
 // Valores:
-// - all  -> VSL + OEI + LIG
+// - all  -> ambos embudos
 // - vsl  -> VSL | Closers
 // - oei  -> Lanzamiento I. Pagado OEI - EM
 // - lig  -> Lanzamiento Interno Gratuito
@@ -746,8 +819,8 @@ function API_GET_PIPELINE_LABEL(
 // - Sesión Equipo Millonario (A)
 //
 // VSL ORGÁNICO:
-// - Llamada de Claridad CM [ORG]
-// - Sesión Equipo Millonario (ORG)
+// - Se conserva la clasificación de leads, pero sus calendarios NO participan
+//   en las métricas de citas de VSL | Closers.
 //
 // OEI:
 // - Equipo Millonario | OEI
@@ -1014,11 +1087,12 @@ function API_GET_ALLOWED_CALENDARS(
     pipelineKey === "vsl"
   ) {
 
+    // VSL | Closers: las métricas de citas usan SOLO calendarios VSL PAGADO.
+    // Los calendarios cuyo nombre corresponde a ORGÁNICO quedan excluidos
+    // de agendamientos, asistencias, tablas de Setter/Closer y métricas de citas.
     return [
       "VSL PAGADO - CIRCULO MILLONARIO",
-      "ORGANICO - CIRCULO MILLONARIO",
-      "VSL PAGADO - EQUIPO MILLONARIO",
-      "ORGANICO - EQUIPO MILLONARIO"
+      "VSL PAGADO - EQUIPO MILLONARIO"
     ];
 
   }
@@ -1266,6 +1340,41 @@ function API_GET_LEAD_TYPE(
 
 
 // ============================================================
+// NORMALIZAR / VALIDAR VSL ORIGEN - SOLO VSL | CLOSERS
+//
+// REGLA OFICIAL DE COHORTE PAGADA VSL:
+// - Agendado automatico
+// - No agendado
+//
+// Cualquier otro valor de VSL Origen queda fuera de la cohorte
+// principal del reporte VSL | Closers.
+// ============================================================
+function API_NORMALIZE_VSL_ORIGIN_(value) {
+  return String(value || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+}
+
+function API_IS_VSL_PAID_ORIGIN_(value) {
+  const origin = API_NORMALIZE_VSL_ORIGIN_(value);
+  return (
+    origin === "AGENDADO AUTOMATICO" ||
+    origin === "NO AGENDADO"
+  );
+}
+
+function API_IS_VSL_AUTOMATIC_ORIGIN_(value) {
+  return API_NORMALIZE_VSL_ORIGIN_(value) === "AGENDADO AUTOMATICO";
+}
+
+function API_IS_VSL_NOT_SCHEDULED_ORIGIN_(value) {
+  return API_NORMALIZE_VSL_ORIGIN_(value) === "NO AGENDADO";
+}
+
+// ============================================================
 // CLASIFICAR VSL PAGADO / NO PAGADO SEGUN VSL ORIGEN
 // ============================================================
 
@@ -1274,68 +1383,22 @@ function API_GET_VSL_CATEGORY(
   fuente
 ) {
 
-  const normalizedSource =
-    API_NORMALIZE_SOURCE(
-      fuente
-    );
-
-
-  // ==========================================================
-  // FUENTES VSL QUE SE CONSIDERAN PAGADAS
-  // ==========================================================
-
-  const paidSources = [
-
-    "VSL FUNNEL",
-
-    "VSL FUNNEL (B)",
-
-    "CUESTIONARIO DE APLICACION - VSL FUNNEL",
-
-    "CUESTIONARIO DE APLICACION - VSL FUNNEL (B)",
-
-    "ENCUESTA AL LEAD: \"ORDEN EMPRESARIAL INTENSIVO\" 31 DE AGOSTO, 01 Y 02 DE SEPTIEMBRE 2026"
-
-  ];
-
-
-  if (
-    paidSources.includes(
-      normalizedSource
-    )
-  ) {
-
+  // Para VSL | Closers, la definición de pagado se basa en VSL Origen.
+  // Los únicos valores pagados son "Agendado automatico" y "No agendado".
+  if (API_IS_VSL_PAID_ORIGIN_(vslOrigen)) {
     return "paid";
-
   }
 
-
-  // Cualquier fuente orgánica se mantiene como orgánica.
-  if (
-    normalizedSource.includes(
-      "ORGANICO"
-    )
-  ) {
-
+  // Se conserva organic como clasificación secundaria para registros que
+  // no pertenecen a la cohorte pagada. La cohorte principal VSL los excluye.
+  const normalizedSource = API_NORMALIZE_SOURCE(fuente);
+  if (normalizedSource.includes("ORGANICO")) {
     return "organic";
-
   }
 
-
-  // Mantener compatibilidad con la lógica anterior:
-  // si existe VSL Origen pero la Fuente no está clasificada,
-  // se considera pagado.
-  const origen =
-    String(
-      vslOrigen || ""
-    ).trim();
-
-
-  return origen
-    ? "paid"
-    : "organic";
-
+  return "other";
 }
+
 
 // ============================================================
 // FASES QUE CUENTAN COMO VENTA
@@ -1414,12 +1477,101 @@ function API_NORMALIZE_STAGE(
 }
 
 
+
+// ============================================================
+// ETAPAS QUE CUENTAN COMO "NO CALIFICADOS"
+// ============================================================
+//
+// REGLA ACTUAL:
+// Lanzamiento Interno Gratuito (LIG):
+// - No existe número
+// - No existe
+// - No interesado/No desea
+// - No interesado
+//
+// La clasificación se hace en API para que el frontend
+// únicamente consuma y muestre el KPI.
+// ============================================================
+
+function API_GET_UNQUALIFIED_STAGES_(
+  pipelineKey
+) {
+
+  if (
+    pipelineKey === "lig"
+  ) {
+
+    return [
+      "No existe número",
+      "No existe",
+      "No interesado/No desea",
+      "No interesado"
+    ];
+
+  }
+
+  return [];
+
+}
+
+
+function API_IS_UNQUALIFIED_STAGE_(
+  fase,
+  pipelineKey
+) {
+
+  const normalizedStage =
+    API_NORMALIZE_STAGE(
+      fase
+    );
+
+  if (!normalizedStage) {
+    return false;
+  }
+
+  return API_GET_UNQUALIFIED_STAGES_(
+    pipelineKey
+  ).some(
+    stage =>
+      API_NORMALIZE_STAGE(
+        stage
+      ) === normalizedStage
+  );
+
+}
+
+
 // ============================================================
 // DETERMINAR SI UNA FASE ES VENTA
 //
 // La fase se valida dentro del pipeline correspondiente.
 // "Perdida" NO cuenta como venta.
 // ============================================================
+
+// ============================================================
+// CLASIFICACION DE SETEO - SOLO VSL | CLOSERS
+//
+// REGLA COMERCIAL:
+// - Lead Pendiente de Agenda       => falta setear
+// - Lead Agendado (Automatico)     => falta setear
+// - Cualquier otra etapa de VSL    => seteado
+//
+// Esta regla usa la columna Fase de OPPORTUNITIES_MASTER.
+// No modifica OEI ni LIG.
+// ============================================================
+function API_GET_VSL_SETEO_STATUS_(pipelineKey, fase) {
+  if (pipelineKey !== "vsl") return "not_applicable";
+
+  const stage = API_NORMALIZE_STAGE(fase);
+  const pendingStages = [
+    API_NORMALIZE_STAGE("Lead Pendiente de Agenda"),
+    API_NORMALIZE_STAGE("Lead Agendado (Automatico)")
+  ];
+
+  return pendingStages.includes(stage)
+    ? "falta_setear"
+    : "seteado";
+}
 
 function API_IS_SALE_STAGE(
   fase,
@@ -1770,7 +1922,6 @@ function API_MATCH_DAY_GAP_(days, filterValue) {
     return days === null || days === undefined;
   }
 
-  if (days === null || days === undefined) return false;
   return Number(days) === Number(filter);
 }
 
@@ -1859,12 +2010,7 @@ function API_BUILD_DIRECT_APPOINTMENT_RECORDS_(
       fase: API_CELL_STRING(API_MASTER_VALUE_(row, oi.fase)),
       productoEvento: API_CELL_STRING(API_MASTER_VALUE_(row, oi.producto)),
       fechaPrimerPago: API_NORMALIZE_DATE(API_MASTER_VALUE_(row, oi.fechaPrimerPago)),
-      fechaCuota1Vsl: API_NORMALIZE_VSL_CUOTA_DATE_(API_MASTER_VALUE_(row, oi.fechaCuota1Vsl)),
-      monedaPrecioAcordado: API_CELL_STRING(API_MASTER_VALUE_(row, oi.monedaPrecioAcordado)).trim().toUpperCase(),
-      precioAcordadoProducto: API_NUMBER_VALUE(API_MASTER_VALUE_(row, oi.precioAcordadoProducto)),
-      montoCuota1: API_NUMBER_VALUE(API_MASTER_VALUE_(row, oi.montoCuota1)),
       planPagos: API_CELL_STRING(API_MASTER_VALUE_(row, oi.planPagos)),
-      numeroCuotasPactadas: API_NUMBER_VALUE(API_MASTER_VALUE_(row, oi.numeroCuotas)),
       moneda: API_CELL_STRING(API_MASTER_VALUE_(row, oi.moneda)),
       montoTotalAcordado: API_NUMBER_VALUE(API_MASTER_VALUE_(row, oi.montoTotalAcordado)),
       montoUltimoPago: API_NUMBER_VALUE(API_MASTER_VALUE_(row, oi.montoUltimoPago))
@@ -1933,7 +2079,7 @@ function API_BUILD_DIRECT_APPOINTMENT_RECORDS_(
     if (
       requestedLeadType !== "all" &&
       (
-        pipeline === "vsl" &&
+        pipeline !== "vsl" ||
         appointmentLeadType !== requestedLeadType
       )
     ) {
@@ -1943,14 +2089,22 @@ function API_BUILD_DIRECT_APPOINTMENT_RECORDS_(
     const vslOrigen =
       opp ? opp.vslOrigen : "";
 
+    // VSL | Closers: una cita solo participa si puede vincularse a una
+    // Opportunity cuya columna VSL Origen sea uno de los dos valores pagados.
+    if (pipeline === "vsl" && (!opp || !API_IS_VSL_PAID_ORIGIN_(vslOrigen))) {
+      return;
+    }
+
     const vslCategoria =
-      API_GET_VSL_CATEGORY(
-        vslOrigen,
-        fuente
-      );
+      pipeline === "vsl"
+        ? "paid"
+        : API_GET_VSL_CATEGORY(
+            vslOrigen,
+            fuente
+          );
 
     if (
-      pipeline === "vsl" && requestedVslTipo !== "all" &&
+      requestedVslTipo !== "all" &&
       vslCategoria !== requestedVslTipo
     ) {
       return;
@@ -2171,8 +2325,6 @@ function API_BUILD_DIRECT_APPOINTMENT_RECORDS_(
         opp ? opp.fechaPrimerPago : "",
       planPagos:
         opp ? opp.planPagos : "",
-      numeroCuotasPactadas:
-        opp ? opp.numeroCuotasPactadas : 0,
       moneda:
         opp ? opp.moneda : "",
       montoTotalAcordado:
@@ -2189,43 +2341,16 @@ function API_BUILD_DIRECT_APPOINTMENT_RECORDS_(
 }
 
 
-// Fecha de cuota 1: admite celda Date, yyyy-MM-dd y dd/MM/yyyy.
-// Nunca utiliza new Date() para interpretar dd/MM/yyyy ambiguamente.
-function API_NORMALIZE_VSL_CUOTA_DATE_(value) {
-  if (value === null || value === undefined || value === "") return "";
-  if (Object.prototype.toString.call(value) === "[object Date]") {
-    if (isNaN(value.getTime())) return "";
-    return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd");
-  }
-  const text = String(value).trim();
-  let match = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
-  if (match) return API_VSL_VALID_DATE_(+match[1], +match[2], +match[3]);
-  match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (match) return API_VSL_VALID_DATE_(+match[3], +match[2], +match[1]);
-  return "";
-}
-
-function API_VSL_VALID_DATE_(year, month, day) {
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (date.getUTCFullYear() !== year ||
-      date.getUTCMonth() + 1 !== month ||
-      date.getUTCDate() !== day) return "";
-  return [String(year).padStart(4, "0"),
-          String(month).padStart(2, "0"),
-          String(day).padStart(2, "0")].join("-");
-}
-
-// Criterio de venta unificado: fecha de cuota 1 desde octubre de 2026.
-function API_IS_NEW_SALE_(registro) {
-  return Boolean(registro.fechaCuota1Vsl && registro.fechaCuota1Vsl >= "2026-10-01");
-}
-
+// ============================================================
+// FECHA OFICIAL DE VENTA
+//
+// Regla única para TODOS los embudos (VSL, OEI y LIG):
+// - La fecha oficial de una venta es "Fecha de primer pago".
+// - Si está vacía, la venta no se atribuye a ningún período.
+// ============================================================
 function API_GET_SALE_DATE_(registro) {
-  // OEI: siempre se contabiliza por Fecha de cuota 1, incluso antes de octubre.
-  if (registro.pipeline === "oei") return registro.fechaCuota1Vsl || "";
-  return API_IS_NEW_SALE_(registro)
-    ? registro.fechaCuota1Vsl
-    : (registro.fechaReunion || "");
+  if (!registro) return "";
+  return API_NORMALIZE_DATE(registro.fechaPrimerPago);
 }
 
 function API_BUILD_VSL_REPORT(filtros) {
@@ -2237,6 +2362,10 @@ function API_BUILD_VSL_REPORT(filtros) {
 
   const oppData = API_MASTER_READ_SHEET_("OPPORTUNITIES_MASTER");
   const apptData = API_MASTER_READ_SHEET_("APPOINTMENTS_MASTER");
+
+  if (!oppData.rows.length) {
+    return API_EMPTY_VSL_REPORT(requestedLeadType, filtros.pipeline);
+  }
 
   const oh = oppData.headers;
   const ah = apptData.headers;
@@ -2256,12 +2385,7 @@ function API_BUILD_VSL_REPORT(filtros) {
     opportunityAssigned: API_MASTER_INDEX_ANY_(oh, ["Opportunity assigned"], false),
     producto: API_MASTER_INDEX_ANY_(oh, ["Producto/Evento"], true),
     fechaPrimerPago: API_MASTER_INDEX_ANY_(oh, ["Fecha de primer pago"], true),
-    fechaCuota1Vsl: API_MASTER_INDEX_ANY_(oh, ["Fecha de cuota 1"], true),
-    monedaPrecioAcordado: API_MASTER_INDEX_ANY_(oh, ["Tipo de moneda del precio acordado"], true),
-    precioAcordadoProducto: API_MASTER_INDEX_ANY_(oh, ["Precio Acordado del Producto"], true),
-    montoCuota1: API_MASTER_INDEX_ANY_(oh, ["Monto de cuota 1"], true),
     planPagos: API_MASTER_INDEX_ANY_(oh, ["Plan de Pagos"], true),
-    numeroCuotas: API_MASTER_INDEX_ANY_(oh, ["Numero de cuotas pactadas", "Número de cuotas pactadas"], true),
     moneda: API_MASTER_INDEX_ANY_(oh, ["Moneda del monto acordado"], true),
     montoTotalAcordado: API_MASTER_INDEX_ANY_(oh, ["Monto Total Acordado"], true),
     montoUltimoPago: API_MASTER_INDEX_ANY_(oh, ["Monto del último pago", "Monto del ultimo pago"], true),
@@ -2324,14 +2448,12 @@ function API_BUILD_VSL_REPORT(filtros) {
 
   const ESTADOS = ["Agendado CRM", "Confirmado", "Asistió", "Cancelado", "No asistió", "Pendiente de agenda", "Reagendado"];
   const baseOpportunities = [];
-  const seenOpportunityIds = new Set();
 
   oppData.rows.forEach(row => {
     const opportunityId = API_CELL_STRING(API_MASTER_VALUE_(row, oi.opportunityId));
     const secuencia = API_CELL_STRING(API_MASTER_VALUE_(row, oi.secuencia));
     const pipeline = API_GET_PIPELINE_KEY(secuencia);
-    if (!opportunityId || !pipeline || seenOpportunityIds.has(opportunityId)) return;
-    seenOpportunityIds.add(opportunityId);
+    if (!opportunityId || !pipeline) return;
     if (filtros.pipeline && filtros.pipeline !== "all" && pipeline !== filtros.pipeline) return;
 
     const allAppointments = (appointmentsByOpportunity.get(opportunityId) || [])
@@ -2339,11 +2461,19 @@ function API_BUILD_VSL_REPORT(filtros) {
       .filter(a => API_IS_CALENDAR_ALLOWED(pipeline, a.calendarioCita));
     const latest = API_MASTER_LATEST_APPOINTMENT_(allAppointments);
     const fuente = API_CELL_STRING(API_MASTER_VALUE_(row, oi.fuente));
-    const rowLeadType = API_GET_ROW_LEAD_TYPE(pipeline, fuente, latest ? latest.calendarioCita : "");
+    const vslOrigen = API_CELL_STRING(API_MASTER_VALUE_(row, oi.vslOrigen));
 
-    if (requestedLeadType !== "all" && (pipeline === "vsl" && rowLeadType !== requestedLeadType)) return;
+    // VSL | Closers: la cohorte principal se define EXCLUSIVAMENTE por VSL Origen.
+    // Solo entran "Agendado automatico" y "No agendado".
+    if (pipeline === "vsl" && !API_IS_VSL_PAID_ORIGIN_(vslOrigen)) return;
 
-    baseOpportunities.push({ row, opportunityId, pipeline, secuencia, fuente, rowLeadType, allAppointments });
+    const rowLeadType = pipeline === "vsl"
+      ? "paid"
+      : API_GET_ROW_LEAD_TYPE(pipeline, fuente, latest ? latest.calendarioCita : "");
+
+    if (requestedLeadType !== "all" && (pipeline !== "vsl" || rowLeadType !== requestedLeadType)) return;
+
+    baseOpportunities.push({ row, opportunityId, pipeline, secuencia, fuente, vslOrigen, rowLeadType, allAppointments });
   });
 
   // Opciones disponibles, calculadas antes de los filtros finos del dashboard.
@@ -2389,7 +2519,7 @@ function API_BUILD_VSL_REPORT(filtros) {
     const vslCategoria = API_GET_VSL_CATEGORY(vslOrigen, o.fuente);
     const assigned = API_CELL_STRING(API_MASTER_VALUE_(row, oi.asignado));
 
-    if (o.pipeline === "vsl" && requestedVslTipo !== "all" && vslCategoria !== requestedVslTipo) return;
+    if (requestedVslTipo !== "all" && vslCategoria !== requestedVslTipo) return;
 
     if (filtros.vslOrigin) {
       const direct = vslOrigen === filtros.vslOrigin;
@@ -2438,29 +2568,15 @@ function API_BUILD_VSL_REPORT(filtros) {
       );
     }
 
-    if (filtros.dayGap) {
-      matchingAppointments = matchingAppointments.filter(a => API_MATCH_DAY_GAP_(
-        API_DATE_DIFF_DAYS_(a.appointmentCreatedAt, a.fechaCita || API_NORMALIZE_DATE(API_MASTER_VALUE_(row, oi.fechaReunion))),
-        filtros.dayGap
-      ));
-    }
     const hasAppointmentDependentFilter = Boolean(
       filtros.calendar ||
       filtros.status ||
       filtros.booker ||
-      filtros.bookingMode || filtros.dayGap
+      filtros.closer ||
+      filtros.setter ||
+      filtros.bookingMode
     );
     if (hasAppointmentDependentFilter && !matchingAppointments.length) return;
-    // Assigned leads without appointments remain in the booking denominator.
-    if (filtros.setter && !matchingAppointments.length) {
-      const wanted = String(filtros.setter).trim();
-      const assignedSetter = API_NORMALIZE_SETTER_NAME_(opportunitySetter);
-      if (API_IS_AUTOMATIC_SETTER_FILTER_(wanted)) return;
-      if (wanted === "__SIN_SETTER__" || API_NORMALIZE_PERSON_KEY_(wanted) === "SIN SETTER") {
-        if (assignedSetter) return;
-      } else if (assignedSetter !== API_NORMALIZE_SETTER_NAME_(wanted)) return;
-    }
-    if (filtros.closer && !matchingAppointments.length && assigned !== filtros.closer) return;
 
     // Para filtros paid/organic basados en calendario, mantener solo citas del tipo solicitado.
     if (requestedLeadType !== "all" && o.pipeline === "vsl") {
@@ -2512,12 +2628,7 @@ function API_BUILD_VSL_REPORT(filtros) {
       fuente: o.fuente,
       productoEvento: API_CELL_STRING(API_MASTER_VALUE_(row, oi.producto)),
       fechaPrimerPago: API_NORMALIZE_DATE(API_MASTER_VALUE_(row, oi.fechaPrimerPago)),
-      fechaCuota1Vsl: API_NORMALIZE_VSL_CUOTA_DATE_(API_MASTER_VALUE_(row, oi.fechaCuota1Vsl)),
-      monedaPrecioAcordado: API_CELL_STRING(API_MASTER_VALUE_(row, oi.monedaPrecioAcordado)).trim().toUpperCase(),
-      precioAcordadoProducto: API_NUMBER_VALUE(API_MASTER_VALUE_(row, oi.precioAcordadoProducto)),
-      montoCuota1: API_NUMBER_VALUE(API_MASTER_VALUE_(row, oi.montoCuota1)),
       planPagos: API_CELL_STRING(API_MASTER_VALUE_(row, oi.planPagos)),
-      numeroCuotasPactadas: API_NUMBER_VALUE(API_MASTER_VALUE_(row, oi.numeroCuotas)),
       moneda: API_CELL_STRING(API_MASTER_VALUE_(row, oi.moneda)),
       montoTotalAcordado: API_NUMBER_VALUE(API_MASTER_VALUE_(row, oi.montoTotalAcordado)),
       montoUltimoPago: API_NUMBER_VALUE(API_MASTER_VALUE_(row, oi.montoUltimoPago)),
@@ -2568,8 +2679,7 @@ function API_BUILD_VSL_REPORT(filtros) {
   // Un mismo dateFrom/dateTo se interpreta según el KPI:
   // - Leads: Creado el
   // - Agendamientos: _Appointment Created At (fallback Fecha cita / Fecha de reunión)
-  // - Ventas: OEI usa Fecha de cuota 1; VSL usa cuota 1 desde
-  //   2026-10-01 y Fecha de reunión para el periodo histórico.
+  // - Ventas: Fecha de primer pago para VSL, OEI y LIG.
   // - Atribución de ventas: todas las citas asistidas históricas.
   // El filtro de leads es independiente del filtro de ventas.
   // ==========================================================
@@ -2622,35 +2732,24 @@ function API_BUILD_VSL_REPORT(filtros) {
     appointmentRegistros.slice();
 
 
-  // OEI: SIEMPRE Fecha de cuota 1, sin corte de fecha.
-  // Sin dateFrom/dateTo: todas las oportunidades, aun sin cita/reunion.
-  // VSL y LIG: conservan el criterio historico anterior al 01/10/2026
-  // y Fecha de cuota 1 desde esa fecha.
+  // ==========================================================
+  // VENTAS: FILTRO POR FECHA EFECTIVA DE VENTA
+  //
+  // Regla única para VSL, OEI y LIG:
+  // 1) Fecha de primer pago.
+  // 2) Si está vacía y hay rango, no se puede atribuir la venta al período.
+  // ==========================================================
   const salesRegistros = registros.filter(registro => {
-    const fechaCuota = registro.fechaCuota1Vsl || "";
-    const fechaReunion = registro.fechaReunion || "";
     const desde = String(filtros.dateFrom || "").trim();
     const hasta = String(filtros.dateTo || "").trim();
-    const corte = "2026-10-01";
 
-    // Sin rango, nunca exigir una reunion ni una cita para contar la venta.
+    // Sin rango de fechas, no excluir por fecha.
     if (!desde && !hasta) return true;
 
-    // OEI: fecha de cuota 1 como unica fecha de filtrado.
-    if (registro.pipeline === "oei") {
-      return Boolean(fechaCuota && API_DATE_IN_RANGE(fechaCuota, desde, hasta));
-    }
+    const fechaVenta = API_GET_SALE_DATE_(registro);
+    if (!fechaVenta) return false;
 
-    // VSL/LIG: regla historica sin cambios.
-    const historica = Boolean(
-      fechaReunion && fechaReunion < corte &&
-      API_DATE_IN_RANGE(fechaReunion, desde, hasta)
-    );
-    const nueva = Boolean(
-      fechaCuota && fechaCuota >= corte &&
-      API_DATE_IN_RANGE(fechaCuota, desde, hasta)
-    );
-    return historica || nueva;
+    return API_DATE_IN_RANGE(fechaVenta, desde, hasta);
   });
 
 
@@ -2658,7 +2757,7 @@ function API_BUILD_VSL_REPORT(filtros) {
   // Cruce contra citas HISTORICAS por Opportunity ID y calendario del embudo.
   // No se resta la cantidad de appointments del numero de leads.
   const leadsSinCitaPorEmbudo = {};
-  ["vsl", "oei", "lig"].forEach(pipelineKey => {
+  ["vsl", "oei"].forEach(pipelineKey => {
     const leadsById = new Map();
     leadRegistros.forEach(r => {
       if (r.pipeline !== pipelineKey) return;
@@ -2668,11 +2767,23 @@ function API_BUILD_VSL_REPORT(filtros) {
     const detail = [];
     let conCita = 0;
     leadsById.forEach((lead, oid) => {
-      const appts = (appointmentsByOpportunity.get(oid) || []).filter(a =>
-        (!a.pipeline || a.pipeline === pipelineKey) &&
-        API_IS_CALENDAR_ALLOWED(pipelineKey, a.calendarioCita)
-      );
-      if (appts.length) {
+      // VSL | Closers: "Leads agendados (Automático)" se obtiene de la
+      // columna VSL Origen, NO de la existencia de appointments.
+      // - Agendado automatico => lead agendado automáticamente
+      // - No agendado         => lead pendiente de agenda
+      let hasAppt;
+
+      if (pipelineKey === "vsl") {
+        hasAppt = API_IS_VSL_AUTOMATIC_ORIGIN_(lead.vslOrigen);
+      } else {
+        const appts = (appointmentsByOpportunity.get(oid) || []).filter(a =>
+          (!a.pipeline || a.pipeline === pipelineKey) &&
+          API_IS_CALENDAR_ALLOWED(pipelineKey, a.calendarioCita)
+        );
+        hasAppt = appts.length > 0;
+      }
+
+      if (hasAppt) {
         conCita++;
       } else {
         detail.push({
@@ -2680,7 +2791,8 @@ function API_BUILD_VSL_REPORT(filtros) {
           nombreContacto: lead.nombreContacto || "",
           fechaCreacion: lead.fechaCreacionOportunidad || "",
           setter: lead.setterOpportunity || lead.setterAsignado || "",
-          pipeline: pipelineKey
+          pipeline: pipelineKey,
+          vslOrigen: lead.vslOrigen || ""
         });
       }
     });
@@ -2695,6 +2807,31 @@ function API_BUILD_VSL_REPORT(filtros) {
     };
   });
   const leadsVslSinCita = leadsSinCitaPorEmbudo.vsl;
+
+  // Resumen explícito de Landing VSL Ads basado SOLO en VSL Origen.
+  // Este bloque evita que el frontend tenga que inferir la regla.
+  const vslOriginRows = leadRegistros.filter(r => r.pipeline === "vsl");
+  const vslOriginTotal = vslOriginRows.length;
+  const vslOriginAgendadosAutomatico = vslOriginRows.filter(r =>
+    API_IS_VSL_AUTOMATIC_ORIGIN_(r.vslOrigen)
+  ).length;
+  const vslOriginNoAgendados = vslOriginRows.filter(r =>
+    API_IS_VSL_NOT_SCHEDULED_ORIGIN_(r.vslOrigen)
+  ).length;
+
+  const vslOriginSummary = {
+    criterio: "OPPORTUNITIES_MASTER.VSL Origen",
+    valoresPagados: ["Agendado automatico", "No agendado"],
+    totalLeads: vslOriginTotal,
+    leadsAgendadosAutomatico: vslOriginAgendadosAutomatico,
+    leadsPendientesAgenda: vslOriginNoAgendados,
+    agendadosAutomaticoPct: vslOriginTotal
+      ? Number((vslOriginAgendadosAutomatico * 100 / vslOriginTotal).toFixed(2))
+      : 0,
+    pendientesAgendaPct: vslOriginTotal
+      ? Number((vslOriginNoAgendados * 100 / vslOriginTotal).toFixed(2))
+      : 0
+  };
 
   const pipelineSummary =
     API_BUILD_PIPELINE_APPOINTMENT_SUMMARY(
@@ -2891,9 +3028,17 @@ function API_BUILD_VSL_REPORT(filtros) {
         );
 
 
-      // Toda fila de APPOINTMENTS_MASTER cuenta como una cita.
-      // El estado solo distribuye el total entre categorías.
-      item.total++;
+      // VSL | CLOSERS:
+      // "Confirmado" se conserva como estado visible, pero NO forma parte
+      // del Total de agendamientos del Setter.
+      // En OEI, LIG y vista general se conserva la lógica anterior.
+      const excluirConfirmadoDelTotalSetterVsl =
+        String(filtros.pipeline || "").trim().toLowerCase() === "vsl" &&
+        registro.estadoAgenda === "Confirmado";
+
+      if (!excluirConfirmadoDelTotalSetterVsl) {
+        item.total++;
+      }
 
       switch (
         registro.estadoAgenda
@@ -3059,14 +3204,23 @@ function API_BUILD_VSL_REPORT(filtros) {
     ).length;
 
 
+  const calendarExpectedSetterTotal =
+    String(filtros.pipeline || "").trim().toLowerCase() === "vsl"
+      ? calendarRegistros.filter(
+          registro => registro.estadoAgenda !== "Confirmado"
+        ).length
+      : calendarRegistros.length;
+
   if (
     calendarTotalFromSetters !==
-    calendarRegistros.length
+    calendarExpectedSetterTotal
   ) {
 
     console.warn(
       "CALENDAR SETTER VALIDATION | setters=" +
       calendarTotalFromSetters +
+      " | esperado=" +
+      calendarExpectedSetterTotal +
       " | calendarRegistros=" +
       calendarRegistros.length +
       " | estadosDesconocidos=" +
@@ -3342,8 +3496,6 @@ function API_BUILD_VSL_REPORT(filtros) {
   const salesDetailRows =
     salesRows.map(
       registro => ({
-        opportunityId: registro.opportunityId,
-        contactId: registro.contactId,
 
         setterAsignado:
           registro.setterAsignado || "",
@@ -3377,37 +3529,23 @@ function API_BUILD_VSL_REPORT(filtros) {
         // cuando el frontend aplica dateFrom/dateTo.
         fechaVenta: API_GET_SALE_DATE_(registro),
 
-        // Campos financieros oficiales de VSL desde octubre de 2026.
-        fechaCuota1: registro.fechaCuota1Vsl || "",
-        monedaPrecioAcordado: registro.monedaPrecioAcordado || "",
-        precioAcordadoProducto: Number(registro.precioAcordadoProducto || 0),
-        montoCuota1: Number(registro.montoCuota1 || 0),
-
+        // Campos financieros oficiales para TODOS los embudos.
+        // Fuente única: Fecha de primer pago + Moneda del monto acordado
+        // + Monto Total Acordado + Monto del último pago.
         fechaPrimerPago:
           registro.fechaPrimerPago || "",
 
         planPagos:
           registro.planPagos || "",
 
-        numeroCuotasPactadas:
-          Number(
-            registro.numeroCuotasPactadas || 0
-          ),
-
         moneda:
-          (registro.pipeline === "oei" || API_IS_NEW_SALE_(registro))
-            ? registro.monedaPrecioAcordado || ""
-            : registro.moneda || "",
+          registro.moneda || "",
 
         montoTotalAcordado:
-          (registro.pipeline === "oei" || API_IS_NEW_SALE_(registro))
-            ? Number(registro.precioAcordadoProducto || 0)
-            : Number(registro.montoTotalAcordado || 0),
+          Number(registro.montoTotalAcordado || 0),
 
         montoUltimoPago:
-          (registro.pipeline === "oei" || API_IS_NEW_SALE_(registro))
-            ? Number(registro.montoCuota1 || 0)
-            : Number(registro.montoUltimoPago || 0),
+          Number(registro.montoUltimoPago || 0),
 
         fechaReunion:
           registro.fechaReunion || "",
@@ -3770,8 +3908,75 @@ function API_BUILD_VSL_REPORT(filtros) {
 
 
   // ==========================================================
+  // DATASETS INDEPENDIENTES PARA SETTER / CLOSER
+  //
+  // REGLA COMERCIAL PARA TODOS LOS EMBUDOS:
+  //
+  // SETTER:
+  // - Solo estados "Asistió" y "No asistió".
+  // - El rango dateFrom/dateTo se mide por _Appointment Created At.
+  //
+  // CLOSER:
+  // - Solo estados "Asistió" y "No asistió".
+  // - El rango dateFrom/dateTo se mide por Fecha cita / Fecha de reunión.
+  //
+  // IMPORTANTE:
+  // - Esta separación NO modifica leadRegistros.
+  // - NO modifica vslSeteo ni la cantidad de "Leads seteados".
+  // - NO modifica calendarRegistros ni el detalle general de Calendar.
+  // - Se mantiene el mismo contrato JSON para no tocar el frontend.
+  // ==========================================================
+
+  // Dataset histórico de Calendar: independiente de las cohortes de rendimiento.
+  const activityAppointmentsById = new Map();
+  calendarRegistros.forEach(a => {
+    const id = String(a.appointmentId || "").trim();
+    if (id && !activityAppointmentsById.has(id)) activityAppointmentsById.set(id, a);
+  });
+  const activityAppointments = Array.from(activityAppointmentsById.values());
+
+  const attendanceStatuses = new Set([
+    "Asistió",
+    "No asistió"
+  ]);
+
+  const setterActivityAppointments = directAppointmentRecords.filter(a => {
+    if (!attendanceStatuses.has(a.estadoAgenda)) return false;
+
+    const fechaCreacionCita = API_NORMALIZE_DATE(
+      a.appointmentCreatedAt ||
+      a.fechaCreacionCita ||
+      ""
+    );
+
+    return API_DATE_IN_RANGE(
+      fechaCreacionCita,
+      filtros.dateFrom,
+      filtros.dateTo
+    );
+  });
+
+  const closerActivityAppointments = directAppointmentRecords.filter(a => {
+    if (!attendanceStatuses.has(a.estadoAgenda)) return false;
+
+    const fechaCita = API_NORMALIZE_DATE(
+      a.fechaCita ||
+      a.fechaReunion ||
+      ""
+    );
+
+    return API_DATE_IN_RANGE(
+      fechaCita,
+      filtros.dateFrom,
+      filtros.dateTo
+    );
+  });
+
+  // ==========================================================
   // KPI DE CLOSERS: CITAS ASISTIDAS Y VENTAS VINCULADAS
   // Fuente primaria: APPOINTMENTS_MASTER, un Appointment ID por cita.
+  // Para actividad del closer se usa Fecha cita / Fecha de reunión.
+  // Solo cuentan Asistió + No asistió.
   // Venta: Opportunity ID unico en fase de venta.
   // Si hubo varios closers en citas asistidas de una misma venta,
   // no se atribuye arbitrariamente a ninguno.
@@ -3780,17 +3985,18 @@ function API_BUILD_VSL_REPORT(filtros) {
   const attendedByOpportunity = new Map();
   const attendedIds = new Set();
 
-  calendarRegistros.forEach(a => {
+  closerActivityAppointments.forEach(a => {
     if (a.estadoAgenda !== "Asistió") return;
     const appointmentId = String(a.appointmentId || "").trim();
     if (!appointmentId || attendedIds.has(appointmentId)) return;
     attendedIds.add(appointmentId);
-    const closer = API_NORMALIZE_CLOSER_NAME_(a.closerCita || a.closerAsignado) || "Sin closer identificado";
+    const closer = String(a.closerCita || a.closerAsignado || "").trim() || "Sin closer identificado";
     if (!closerStatsMap.has(closer)) {
       closerStatsMap.set(closer, { closer, citasAsistidas: 0, ventas: 0, conversionPct: 0 });
     }
     closerStatsMap.get(closer).citasAsistidas++;
-    // El denominador se limita al periodo; NO se usa para atribuir ventas.
+    // El denominador del closer se limita al periodo por FECHA DE CITA.
+    // Solo participa el estado Asistió para citasAsistidas.
 
   });
 
@@ -3853,73 +4059,157 @@ function API_BUILD_VSL_REPORT(filtros) {
   // LIG ya forma parte del dataset principal cuando pipeline=all.
   // Por eso no se reconstruye un segundo dataset especial: evitamos duplicar citas.
   const isGeneralPipeline = !filtros.pipeline || filtros.pipeline === "all";
+  const ligAppointmentRecords = [];
 
-  const activityAppointmentsById = new Map();
-  calendarRegistros.forEach(a => {
-    const id = String(a.appointmentId || "").trim();
-    if (id && !activityAppointmentsById.has(id)) activityAppointmentsById.set(id, a);
-  });
-  const activityAppointments = Array.from(activityAppointmentsById.values());
-
-  // Asistencia global por closer: VSL + OEI + LIG en vista general.
-  // Se entrega por separado para NO alterar el denominador de conversion comercial.
+  // ==========================================================
+  // CONVERSIÓN DE ASISTENCIA POR CLOSER
+  //
+  // Citas asignadas = Asistió + No asistió.
+  // Fecha del periodo = Fecha cita / Fecha de reunión.
+  // Confirmado y Cancelado NO entran en el total.
+  // ==========================================================
   const closerAttendanceMap = new Map();
-  activityAppointments.forEach(a => {
-    const closer = API_NORMALIZE_CLOSER_NAME_(a.closerCita || a.closerAsignado) || "Sin closer identificado";
-    if (!closerAttendanceMap.has(closer)) {
-      closerAttendanceMap.set(closer, { closer, agendamientos: 0, citasAsistidas: 0, asistenciaPct: null });
-    }
-    const item = closerAttendanceMap.get(closer);
-    item.agendamientos++;
-    if (a.estadoAgenda === "Asistió") item.citasAsistidas++;
-  });
-  const asistenciaPorCloserTodosEmbudos = Array.from(closerAttendanceMap.values())
-    .map(item => ({
-      ...item,
-      asistenciaPct: item.agendamientos
-        ? Number((100 * item.citasAsistidas / item.agendamientos).toFixed(2))
-        : null
-    }))
-    .sort((a, b) => b.agendamientos - a.agendamientos || a.closer.localeCompare(b.closer));
+  const closerAppointmentIds = new Set();
 
-  // Un Appointment ID se asigna a un solo setter efectivo.
+  closerActivityAppointments.forEach(a => {
+    const id = String(a.appointmentId || "").trim();
+    if (!id || closerAppointmentIds.has(id)) return;
+    closerAppointmentIds.add(id);
+
+    const closer =
+      String(a.closerCita || a.closerAsignado || "").trim() ||
+      "Sin closer identificado";
+
+    if (!closerAttendanceMap.has(closer)) {
+      closerAttendanceMap.set(closer, {
+        closer,
+        agendamientos: 0,
+        citasAsistidas: 0,
+        asistenciaPct: null
+      });
+    }
+
+    const item = closerAttendanceMap.get(closer);
+
+    // closerActivityAppointments ya contiene únicamente
+    // Asistió + No asistió.
+    item.agendamientos++;
+
+    if (a.estadoAgenda === "Asistió") {
+      item.citasAsistidas++;
+    }
+  });
+
+  const asistenciaPorCloserTodosEmbudos =
+    Array.from(closerAttendanceMap.values())
+      .map(item => ({
+        ...item,
+        asistenciaPct: item.agendamientos
+          ? Number(
+              (
+                100 *
+                item.citasAsistidas /
+                item.agendamientos
+              ).toFixed(2)
+            )
+          : null
+      }))
+      .sort(
+        (a, b) =>
+          b.agendamientos - a.agendamientos ||
+          a.closer.localeCompare(b.closer)
+      );
+
+  // ==========================================================
+  // CONVERSIÓN DE ASISTENCIA POR SETTER
+  //
+  // Agendamientos = Asistió + No asistió.
+  // Fecha del periodo = _Appointment Created At.
+  // Confirmado y Cancelado NO entran en el total.
+  // ==========================================================
   const setterStatsMap = new Map();
   const setterAppointmentIds = new Set();
-  activityAppointments.forEach(a => {
+
+  setterActivityAppointments.forEach(a => {
     const id = String(a.appointmentId || "").trim();
     if (!id || setterAppointmentIds.has(id)) return;
     setterAppointmentIds.add(id);
-    const setter = API_NORMALIZE_SETTER_NAME_(a.setterAsignado || a.setterEfectivo || "") || "Sin setter identificado";
+
+    const setter =
+      API_NORMALIZE_SETTER_NAME_(
+        a.setterAsignado ||
+        a.setterEfectivo ||
+        ""
+      ) ||
+      "Sin setter identificado";
+
     if (!setterStatsMap.has(setter)) {
-      setterStatsMap.set(setter, { setter, agendamientos: 0, citasAsistidas: 0, asistenciaPct: 0 });
+      setterStatsMap.set(setter, {
+        setter,
+        agendamientos: 0,
+        citasAsistidas: 0,
+        asistenciaPct: 0
+      });
     }
+
     const item = setterStatsMap.get(setter);
+
+    // setterActivityAppointments ya contiene únicamente
+    // Asistió + No asistió.
     item.agendamientos++;
-    if (a.estadoAgenda === "Asistió") item.citasAsistidas++;
+
+    if (a.estadoAgenda === "Asistió") {
+      item.citasAsistidas++;
+    }
   });
-  const asistenciaPorSetter = Array.from(setterStatsMap.values())
-    .map(item => ({
-      ...item,
-      asistenciaPct: item.agendamientos
-        ? Number((item.citasAsistidas * 100 / item.agendamientos).toFixed(2))
-        : null
-    }))
-    .sort((a, b) => b.agendamientos - a.agendamientos || a.setter.localeCompare(b.setter));
+
+  const asistenciaPorSetter =
+    Array.from(setterStatsMap.values())
+      .map(item => ({
+        ...item,
+        asistenciaPct: item.agendamientos
+          ? Number(
+              (
+                item.citasAsistidas *
+                100 /
+                item.agendamientos
+              ).toFixed(2)
+            )
+          : null
+      }))
+      .sort(
+        (a, b) =>
+          b.agendamientos - a.agendamientos ||
+          a.setter.localeCompare(b.setter)
+      );
 
   const performance = {
     conversionPorCloser,
     asistenciaPorSetter,
     asistenciaPorCloserTodosEmbudos,
-    alcanceAsistencia: isGeneralPipeline ? "vsl+oei+lig" : String(filtros.pipeline),
-    alcanceConversionCloser: isGeneralPipeline ? "vsl+oei+lig" : String(filtros.pipeline),
+    alcanceAsistencia:
+      isGeneralPipeline
+        ? "vsl+oei+lig"
+        : String(filtros.pipeline),
+    alcanceConversionCloser:
+      isGeneralPipeline
+        ? "vsl+oei+lig"
+        : String(filtros.pipeline),
     diagnostics: {
       citasLigIncluidasSoloEnActividad: 0,
       citasUnicasActividad: activityAppointments.length,
+      citasUnicasActividadSetter:
+        setterAppointmentIds.size,
+      citasUnicasActividadCloser:
+        closerAppointmentIds.size,
       ventasSinCitaAsistida,
       ventasAtribucionAmbigua,
-      ventasUnicas: countedSales.size,
-      citasAsistidasUnicas: attendedIds.size,
-      criterio: "Ventas por Opportunity ID / citas asistidas por Appointment ID; distintas cohortes temporales"
+      ventasUnicas:
+        countedSales.size,
+      citasAsistidasUnicas:
+        attendedIds.size,
+      criterio:
+        "Setter: Asistió + No asistió por _Appointment Created At. Closer: Asistió + No asistió por Fecha cita / Fecha de reunión."
     }
   };
 
@@ -3927,21 +4217,30 @@ function API_BUILD_VSL_REPORT(filtros) {
   // INDICADORES DE NEGOCIO SOLICITADOS (excepto punto 6)
   // ==========================================================
 
-  // 2) % agendamientos por setter.
-  const setterLeadMap = new Map();
+  // 2) Rendimiento nuevo y campos históricos de compatibilidad.
   const bookedOpportunityIds = new Set(appointmentsByOpportunity.keys());
+  const setterLeadMap = new Map();
   leadRegistros.forEach(r => {
     const setter = API_NORMALIZE_SETTER_NAME_(r.setterOpportunity || "") || "Sin setter identificado";
     if (!setterLeadMap.has(setter)) setterLeadMap.set(setter, { setter, leadsAsignados: 0, agendados: 0 });
     const item = setterLeadMap.get(setter);
     item.leadsAsignados++;
+    // Campo histórico: leads del periodo con cita histórica, sin cambiar su definición.
     if (bookedOpportunityIds.has(r.opportunityId)) item.agendados++;
   });
-  const agendamientoPorSetter = Array.from(setterLeadMap.values()).map(item => ({
-    ...item, noAgendados: item.leadsAsignados - item.agendados,
-    agendamientos: item.agendados,
-    agendamientoPct: item.leadsAsignados ? Number((100 * item.agendados / item.leadsAsignados).toFixed(2)) : 0
-  })).sort((a,b) => b.agendados - a.agendados || a.setter.localeCompare(b.setter));
+  setterStatsMap.forEach((_, setter) => {
+    if (!setterLeadMap.has(setter)) setterLeadMap.set(setter, { setter, leadsAsignados: 0, agendados: 0 });
+  });
+  const agendamientoPorSetter = Array.from(setterLeadMap.values()).map(item => {
+    const agendamientos = setterStatsMap.get(item.setter)?.agendamientos || 0;
+    return {
+      ...item,
+      noAgendados: item.leadsAsignados - item.agendados,
+      agendamientos,
+      agendamientoPct: item.leadsAsignados ? Number((100 * agendamientos / item.leadsAsignados).toFixed(2)) : null
+    };
+  }).sort((a, b) => b.agendamientos - a.agendamientos || a.setter.localeCompare(b.setter));
+
   // 3) % conversión por embudo.
   const conversionPorEmbudo = ["vsl", "oei", "lig"].map(pipelineKey => {
     const leads = new Set(leadRegistros.filter(r => r.pipeline === pipelineKey).map(r => String(r.opportunityId || "")).filter(Boolean));
@@ -3964,13 +4263,15 @@ function API_BUILD_VSL_REPORT(filtros) {
     const oid = String(r.opportunityId || "").trim();
     if (!oid) return;
     item.leads.add(oid);
-    const hasAppt = bookedOpportunityIds.has(oid);
-    if (!hasAppt) item.noAgendados.add(oid);
+    // Para VSL, "No agendado" se define por la columna VSL Origen.
+    if (API_IS_VSL_NOT_SCHEDULED_ORIGIN_(r.vslOrigen)) {
+      item.noAgendados.add(oid);
+    }
   });
   const leadsNoAgendadosVslPorMes = Array.from(vslMonthly.values()).map(item => ({
     month: item.month,
     leads: item.leads.size,
-    agendados: item.leads.size - item.noAgendados.size,
+    agendados: Array.from(item.leads).filter(oid => bookedOpportunityIds.has(oid)).length,
     noAgendados: item.noAgendados.size,
     noAgendadosPct: item.leads.size ? Number((item.noAgendados.size * 100 / item.leads.size).toFixed(2)) : null
   })).sort((a, b) => a.month.localeCompare(b.month));
@@ -3983,46 +4284,245 @@ function API_BUILD_VSL_REPORT(filtros) {
     const id = String(a.appointmentId || "").trim();
     if (!id || sesionesIds.has(id)) return;
     sesionesIds.add(id);
-    const closer = API_NORMALIZE_CLOSER_NAME_(a.closerCita || a.closerAsignado) || "Sin closer identificado";
+    const closer = String(a.closerCita || a.closerAsignado || "").trim() || "Sin closer identificado";
     sesionesCloserMap.set(closer, (sesionesCloserMap.get(closer) || 0) + 1);
   });
   const sesionesEntregadasPorCloser = Array.from(sesionesCloserMap.entries())
-    .map(([closer, sesiones]) => ({ closer, sesiones, sesionesEntregadas: sesiones }))
+    .map(([closer, sesiones]) => ({ closer: closer, sesiones: sesiones, sesionesEntregadas: sesiones }))
     .sort((a, b) => b.sesiones - a.sesiones || a.closer.localeCompare(b.closer));
 
   // 7) Cash registrado por embudo y producto.
   // IMPORTANTE: usa el campo monetario que esta API ya interpreta como cobro registrado
-  // (montoUltimoPago / montoCuota1 según la regla comercial). No inventa pagos no presentes en el Master.
+  // (Monto del último pago). No inventa pagos no presentes en el Master.
   const cashPipelineMap = new Map();
   const cashProductMap = new Map();
   const cashCrossMap = new Map();
   salesDetailRows.forEach(row => {
     const pipeline = String(row.pipeline || "").trim() || "sin_pipeline";
-    const producto = API_PRODUCT_KEY_(row.productoEvento);
+    const producto = String(row.productoEvento || "").trim() || "Sin producto";
     const moneda = String(row.moneda || "SIN MONEDA").trim().toUpperCase();
     const amount = Number(row.montoUltimoPago || 0);
-    const pKey = JSON.stringify([pipeline, moneda]);
-    const prodKey = JSON.stringify([producto, moneda]);
-    const crossKey = JSON.stringify([pipeline, producto, moneda]);
+    const pKey = pipeline + "|" + moneda;
+    const prodKey = producto + "|" + moneda;
+    const crossKey = pipeline + "|" + producto + "|" + moneda;
     cashPipelineMap.set(pKey, (cashPipelineMap.get(pKey) || 0) + amount);
     cashProductMap.set(prodKey, (cashProductMap.get(prodKey) || 0) + amount);
     cashCrossMap.set(crossKey, (cashCrossMap.get(crossKey) || 0) + amount);
   });
   const cashPorEmbudo = Array.from(cashPipelineMap.entries()).map(([key, amount]) => {
-    const parts = JSON.parse(key);
+    const parts = key.split("|");
     return { pipeline: parts[0], moneda: parts[1], cash: Number(amount.toFixed(2)) };
   });
   const cashPorProducto = Array.from(cashProductMap.entries()).map(([key, amount]) => {
-    const parts = JSON.parse(key);
+    const parts = key.split("|");
     return { producto: parts[0], moneda: parts[1], cash: Number(amount.toFixed(2)) };
   });
   const cashPorEmbudoProducto = Array.from(cashCrossMap.entries()).map(([key, amount]) => {
-    const parts = JSON.parse(key);
+    const parts = key.split("|");
     return { pipeline: parts[0], producto: parts[1], moneda: parts[2], cash: Number(amount.toFixed(2)) };
   });
 
+  // ==========================================================
+  // CLASIFICACION DE SETEO - SOLO VSL
+  //
+  // La cohorte respeta el mismo rango de fechas de leads
+  // (Creado el) aplicado a leadRegistros.
+  // ==========================================================
+  const vslSeteoRows = leadRegistros
+    .filter(r => r.pipeline === "vsl")
+    .map(r => ({
+      opportunityId: String(r.opportunityId || ""),
+      nombreContacto: String(r.nombreContacto || ""),
+      fechaCreacion: String(r.fechaCreacionOportunidad || ""),
+      fase: String(r.fase || ""),
+      estadoSeteo: API_GET_VSL_SETEO_STATUS_(r.pipeline, r.fase),
+      setter: String(r.setterOpportunity || r.setterAsignado || ""),
+      fuente: String(r.fuente || ""),
+      leadType: String(r.leadType || "")
+    }));
+
+  const vslFaltanSetearRows = vslSeteoRows.filter(r => r.estadoSeteo === "falta_setear");
+  const vslSeteadosRows = vslSeteoRows.filter(r => r.estadoSeteo === "seteado");
+
+  const vslSeteoStageMap = new Map();
+  vslSeteoRows.forEach(r => {
+    const stage = r.fase || "Sin etapa";
+    const key = r.estadoSeteo + "|" + stage;
+    if (!vslSeteoStageMap.has(key)) {
+      vslSeteoStageMap.set(key, {
+        estadoSeteo: r.estadoSeteo,
+        fase: stage,
+        total: 0
+      });
+    }
+    vslSeteoStageMap.get(key).total++;
+  });
+
+  const vslTotalSeteo = vslSeteoRows.length;
+  // % de asistencia comercial VSL:
+  // Leads asistidos / Leads seteados × 100.
+  // `attended` ya proviene de calendarRegistros; para VSL esos registros
+  // excluyen los calendarios ORGÁNICOS mediante API_GET_ALLOWED_CALENDARS().
+  const vslAsistenciaSobreSeteadosPct =
+    vslSeteadosRows.length > 0
+      ? Number(((attended / vslSeteadosRows.length) * 100).toFixed(2))
+      : 0;
+
+  const vslSeteo = {
+    aplicaSoloA: "vsl",
+    criterioFecha: "Creado el",
+    etapasFaltanSetear: [
+      "Lead Pendiente de Agenda",
+      "Lead Agendado (Automatico)"
+    ],
+    totalLeadsVsl: vslTotalSeteo,
+    faltanSetear: vslFaltanSetearRows.length,
+    seteados: vslSeteadosRows.length,
+    asistidos: attended,
+    asistenciaSobreSeteadosPct: vslAsistenciaSobreSeteadosPct,
+    faltanSetearPct: vslTotalSeteo
+      ? Number((vslFaltanSetearRows.length * 100 / vslTotalSeteo).toFixed(2))
+      : 0,
+    seteadosPct: vslTotalSeteo
+      ? Number((vslSeteadosRows.length * 100 / vslTotalSeteo).toFixed(2))
+      : 0,
+    porEtapa: Array.from(vslSeteoStageMap.values())
+      .sort((a, b) => b.total - a.total || a.fase.localeCompare(b.fase)),
+    faltanSetearRows: vslFaltanSetearRows,
+    seteadosRows: vslSeteadosRows
+  };
+
+  // Mantener compatibilidad con el frontend actual.
+  // En el reporte VSL, la tasa principal de asistencia se define como:
+  // Leads asistidos / Leads seteados × 100.
+  // Para OEI, LIG o vista general se conserva la lógica previa.
+  if (String(filtros.pipeline || "").trim().toLowerCase() === "vsl") {
+    kpis.tasaAsistencia = vslAsistenciaSobreSeteadosPct;
+    leadTypeKpis.attendanceRate = vslAsistenciaSobreSeteadosPct;
+  }
+
+  // ETAPAS DE OPPORTUNITY POR EMBUDO: VSL, OEI Y LIG.
+  // Cuenta Opportunities unicas de la cohorte de leads filtrada por "Creado el".
+  // "Fase" es etapa comercial; no equivale a "Estado cita" de Calendar.
+  const etapasPorEmbudo = (() => {
+    const keys = ["vsl", "oei", "lig"];
+    const buckets = {};
+    keys.forEach(key => {
+      buckets[key] = { pipeline: key, label: API_GET_PIPELINE_LABEL(key), totalLeads: 0, porEtapa: [], _ids: new Set(), _stages: new Map() };
+    });
+    leadRegistros.forEach(row => {
+      const key = String(row.pipeline || "").trim().toLowerCase();
+      const bucket = buckets[key];
+      if (!bucket) return;
+      const id = String(row.opportunityId || "").trim();
+      if (!id || bucket._ids.has(id)) return;
+      bucket._ids.add(id);
+      const fase = String(row.fase || "").trim() || "Sin etapa";
+      bucket._stages.set(fase, (bucket._stages.get(fase) || 0) + 1);
+    });
+    keys.forEach(key => {
+      const bucket = buckets[key];
+      bucket.totalLeads = bucket._ids.size;
+      bucket.porEtapa = Array.from(bucket._stages.entries())
+        .map(([fase, total]) => ({ fase: fase, total: total,
+          porcentaje: bucket.totalLeads ? Number((total * 100 / bucket.totalLeads).toFixed(2)) : 0 }))
+        .sort((a, b) => b.total - a.total || a.fase.localeCompare(b.fase));
+      delete bucket._ids;
+      delete bucket._stages;
+    });
+    return {
+      criterioFecha: "Creado el",
+      campoOrigen: "OPPORTUNITIES_MASTER.Fase",
+      totalLeads: keys.reduce((n, key) => n + buckets[key].totalLeads, 0),
+      porEmbudo: buckets,
+      validacion: {
+        sumasCorrectas: keys.every(key => buckets[key].totalLeads === buckets[key].porEtapa.reduce((n, e) => n + e.total, 0))
+      }
+    };
+  })();
+
+  // ==========================================================
+  // KPI DE CALIFICACIÓN - LANZAMIENTO INTERNO GRATUITO (LIG)
+  // ==========================================================
+  //
+  // "No calificados" = suma de Opportunities únicas ubicadas en:
+  // - No existe número
+  // - No existe
+  // - No interesado/No desea
+  // - No interesado
+  //
+  // Se usa etapasPorEmbudo para mantener exactamente la misma
+  // cohorte, deduplicación por Opportunity ID y filtro de fecha
+  // que el conteo oficial de etapas.
+  // ==========================================================
+
+  const ligNoCalificados = (() => {
+
+    const ligBucket =
+      etapasPorEmbudo &&
+      etapasPorEmbudo.porEmbudo
+        ? etapasPorEmbudo.porEmbudo.lig
+        : null;
+
+    const totalLeads =
+      ligBucket
+        ? Number(ligBucket.totalLeads || 0)
+        : 0;
+
+    const stages =
+      API_GET_UNQUALIFIED_STAGES_("lig");
+
+    const detalle =
+      stages.map(stageName => {
+
+        const found =
+          ligBucket &&
+          Array.isArray(ligBucket.porEtapa)
+            ? ligBucket.porEtapa.find(
+                item =>
+                  API_NORMALIZE_STAGE(item.fase) ===
+                  API_NORMALIZE_STAGE(stageName)
+              )
+            : null;
+
+        return {
+          fase: stageName,
+          total: found ? Number(found.total || 0) : 0
+        };
+
+      });
+
+    const noCalificados =
+      detalle.reduce(
+        (sum, item) =>
+          sum + Number(item.total || 0),
+        0
+      );
+
+    return {
+      aplicaSoloA: "lig",
+      criterioFecha: "Creado el",
+      campoOrigen: "OPPORTUNITIES_MASTER.Fase",
+      etapasNoCalificadas: stages,
+      totalLeads: totalLeads,
+      noCalificados: noCalificados,
+      noCalificadosPct:
+        totalLeads > 0
+          ? Number(
+              (
+                noCalificados *
+                100 /
+                totalLeads
+              ).toFixed(2)
+            )
+          : 0,
+      detalleNoCalificados: detalle
+    };
+
+  })();
+
+
   const businessMetrics = {
-    metadata: API_BUSINESS_METADATA_(),
     conversionPorCloser: conversionPorCloser,
     agendamientoPorSetter: agendamientoPorSetter,
     conversionPorEmbudo: conversionPorEmbudo,
@@ -4030,7 +4530,10 @@ function API_BUILD_VSL_REPORT(filtros) {
     sesionesEntregadasPorCloser: sesionesEntregadasPorCloser,
     cashPorEmbudo: cashPorEmbudo,
     cashPorProducto: cashPorProducto,
-    cashPorEmbudoProducto: cashPorEmbudoProducto
+    cashPorEmbudoProducto: cashPorEmbudoProducto,
+    vslSeteo: vslSeteo,
+    etapasPorEmbudo: etapasPorEmbudo,
+    ligNoCalificados: ligNoCalificados
   };
 
   // ==========================================================
@@ -4199,11 +4702,7 @@ function API_BUILD_VSL_REPORT(filtros) {
   // RESPONSE
   // ==========================================================
 
-  const etapasPorEmbudo = API_OPPORTUNITY_STAGES_(leadRegistros);
   return {
-
-    etapasPorEmbudo: etapasPorEmbudo,
-    vslNoAplica: API_VSL_NO_APLICA_(etapasPorEmbudo),
 
     report:
       "VSL | Closers + OEI + LIG",
@@ -4225,9 +4724,12 @@ function API_BUILD_VSL_REPORT(filtros) {
       leads: "Creado el",
       appointments: "_Appointment Created At",
       appointmentsFallback: "Fecha cita → Fecha de reunión",
-      sales: "OEI: siempre Fecha de cuota 1. VSL/LIG: Fecha de cuota 1 desde 2026-10-01; antes Fecha de reunión. Sin rango: todas las ventas confirmadas",
-      salesFallback: "OEI: sin respaldo de Fecha de reunión",
-      paymentDate: "OEI: Fecha de cuota 1. VSL/LIG desde 2026-10-01: Fecha de cuota 1; histórico: Fecha de primer pago"
+      setterPerformance: "_Appointment Created At",
+      closerPerformance: "Fecha cita → Fecha de reunión",
+      setterCloserStatuses: "Asistió + No asistió",
+      sales: "VSL/OEI/LIG: Fecha de primer pago. Sin rango: todas las ventas en fase de venta",
+      salesFallback: "Sin fallback: si Fecha de primer pago está vacía, la venta no se atribuye a un período",
+      paymentDate: "Fecha de primer pago"
     },
 
 
@@ -4307,6 +4809,10 @@ function API_BUILD_VSL_REPORT(filtros) {
     },
 
 
+    // Cohorte VSL pagada y conversión automática basadas en VSL Origen.
+    vslOriginSummary:
+      vslOriginSummary,
+
     pipelineSummary:
       pipelineSummary,
 
@@ -4338,9 +4844,16 @@ function API_BUILD_VSL_REPORT(filtros) {
     leadsSinCitaPorEmbudo: leadsSinCitaPorEmbudo,
 
     performance: performance,
+
+    // Clasificacion comercial de seteo. Solo VSL.
+    vslSeteo: vslSeteo,
+    etapasPorEmbudo: etapasPorEmbudo,
+
+    // KPI agrupado de No calificados para Lanzamiento Interno Gratuito.
+    ligNoCalificados: ligNoCalificados,
+
+    // Se expone tambien el bloque de indicadores de negocio calculado arriba.
     businessMetrics: businessMetrics,
-    rawRecords: leadRegistros,
-    vslSummary: API_VSL_SUMMARY_(leadRegistros, calendarRegistros, salesRows),
 
 
     unknownStatusCount:
@@ -4427,50 +4940,6 @@ function API_BUILD_VSL_REPORT(filtros) {
 // Se deduplica por Appointment ID.
 // ============================================================
 
-// Opportunity cohort already filtered by the report; one aggregation for all phases.
-function API_OPPORTUNITY_PHASE_KEY_(fase) {
-  return String(fase || "").trim().replace(/\s+/g, " ")
-    .replace(/\s*([()/])\s*/g, "$1").toLowerCase();
-}
-
-function API_OPPORTUNITY_STAGES_(leadRegistros) {
-  const porEmbudo = {};
-  const seen = new Set();
-  (leadRegistros || []).forEach(function(r) {
-    const id = String(r.opportunityId || "");
-    if (!id || seen.has(id)) return;
-    seen.add(id);
-    const pipeline = String(r.pipeline || "");
-    if (!porEmbudo[pipeline]) porEmbudo[pipeline] = { totalLeads: 0, phases: new Map() };
-    const group = porEmbudo[pipeline];
-    const key = API_OPPORTUNITY_PHASE_KEY_(r.fase);
-    const fase = key === API_OPPORTUNITY_PHASE_KEY_("No Aplica(No califica/No desea)")
-      ? "No Aplica(No califica/No desea)" : String(r.fase || "").trim();
-    if (!group.phases.has(key)) group.phases.set(key, { fase: fase, total: 0 });
-    group.phases.get(key).total++;
-    group.totalLeads++;
-  });
-  Object.keys(porEmbudo).forEach(function(pipeline) {
-    const group = porEmbudo[pipeline];
-    group.porEtapa = Array.from(group.phases.values()).map(function(row) {
-      return { fase: row.fase, total: row.total,
-        porcentaje: Number((row.total * 100 / group.totalLeads).toFixed(2)) };
-    });
-    delete group.phases;
-  });
-  return { porEmbudo: porEmbudo };
-}
-
-function API_VSL_NO_APLICA_(etapasPorEmbudo) {
-  const fase = "No Aplica(No califica/No desea)";
-  const vsl = etapasPorEmbudo.porEmbudo.vsl;
-  const rows = vsl ? vsl.porEtapa : [];
-  const row = rows.find(function(r) {
-    return API_OPPORTUNITY_PHASE_KEY_(r.fase) === API_OPPORTUNITY_PHASE_KEY_(fase);
-  });
-  return { fase: fase, total: row ? row.total : 0, porcentaje: row ? row.porcentaje : 0 };
-}
-
 function API_BUILD_APPOINTMENT_DETAIL(filtros) {
   filtros = filtros || {};
 
@@ -4496,7 +4965,6 @@ function API_BUILD_APPOINTMENT_DETAIL(filtros) {
     asignado: API_MASTER_INDEX_ANY_(oh, ["Asignado"], false),
     setter: API_MASTER_INDEX_ANY_(oh, ["Setter asignado"], true),
     vslOrigen: API_MASTER_INDEX_ANY_(oh, ["VSL Origen"], false),
-    producto: API_MASTER_INDEX_ANY_(oh, ["Producto/Evento"], false),
     fechaReunion: API_MASTER_INDEX_ANY_(oh, ["Fecha de reunión", "Fecha de reunion"], false)
   };
 
@@ -4537,7 +5005,6 @@ function API_BUILD_APPOINTMENT_DETAIL(filtros) {
       setterOpportunity: API_CELL_STRING(API_MASTER_VALUE_(row, oi.setter)),
       closerOpportunity: API_CELL_STRING(API_MASTER_VALUE_(row, oi.asignado)),
       vslOrigen: API_CELL_STRING(API_MASTER_VALUE_(row, oi.vslOrigen)),
-      producto: API_CELL_STRING(API_MASTER_VALUE_(row, oi.producto)),
       fechaReunionOpportunity: API_NORMALIZE_DATE(API_MASTER_VALUE_(row, oi.fechaReunion))
     });
   });
@@ -4676,14 +5143,14 @@ function API_BUILD_APPOINTMENT_DETAIL(filtros) {
 
     if (
       leadTypeFilter !== "all" &&
-      (opp.pipeline === "vsl" && appointmentLeadType !== leadTypeFilter)
+      (opp.pipeline !== "vsl" || appointmentLeadType !== leadTypeFilter)
     ) {
       return;
     }
 
     const vslCategoria = API_GET_VSL_CATEGORY(opp.vslOrigen, opp.fuente);
 
-    if (opp.pipeline === "vsl" && vslTipoFilter !== "all" && vslCategoria !== vslTipoFilter) return;
+    if (vslTipoFilter !== "all" && vslCategoria !== vslTipoFilter) return;
 
     // VSL Origen se filtra SOLO contra el campo VSL Origen.
     if (
@@ -4750,14 +5217,6 @@ function API_BUILD_APPOINTMENT_DETAIL(filtros) {
         API_CELL_STRING(API_MASTER_VALUE_(row, ai.contactId)) ||
         opp.contactId,
 
-      contacto: opp.nombreContacto,
-      calendar: calendario,
-      setter: setterEfectivo,
-      booker: createdByUserName,
-      status: estado,
-      producto: opp.producto,
-      appointmentCreatedAt: fechaCreacionCita,
-      appointmentUpdatedAt: API_CELL_STRING(API_MASTER_VALUE_(row, ai.appointmentUpdatedAt)),
       nombreContacto: opp.nombreContacto,
       telefono: opp.telefono,
 
@@ -4958,9 +5417,6 @@ function API_EMPTY_VSL_REPORT(
 
 
   return {
-    businessMetrics: API_EMPTY_BUSINESS_METRICS_(),
-    rawRecords: [],
-    vslSummary: API_VSL_SUMMARY_([], [], []),
 
     report:
       "VSL | Closers + OEI + LIG",
@@ -5060,6 +5516,16 @@ function API_EMPTY_VSL_REPORT(
 
     },
 
+
+    vslOriginSummary: {
+      criterio: "OPPORTUNITIES_MASTER.VSL Origen",
+      valoresPagados: ["Agendado automatico", "No agendado"],
+      totalLeads: 0,
+      leadsAgendadosAutomatico: 0,
+      leadsPendientesAgenda: 0,
+      agendadosAutomaticoPct: 0,
+      pendientesAgendaPct: 0
+    },
 
     pipelineSummary: {
 
@@ -5306,6 +5772,116 @@ function API_EMPTY_VSL_REPORT(
     },
 
 
+    etapasPorEmbudo: {
+      criterioFecha: "Creado el",
+      campoOrigen: "OPPORTUNITIES_MASTER.Fase",
+      totalLeads: 0,
+      porEmbudo: {
+        vsl: { pipeline: "vsl", label: "VSL | Closers", totalLeads: 0, porEtapa: [] },
+        oei: { pipeline: "oei", label: "OEI", totalLeads: 0, porEtapa: [] },
+        lig: { pipeline: "lig", label: "LIG", totalLeads: 0, porEtapa: [] }
+      },
+      validacion: { sumasCorrectas: true }
+    },
+
+    vslSeteo: {
+      aplicaSoloA: "vsl",
+      criterioFecha: "Creado el",
+      etapasFaltanSetear: [
+        "Lead Pendiente de Agenda",
+        "Lead Agendado (Automatico)"
+      ],
+      totalLeadsVsl: 0,
+      faltanSetear: 0,
+      seteados: 0,
+      asistidos: 0,
+      asistenciaSobreSeteadosPct: 0,
+      faltanSetearPct: 0,
+      seteadosPct: 0,
+      porEtapa: [],
+      faltanSetearRows: [],
+      seteadosRows: []
+    },
+
+    ligNoCalificados: {
+      aplicaSoloA: "lig",
+      criterioFecha: "Creado el",
+      campoOrigen: "OPPORTUNITIES_MASTER.Fase",
+      etapasNoCalificadas: [
+        "No existe número",
+        "No existe",
+        "No interesado/No desea",
+        "No interesado"
+      ],
+      totalLeads: 0,
+      noCalificados: 0,
+      noCalificadosPct: 0,
+      detalleNoCalificados: [
+        { fase: "No existe número", total: 0 },
+        { fase: "No existe", total: 0 },
+        { fase: "No interesado/No desea", total: 0 },
+        { fase: "No interesado", total: 0 }
+      ]
+    },
+
+    businessMetrics: {
+      etapasPorEmbudo: {
+        criterioFecha: "Creado el",
+        campoOrigen: "OPPORTUNITIES_MASTER.Fase",
+        totalLeads: 0,
+        porEmbudo: {
+          vsl: { pipeline: "vsl", label: "VSL | Closers", totalLeads: 0, porEtapa: [] },
+          oei: { pipeline: "oei", label: "OEI", totalLeads: 0, porEtapa: [] },
+          lig: { pipeline: "lig", label: "LIG", totalLeads: 0, porEtapa: [] }
+        },
+        validacion: { sumasCorrectas: true }
+      },
+      conversionPorCloser: [],
+      agendamientoPorSetter: [],
+      conversionPorEmbudo: [],
+      leadsNoAgendadosVslPorMes: [],
+      sesionesEntregadasPorCloser: [],
+      cashPorEmbudo: [],
+      cashPorProducto: [],
+      cashPorEmbudoProducto: [],
+      ligNoCalificados: {
+        aplicaSoloA: "lig",
+        criterioFecha: "Creado el",
+        campoOrigen: "OPPORTUNITIES_MASTER.Fase",
+        etapasNoCalificadas: [
+        "No existe número",
+        "No existe",
+        "No interesado/No desea",
+        "No interesado"
+      ],
+        totalLeads: 0,
+        noCalificados: 0,
+        noCalificadosPct: 0,
+        detalleNoCalificados: [
+        { fase: "No existe número", total: 0 },
+        { fase: "No existe", total: 0 },
+        { fase: "No interesado/No desea", total: 0 },
+        { fase: "No interesado", total: 0 }
+      ]
+      },
+      vslSeteo: {
+        aplicaSoloA: "vsl",
+        criterioFecha: "Creado el",
+        etapasFaltanSetear: [
+          "Lead Pendiente de Agenda",
+          "Lead Agendado (Automatico)"
+        ],
+        totalLeadsVsl: 0,
+        faltanSetear: 0,
+        seteados: 0,
+        faltanSetearPct: 0,
+        seteadosPct: 0,
+        porEtapa: [],
+        faltanSetearRows: [],
+        seteadosRows: []
+      }
+    },
+
     unknownStatusCount:
       0,
 
@@ -5388,15 +5964,28 @@ function API_VALIDATE_SECRET(
 // OBTENER QUERY PARAM
 // ============================================================
 
-function API_GET_PARAM(e, name) {
-  if (!e) return "";
-  if (e.parameter && e.parameter[name] !== undefined) return String(e.parameter[name]).trim();
-  if (e.postData && /application\/json/i.test(e.postData.type || "")) {
-    const body = JSON.parse(e.postData.contents || "{}");
-    return body[name] == null ? "" : String(body[name]).trim();
+function API_GET_PARAM(
+  e,
+  name
+) {
+
+  if (
+    !e ||
+    !e.parameter
+  ) {
+
+    return "";
+
   }
-  return "";
+
+
+  return String(
+    e.parameter[name] ||
+    ""
+  ).trim();
+
 }
+
 
 // ============================================================
 // ÍNDICE DE HEADER OBLIGATORIO
@@ -5750,47 +6339,4 @@ function API_JSON_RESPONSE(
       ContentService.MimeType.JSON
     );
 
-}
-function API_PRODUCT_KEY_(value) {
-  const key = API_NORMALIZE_PRODUCT(value);
-  if (["CM", "CIRCULO MILLONARIO", "CIRCULO MILLONARIO (CM)"].includes(key)) return "CM";
-  if (["EM", "EQUIPO MILLONARIO", "EQUIPO MILLONARIO (EM)"].includes(key)) return "EM";
-  return String(value || "").trim() || "Sin producto";
-}
-function API_NORMALIZE_CLOSER_NAME_(value) {
-  const raw = String(value || "").trim();
-  const official = {
-    "FIORELA BERNALES": "Fiorela Bernales",
-    "EZEQUIEL DARIO": "Ezequiel Dario",
-    "AMARANTA ALFONSO KRASNOVA": "Amaranta Alfonso Krasnova"
-  };
-  return official[API_NORMALIZE_PERSON_KEY_(raw)] || raw;
-}
-function API_BUSINESS_METADATA_() {
-  return {
-    cash: {
-      basis: "master_field_snapshot", historicalTotal: false,
-      fields: ["Monto de cuota 1", "Monto del último pago"],
-      rule: "OEI: Monto de cuota 1. VSL/LIG con Fecha de cuota 1 >= 2026-10-01: Monto de cuota 1; histórico: Monto del último pago.",
-      currencyRule: "No se mezclan monedas; SIN MONEDA permanece separado.",
-      verification: "Semántica conservada del API adjunto; no se proporcionó historial transaccional ni mapper financiero."
-    },
-    booking: "Leads por Opportunity ID y Setter asignado; existencia de cualquier Appointment histórico asociado, sin limitar su fecha.",
-    conversion: "Ventas por fecha comercial y leads por Creado el: cohortes distintas, puede superar 100%; null sin denominador."
-  };
-}
-function API_EMPTY_BUSINESS_METRICS_() {
-  return { metadata: API_BUSINESS_METADATA_(), conversionPorCloser: [], agendamientoPorSetter: [],
-    conversionPorEmbudo: ["vsl", "oei", "lig"].map(pipeline => ({pipeline, label: API_GET_PIPELINE_LABEL(pipeline), leads: 0, ventas: 0, conversionPct: null})),
-    leadsNoAgendadosVslPorMes: [], sesionesEntregadasPorCloser: [], cashPorEmbudo: [], cashPorProducto: [], cashPorEmbudoProducto: [] };
-}
-function API_VSL_SUMMARY_(leads, appointments, sales) {
-  const result = {};
-  ["all", "paid", "organic"].forEach(type => {
-    const matches = r => r.pipeline === "vsl" && (type === "all" || r.leadType === type);
-    const citas = appointments.filter(matches);
-    result[type] = { totalLeads: leads.filter(matches).length, totalCitas: citas.length,
-      asistencias: citas.filter(r => r.estadoAgenda === "Asistió").length, ventas: sales.filter(matches).length };
-  });
-  return result;
 }

@@ -38,6 +38,7 @@ export function SetterStatusTable({
   busy = false,
   selectedSetter = "",
   error,
+  calendarTotals,
 }: {
   rows: SetterRow[];
   totals: ReportKpis;
@@ -52,6 +53,7 @@ export function SetterStatusTable({
   busy?: boolean;
   selectedSetter?: string;
   error?: string | undefined;
+  calendarTotals?: ReportKpis | undefined;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("total");
   const [asc, setAsc] = useState(false);
@@ -62,6 +64,7 @@ export function SetterStatusTable({
   );
   const totals = useMemo(
     () =>
+      calendarTotals ??
       visiblePerformanceRows.reduce(
         (acc, row) => ({
           confirmado: acc.confirmado + n(row.confirmado),
@@ -72,7 +75,7 @@ export function SetterStatusTable({
         }),
         { confirmado: 0, asistio: 0, cancelado: 0, noShow: 0, total: 0 },
       ),
-    [visiblePerformanceRows],
+    [visiblePerformanceRows, calendarTotals],
   );
 
   const sorted = useMemo(() => {

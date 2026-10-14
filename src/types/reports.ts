@@ -135,6 +135,7 @@ export interface LigNoCalificados {
 }
 
 export interface VslClosersReport {
+  calendarStatusesAvailable?: boolean;
   vslSeteo?: VslSeteo;
   vslNoAplica?: { fase: string; total: number; porcentaje?: number | undefined };
   etapasPorEmbudo?: { porEmbudo?: { vsl?: { totalLeads?: unknown; porEtapa?: unknown } } };
@@ -211,6 +212,8 @@ export interface ReportPerformance {
   diagnostics: {
     citasLigIncluidasSoloEnActividad?: number | undefined;
     citasUnicasActividad?: number | undefined;
+    citasUnicasActividadSetter?: number | undefined;
+    citasUnicasActividadCloser?: number | undefined;
     ventasSinCitaAsistida?: number | undefined;
     ventasAtribucionAmbigua?: number | undefined;
     ventasUnicas?: number | undefined;

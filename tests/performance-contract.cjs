@@ -1035,9 +1035,62 @@ test("unbooked details cannot mix VSL, OEI or LIG and partial details preserve A
 });
 
 const { calendarPresentation } = require("../src/lib/calendar-presentation.ts");
+test("Calendar 39 and setter performance 22 remain separate with no detail", () => {
+  const r = mapVslReportResponse(
+    {
+      ok: true,
+      data: {
+        kpis: {
+          confirmado: 11,
+          asistio: 15,
+          cancelado: 6,
+          noShow: 7,
+          total: 39,
+          conEstadoAgenda: 39,
+        },
+        detail: [],
+        performance: {
+          ...fixture(),
+          asistenciaPorSetter: [
+            { setter: "Alvaro", agendamientos: 12, citasAsistidas: 6, asistenciaPct: 50 },
+            { setter: "Claudia", agendamientos: 10, citasAsistidas: 9, asistenciaPct: 90 },
+          ],
+          diagnostics: {
+            citasUnicasActividad: 39,
+            citasUnicasActividadSetter: 22,
+            citasUnicasActividadCloser: 4,
+          },
+        },
+      },
+    },
+    { ...query, pipeline: "lig", includeDetail: false },
+  );
+  const view = calendarPresentation(r);
+  assert.equal(view.error, undefined);
+  assert.equal(view.kpis.confirmado, 11);
+  assert.equal(view.kpis.asistio, 15);
+  assert.equal(view.kpis.cancelado, 6);
+  assert.equal(view.kpis.noShow, 7);
+  assert.equal(view.kpis.total, 39);
+  assert.deepEqual(
+    r.performance.asistenciaPorSetter.map((x) => [
+      x.agendamientos,
+      x.citasAsistidas,
+      x.asistenciaPct,
+    ]),
+    [
+      [12, 6, 50],
+      [10, 9, 90],
+    ],
+  );
+  assert.equal(r.detail.length, 0);
+  const missing = mapVslReportResponse({ ok: true, data: { kpis: { total: 39 } } }, query);
+  assert.match(calendarPresentation(missing).error, /no permite verificar/);
+});
 const { getVisibleSetterRows, getSetterChartRows } = require("../src/lib/setter-performance.ts");
 const calendarFixture = () => ({
   ...integrated(),
+  calendarStatusesAvailable: true,
   filters: { ...EMPTY_REPORT_FILTERS, pipeline: "all" },
   kpis: {
     total: 147,
@@ -1135,14 +1188,14 @@ test("clearing and switching setter restore six rows and never reuse prior perso
 test("missing LIG or unresolved effective setter states never become invented distributions", () => {
   const r = calendarFixture();
   r.performance.diagnostics.citasUnicasActividad = 237;
-  assert.match(calendarPresentation(r).error, /237.*147/);
+  assert.equal(calendarPresentation(r).error, undefined);
   r.performance.asistenciaPorSetter.push({
     setter: "Alvaro Jesus Paniura Marin",
     agendamientos: 48,
     citasAsistidas: 8,
     asistenciaPct: 16.67,
   });
-  assert.match(calendarPresentation(r, "Alvaro Jesus Paniura Marin").error, /48.*0/);
+  assert.match(calendarPresentation(r, "Alvaro Jesus Paniura Marin").error, /desglose de Calendar/);
   assert.equal(r.setters.length, 2);
 });
 test("selected Alvaro uses existing effective attribution without borrowing another person's counts", () => {
