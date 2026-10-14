@@ -301,7 +301,8 @@ export function VslClosersDashboard() {
   const peopleRows = calendar?.rows ?? [];
   useEffect(() => {
     const cardTotal = cardMetrics.totalAppointments;
-    const tableTotal = data?.kpis.total;
+    const tableTotal =
+      data?.filters.pipeline === "vsl" ? data.leadTypeKpis.totalAppointments : data?.kpis.total;
     if (
       import.meta.env.DEV &&
       data &&

@@ -41,7 +41,9 @@ export function calendarPresentation(report: VslClosersReport, selectedSetter = 
     ? performance?.asistenciaPorSetter
         .filter((row) => getCanonicalSetterName(row.setter) === selected)
         .reduce((sum, row) => sum + row.agendamientos, 0)
-    : performance?.diagnostics.citasUnicasActividad;
+    : report.filters.pipeline === "vsl"
+      ? report.kpis.total
+      : performance?.diagnostics.citasUnicasActividad;
   const total = selected ? kpis.total : report.setters.reduce((sum, row) => sum + row.total, 0);
   if (report.performanceError || expected == null)
     error = "La API no permite verificar el alcance de los estados de Calendar.";

@@ -72,57 +72,76 @@ const html = (report) => renderToStaticMarkup(createElement(ExecutivePerformance
 test("closer full join matches normalized names rather than positions, preserves old ratios and both unilateral sources", () => {
   const { joinCloserPerformance } = require("../src/lib/closer-performance.ts");
   const { ratio } = require("../src/lib/executive-metrics.ts");
-  const attendance = [{closer:"Fiorela Bernales",agendamientos:117,citasAsistidas:44},
-    {closer:"Ezequiel Dario",agendamientos:168,citasAsistidas:82},
-    {closer:"Only attendance",agendamientos:10,citasAsistidas:5}];
-  const conversion = [{closer:"  EZEQUIEL  DARÍO  ",ventas:4,citasAsistidas:82},
-    {closer:"Fiorela Bernales",ventas:6,citasAsistidas:44},
-    {closer:"Only conversion",ventas:1,citasAsistidas:2}];
-  const before = JSON.stringify({attendance,conversion});
-  const result = joinCloserPerformance(attendance,conversion);
-  assert.equal(result.length,4);
-  for (const original of attendance.slice(0,2)) {
-    const row = result.find(r=>r.closer===original.closer);
-    assert.equal(row.agendamientos,original.agendamientos);
-    assert.equal(row.citasAsistidas,original.citasAsistidas);
-    assert.equal(row.asistenciaPct,ratio(original.citasAsistidas,original.agendamientos));
+  const attendance = [
+    { closer: "Fiorela Bernales", agendamientos: 117, citasAsistidas: 44 },
+    { closer: "Ezequiel Dario", agendamientos: 168, citasAsistidas: 82 },
+    { closer: "Only attendance", agendamientos: 10, citasAsistidas: 5 },
+  ];
+  const conversion = [
+    { closer: "  EZEQUIEL  DARÍO  ", ventas: 4, citasAsistidas: 82 },
+    { closer: "Fiorela Bernales", ventas: 6, citasAsistidas: 44 },
+    { closer: "Only conversion", ventas: 1, citasAsistidas: 2 },
+  ];
+  const before = JSON.stringify({ attendance, conversion });
+  const result = joinCloserPerformance(attendance, conversion);
+  assert.equal(result.length, 4);
+  for (const original of attendance.slice(0, 2)) {
+    const row = result.find((r) => r.closer === original.closer);
+    assert.equal(row.agendamientos, original.agendamientos);
+    assert.equal(row.citasAsistidas, original.citasAsistidas);
+    assert.equal(row.asistenciaPct, ratio(original.citasAsistidas, original.agendamientos));
     const source = original.closer.startsWith("Fiorela") ? conversion[1] : conversion[0];
-    assert.equal(row.ventas,source.ventas);
-    assert.equal(row.conversionPct,ratio(source.ventas,source.citasAsistidas));
+    assert.equal(row.ventas, source.ventas);
+    assert.equal(row.conversionPct, ratio(source.ventas, source.citasAsistidas));
   }
-  const attendanceOnly = result.find(r=>r.closer==="Only attendance");
-  assert.equal(attendanceOnly.ventas,0);
-  assert.equal(attendanceOnly.conversionPct,0);
-  const conversionOnly = result.find(r=>r.closer==="Only conversion");
-  assert.equal(conversionOnly.agendamientos,null);
-  assert.equal(conversionOnly.asistenciaPct,null);
-  assert.equal(conversionOnly.citasAsistidas,2);
-  assert.equal(conversionOnly.ventas,1);
-  assert.equal(conversionOnly.conversionPct,50);
+  const attendanceOnly = result.find((r) => r.closer === "Only attendance");
+  assert.equal(attendanceOnly.ventas, 0);
+  assert.equal(attendanceOnly.conversionPct, 0);
+  const conversionOnly = result.find((r) => r.closer === "Only conversion");
+  assert.equal(conversionOnly.agendamientos, null);
+  assert.equal(conversionOnly.asistenciaPct, null);
+  assert.equal(conversionOnly.citasAsistidas, 2);
+  assert.equal(conversionOnly.ventas, 1);
+  assert.equal(conversionOnly.conversionPct, 50);
   // Different source denominators must not change the existing conversion percentage.
-  const inconsistent = joinCloserPerformance([attendance[0]],[{...conversion[1],citasAsistidas:20}])[0];
-  assert.equal(inconsistent.citasAsistidas,44);
-  assert.equal(inconsistent.conversionPct,30);
-  assert.equal(JSON.stringify({attendance,conversion}),before);
+  const inconsistent = joinCloserPerformance(
+    [attendance[0]],
+    [{ ...conversion[1], citasAsistidas: 20 }],
+  )[0];
+  assert.equal(inconsistent.citasAsistidas, 44);
+  assert.equal(inconsistent.conversionPct, 30);
+  assert.equal(JSON.stringify({ attendance, conversion }), before);
 });
 
-test("one closer performance table renders all six sortable columns and attribution diagnostics across funnels",()=>{
-  for(const pipeline of ["vsl","oei","lig","all"]) {
+test("one closer performance table renders all six sortable columns and attribution diagnostics across funnels", () => {
+  for (const pipeline of ["vsl", "oei", "lig", "all"]) {
     const r = mapped();
     r.filters.pipeline = pipeline;
-    const scope = pipeline==="all" ? "vsl+oei+lig" : pipeline;
+    const scope = pipeline === "all" ? "vsl+oei+lig" : pipeline;
     r.performance.alcanceAsistencia = scope;
     r.performance.alcanceConversionCloser = scope;
     const output = html(r);
-    assert.match(output,/Conversion de Asistencia y Venta por Closer/);
-    assert.doesNotMatch(output,/Conversión de ventas por closer|Agendamientos y asistencia por closer/);
-    const section = output.match(/aria-labelledby="closer-performance-heading"([\s\S]*?)<\/section>/)[1];
-    const labels=[...section.matchAll(/<button[^>]*>([^<]+)<svg/g)].map(m=>m[1]);
-    assert.deepEqual(labels,["Closer","Citas asignadas","Citas asistidas","% Asistencia","Ventas verificadas","% Conversión"]);
-    assert.equal((section.match(/<table /g)||[]).length,1);
-    assert.match(section,/overflow-x-auto/);
-    assert.match(section,/<details[\s\S]*Diagnóstico de atribución y alcance/);
-    assert.match(section,/ventas sin atribución verificable, conservadas en el total/);
+    assert.match(output, /Conversion de Asistencia y Venta por Closer/);
+    assert.doesNotMatch(
+      output,
+      /Conversión de ventas por closer|Agendamientos y asistencia por closer/,
+    );
+    const section = output.match(
+      /aria-labelledby="closer-performance-heading"([\s\S]*?)<\/section>/,
+    )[1];
+    const labels = [...section.matchAll(/<button[^>]*>([^<]+)<svg/g)].map((m) => m[1]);
+    assert.deepEqual(labels, [
+      "Closer",
+      "Citas asignadas",
+      "Citas asistidas",
+      "% Asistencia",
+      "Ventas verificadas",
+      "% Conversión",
+    ]);
+    assert.equal((section.match(/<table /g) || []).length, 1);
+    assert.match(section, /overflow-x-auto/);
+    assert.match(section, /<details[\s\S]*Diagnóstico de atribución y alcance/);
+    assert.match(section, /ventas sin atribución verificable, conservadas en el total/);
   }
 });
 
@@ -219,6 +238,69 @@ test("sales invariant and activity totals reject mismatched aggregates", () => {
   const next = fixture();
   next.diagnostics.citasUnicasActividad = 99;
   assert.ok(mapPerformance(next).performanceError);
+});
+test("VSL reconciles setter appointments against kpis.total while preserving Calendar totals", () => {
+  const setters = [
+    {
+      setter: "Jose Luis Botto Garcia",
+      total: 40,
+      confirmado: 7,
+      asistio: 13,
+      cancelado: 24,
+      noShow: 3,
+    },
+    {
+      setter: "Claudia Jimena Ocampo Portilla",
+      total: 10,
+      confirmado: 1,
+      asistio: 3,
+      cancelado: 5,
+      noShow: 2,
+    },
+    { setter: "Evelyn Lopez Horna", total: 3, confirmado: 0, asistio: 1, cancelado: 2, noShow: 0 },
+  ];
+  const performance = {
+    conversionPorCloser: [],
+    asistenciaPorSetter: setters.map((row) => ({
+      setter: row.setter,
+      agendamientos: row.total,
+      citasAsistidas: row.asistio,
+      asistenciaPct: (row.asistio / row.total) * 100,
+    })),
+    asistenciaPorCloserTodosEmbudos: [],
+    alcanceAsistencia: "vsl",
+    alcanceConversionCloser: "vsl",
+    diagnostics: { citasUnicasActividad: 61 },
+  };
+  const report = mapVslReportResponse(
+    {
+      ok: true,
+      data: {
+        kpis: { total: 53, confirmado: 8, asistio: 17, cancelado: 31, noShow: 5 },
+        leadTypeKpis: { totalLeads: 100, totalAppointments: 61, attended: 17 },
+        setters,
+        sales: { total: 0, rows: [] },
+        performance,
+      },
+    },
+    { ...query, pipeline: "vsl" },
+  );
+
+  assert.equal(report.performanceError, undefined);
+  assert.equal(
+    report.setters.reduce((sum, row) => sum + row.total, 0),
+    53,
+  );
+  assert.equal(report.kpis.total, 53);
+  assert.equal(report.leadTypeKpis.totalAppointments, 61);
+  assert.equal(
+    report.kpis.confirmado + report.kpis.asistio + report.kpis.cancelado + report.kpis.noShow,
+    61,
+  );
+  assert.equal(calendarPresentation(report).error, undefined);
+  const output = html(report);
+  assert.doesNotMatch(output, /Los indicadores de desempeño no concilian/);
+  assert.equal((output.match(/<table /g) || []).length, 2);
 });
 test("zero denominators and unknown metrics do not produce misleading rates", () => {
   const p = fixture();
@@ -495,35 +577,47 @@ const summary = (report, filters) =>
 test("VSL landing presentation uses three cards with existing percentages and preserves lead details", () => {
   const r = integrated();
   const existing = r.leadsSinCitaPorEmbudo.vsl;
-  const data = {...existing,totalLeads:134,leadsConCita:62,leadsSinCita:72,porcentajeConCita:46.27,porcentajeSinCita:53.73};
+  const data = {
+    ...existing,
+    totalLeads: 134,
+    leadsConCita: 62,
+    leadsSinCita: 72,
+    porcentajeConCita: 46.27,
+    porcentajeSinCita: 53.73,
+  };
   r.leadsSinCitaPorEmbudo.vsl = data;
   const before = JSON.stringify(r);
-  const output = renderToStaticMarkup(createElement(LeadsWithoutAppointmentSection,{report:r}));
-  assert.match(output,/Conversión de Landing VSL Ads \(Automático\)/);
-  assert.equal((output.match(/text-3xl/g)||[]).length,3);
-  assert.match(output,/Total de leads[\s\S]*?>134</);
-  assert.match(output,/Leads agendados \(Automático\)[\s\S]*?>62<.*?46.27 % de los leads/);
-  assert.match(output,/Leads pendientes de agenda[\s\S]*?>72<.*?53.73 % de los leads/);
+  const output = renderToStaticMarkup(createElement(LeadsWithoutAppointmentSection, { report: r }));
+  assert.match(output, /Conversión de Landing VSL Ads \(Automático\)/);
+  assert.equal((output.match(/text-3xl/g) || []).length, 3);
+  assert.match(output, /Total de leads[\s\S]*?>134</);
+  assert.match(output, /Leads agendados \(Automático\)[\s\S]*?>62<.*?46.27 % de los leads/);
+  assert.match(output, /Leads pendientes de agenda[\s\S]*?>72<.*?53.73 % de los leads/);
   assert.ok(output.indexOf("Total de leads") < output.indexOf("Leads agendados (Automático)"));
-  assert.ok(output.indexOf("Leads agendados (Automático)") < output.indexOf("Leads pendientes de agenda"));
-  assert.doesNotMatch(output,/% Sin agendamiento|% Con agendamiento|Total de leads únicos/);
-  assert.match(output,/Detalle de leads pendientes de agenda \(1 de 72\)/);
-  assert.match(output,/unbooked-1/);
-  assert.match(output,/Oportunidades únicas creadas en el período seleccionado, vinculadas con sus citas históricas de cualquier fecha/);
-  assert.equal(data.totalLeads,data.leadsConCita+data.leadsSinCita);
-  assert.equal(Math.round((data.porcentajeConCita+data.porcentajeSinCita)*100),10000);
-  assert.equal(JSON.stringify(r),before);
+  assert.ok(
+    output.indexOf("Leads agendados (Automático)") < output.indexOf("Leads pendientes de agenda"),
+  );
+  assert.doesNotMatch(output, /% Sin agendamiento|% Con agendamiento|Total de leads únicos/);
+  assert.match(output, /Detalle de leads pendientes de agenda \(1 de 72\)/);
+  assert.match(output, /unbooked-1/);
+  assert.match(
+    output,
+    /Oportunidades únicas creadas en el período seleccionado, vinculadas con sus citas históricas de cualquier fecha/,
+  );
+  assert.equal(data.totalLeads, data.leadsConCita + data.leadsSinCita);
+  assert.equal(Math.round((data.porcentajeConCita + data.porcentajeSinCita) * 100), 10000);
+  assert.equal(JSON.stringify(r), before);
   // Presentation must use the supplied percentage, even when it differs from count ratios.
   data.porcentajeConCita = 12.34;
   data.porcentajeSinCita = 87.66;
-  const fresh = renderToStaticMarkup(createElement(LeadsWithoutAppointmentSection,{report:r}));
-  assert.match(fresh,/12.34 % de los leads/);
-  assert.match(fresh,/87.66 % de los leads/);
+  const fresh = renderToStaticMarkup(createElement(LeadsWithoutAppointmentSection, { report: r }));
+  assert.match(fresh, /12.34 % de los leads/);
+  assert.match(fresh, /87.66 % de los leads/);
   r.filters.pipeline = "oei";
-  const oei = renderToStaticMarkup(createElement(LeadsWithoutAppointmentSection,{report:r}));
-  assert.match(oei,/Leads OEI sin cita creada/);
-  assert.equal((oei.match(/text-3xl/g)||[]).length,5);
-  assert.match(oei,/% Sin agendamiento|% Con agendamiento/);
+  const oei = renderToStaticMarkup(createElement(LeadsWithoutAppointmentSection, { report: r }));
+  assert.match(oei, /Leads OEI sin cita creada/);
+  assert.equal((oei.match(/text-3xl/g) || []).length, 5);
+  assert.match(oei, /% Sin agendamiento|% Con agendamiento/);
 });
 
 test("VSL executive order and labels preserve original values, hints and accent indicators", () => {
@@ -539,22 +633,31 @@ test("VSL executive order and labels preserve original values, hints and accent 
   const before = JSON.stringify(r);
   const baseline = executiveCards(r, false);
   const output = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" });
-  const labels = ["Total de leads", "Leads seteados", "Leads asistidos", "Total de ventas", "No calificados", "Leads pendientes de seteo"];
+  const labels = [
+    "Total de leads",
+    "Leads seteados",
+    "Leads asistidos",
+    "Total de ventas",
+    "No calificados",
+    "Leads pendientes de seteo",
+  ];
   for (let index = 1; index < labels.length; index++)
     assert.ok(output.indexOf(labels[index - 1]) < output.indexOf(labels[index]));
-  for (const card of baseline.filter(card => card.label !== "Total de agendamientos")) {
+  for (const card of baseline.filter((card) => card.label !== "Total de agendamientos")) {
     const expected = { ...card, label: card.label === "Asistió" ? "Leads asistidos" : card.label };
     assert.ok(output.includes(renderToStaticMarkup(createElement(KpiCard, expected))));
   }
-  for (const props of [{label:"Leads seteados",value:773,hint:"58.34% de los leads VSL"},
-    {label:"Leads pendientes de seteo",value:552,hint:"41.66% de los leads VSL"},
-    {label:"No calificados",value:139,hint:"10.49% de los leads VSL"}])
-    assert.ok(output.includes(renderToStaticMarkup(createElement(KpiCard,props))));
+  for (const props of [
+    { label: "Leads seteados", value: 773, hint: "58.34% de los leads VSL" },
+    { label: "Leads pendientes de seteo", value: 552, hint: "41.66% de los leads VSL" },
+    { label: "No calificados", value: 139, hint: "10.49% de los leads VSL" },
+  ])
+    assert.ok(output.includes(renderToStaticMarkup(createElement(KpiCard, props))));
   for (const pipeline of ["oei", "lig", "all"]) {
     const other = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline });
     for (const card of baseline)
-      assert.ok(other.includes(renderToStaticMarkup(createElement(KpiCard,card))));
-    assert.doesNotMatch(other,/Leads asistidos|No calificados/);
+      assert.ok(other.includes(renderToStaticMarkup(createElement(KpiCard, card))));
+    assert.doesNotMatch(other, /Leads asistidos|No calificados/);
   }
   assert.equal(JSON.stringify(r), before);
 });
@@ -563,18 +666,39 @@ test("No calificados follows sales in VSL only, remains safe when missing and re
   const r = integrated();
   r.vslNoAplica = { fase: "No Aplica(No califica/No desea)", total: 5, porcentaje: 3.88 };
   const output = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" });
-  assert.match(output, /Leads asistidos[\s\S]*Total de ventas[\s\S]*No calificados[\s\S]*Leads pendientes de seteo/);
+  assert.match(
+    output,
+    /Leads asistidos[\s\S]*Total de ventas[\s\S]*No calificados[\s\S]*Leads pendientes de seteo/,
+  );
   assert.match(output, /No calificados[\s\S]*?>5<.*?3.88% de los leads VSL/);
   for (const pipeline of ["oei", "lig", "all"])
-    assert.doesNotMatch(summary(r, {...EMPTY_REPORT_FILTERS,pipeline}), /No calificados|Leads asistidos/);
+    assert.doesNotMatch(
+      summary(r, { ...EMPTY_REPORT_FILTERS, pipeline }),
+      /No calificados|Leads asistidos/,
+    );
   delete r.vslNoAplica;
-  assert.match(summary(r, {...EMPTY_REPORT_FILTERS,pipeline:"vsl"}), /No calificados[\s\S]*?>—</);
+  assert.match(
+    summary(r, { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" }),
+    /No calificados[\s\S]*?>—</,
+  );
   const direct = { fase: "No Aplica(No califica/No desea)", total: 1, porcentaje: 25 };
-  const fresh = mapVslReportResponse({ok:true,data:{vslNoAplica:direct}}, {...query,pipeline:"vsl",setter:"Evelyn Lopez Horna",dateFrom:"2026-09-01",dateTo:"2026-09-30"});
-  assert.deepEqual(fresh.vslNoAplica,direct);
-  assert.match(summary(fresh,{...EMPTY_REPORT_FILTERS,pipeline:"vsl",setter:"Evelyn Lopez Horna"}),/No calificados[\s\S]*?>1<.*?25.00%/);
+  const fresh = mapVslReportResponse(
+    { ok: true, data: { vslNoAplica: direct } },
+    {
+      ...query,
+      pipeline: "vsl",
+      setter: "Evelyn Lopez Horna",
+      dateFrom: "2026-09-01",
+      dateTo: "2026-09-30",
+    },
+  );
+  assert.deepEqual(fresh.vslNoAplica, direct);
+  assert.match(
+    summary(fresh, { ...EMPTY_REPORT_FILTERS, pipeline: "vsl", setter: "Evelyn Lopez Horna" }),
+    /No calificados[\s\S]*?>1<.*?25.00%/,
+  );
   const { mergeFilteredReports } = require("../src/lib/merge-filtered-reports.ts");
-  assert.equal(mergeFilteredReports([fresh,fresh],EMPTY_REPORT_FILTERS).vslNoAplica,undefined);
+  assert.equal(mergeFilteredReports([fresh, fresh], EMPTY_REPORT_FILTERS).vslNoAplica, undefined);
 });
 
 test("VSL replaces only bookings using API seteo counts and percentages; other funnels keep cards", () => {
@@ -585,7 +709,10 @@ test("VSL replaces only bookings using API seteo counts and percentages; other f
     faltanSetear: 50,
     seteadosPct: 61.24,
     faltanSetearPct: 38.76,
-    porEtapa: [{ fase: "Lead Pendiente de Agenda", total: 50 }, { fase: "Lead Seteado/Reageanda", total: 79 }],
+    porEtapa: [
+      { fase: "Lead Pendiente de Agenda", total: 50 },
+      { fase: "Lead Seteado/Reageanda", total: 79 },
+    ],
     seteadosRows: [],
   };
   const r = integrated();
@@ -721,7 +848,10 @@ test("setter selections preserve existing cards with the VSL booking replacement
           setterSelected: hasSelectedSetter(filters),
         }),
       );
-      assert.doesNotMatch(executive, /sin cita creada|Conversión de Landing VSL Ads|Detalle de disponibilidad/);
+      assert.doesNotMatch(
+        executive,
+        /sin cita creada|Conversión de Landing VSL Ads|Detalle de disponibilidad/,
+      );
       assert.match(executive, /Conversion de Asistencia por Setter/);
       assert.equal(filters.dateFrom, "2026-10-01");
       assert.equal(filters.closer, "Ezequiel Dario");
@@ -813,7 +943,10 @@ test("historical sale remains attributed by API despite meeting outside reportin
   assert.equal(r.sales.rows[0].fechaVenta, "2026-10-05");
   assert.equal(r.sales.rows[0].fechaReunion, "2026-09-11");
   assert.equal(r.performance.conversionPorCloser[0].ventas, 2);
-  assert.match(html(r), /Ezequiel Dario<\/td><td[^>]*>—<\/td><td[^>]*>2<\/td><td[^>]*>No aplicable<\/td><td[^>]*>2/);
+  assert.match(
+    html(r),
+    /Ezequiel Dario<\/td><td[^>]*>—<\/td><td[^>]*>2<\/td><td[^>]*>No aplicable<\/td><td[^>]*>2/,
+  );
 });
 
 test("missing executive metrics are unavailable rather than fabricated zero counts", () => {

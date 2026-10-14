@@ -41,7 +41,7 @@ export interface LeadTypeKpis {
 export interface ReportKpis {
   totalLeads: number;
   conEstadoAgenda: number;
-  /** Compatibility alias for conEstadoAgenda: only leads with a valid agenda status. */
+  /** Setter-performance denominator. For VSL it excludes Confirmado. */
   total: number;
   agendadoCRM: number;
   confirmado?: number;
@@ -65,6 +65,7 @@ export interface SetterRow {
   noShow: number;
   pendienteAgenda: number;
   reagendado: number;
+  /** Computable setter appointments. For VSL it excludes Confirmado. */
   total: number;
 }
 

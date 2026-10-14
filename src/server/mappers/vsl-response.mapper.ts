@@ -308,7 +308,22 @@ export function mapVslReportResponse(
   const bookers = [...bookerTotals].map(([name, total]) => ({ name, total }));
   const appointmentClosers = namedCounts(appointmentPeople["closers"], "closer");
   const sales = salesReport(d["sales"]);
-  const performance = mapPerformance(d["performance"]);
+  // VSL setter performance deliberately excludes Confirmado. Reconcile it against the
+  // API's setter-performance denominator, not the physical Calendar appointment total.
+  const performance = mapPerformance(
+    d["performance"],
+    query.pipeline === "vsl" ? { setterAppointmentsTotal: kpis.total } : undefined,
+  );
+  const setterAppointmentsTotal = setters.reduce((sum, row) => sum + row.total, 0);
+  if (
+    query.pipeline === "vsl" &&
+    performance.performance &&
+    setterAppointmentsTotal !== kpis.total
+  ) {
+    delete performance.performance;
+    performance.performanceError =
+      "Los indicadores de desempeño no concilian con los totales de la API.";
+  }
   const unbooked = mapLeadsWithoutAppointment(d["leadsVslSinCita"]);
   const byPipeline = object(d["leadsSinCitaPorEmbudo"]);
   const vslUnbooked =

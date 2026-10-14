@@ -38,6 +38,20 @@ const schema = z.object({
 export function mapPerformance(value: unknown): {
   performance?: ReportPerformance;
   performanceError?: string;
+};
+export function mapPerformance(
+  value: unknown,
+  reconciliation?: { setterAppointmentsTotal?: number },
+): {
+  performance?: ReportPerformance;
+  performanceError?: string;
+};
+export function mapPerformance(
+  value: unknown,
+  reconciliation?: { setterAppointmentsTotal?: number },
+): {
+  performance?: ReportPerformance;
+  performanceError?: string;
 } {
   if (value == null) return { performanceError: "La API no entregó los indicadores de desempeño." };
   const result = schema.safeParse(value);
@@ -58,12 +72,14 @@ export function mapPerformance(value: unknown): {
   const d = p.diagnostics;
   const assigned = p.conversionPorCloser.reduce((sum, row) => sum + row.ventas, 0);
   const activity = p.asistenciaPorSetter.reduce((sum, row) => sum + row.agendamientos, 0);
+  const expectedSetterAppointments =
+    reconciliation?.setterAppointmentsTotal ?? d.citasUnicasActividad;
   if (
     (d.ventasUnicas != null &&
       d.ventasSinCitaAsistida != null &&
       d.ventasAtribucionAmbigua != null &&
       assigned + d.ventasSinCitaAsistida + d.ventasAtribucionAmbigua !== d.ventasUnicas) ||
-    (d.citasUnicasActividad != null && activity !== d.citasUnicasActividad)
+    (expectedSetterAppointments != null && activity !== expectedSetterAppointments)
   ) {
     return {
       performanceError: "Los indicadores de desempeño no concilian con los totales de la API.",
