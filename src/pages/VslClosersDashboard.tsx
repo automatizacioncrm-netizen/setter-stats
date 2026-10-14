@@ -420,7 +420,7 @@ export function VslClosersDashboard() {
                 filters.pipeline === "vsl"
                   ? `grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${hasSelectedSetter(filters) ? "2xl:grid-cols-5" : "2xl:grid-cols-6"}`
                   : filters.pipeline === "lig"
-                    ? `grid gap-4 sm:grid-cols-2 ${hasSelectedSetter(filters) ? "lg:grid-cols-4" : "lg:grid-cols-5"}`
+                    ? `grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${hasSelectedSetter(filters) ? "2xl:grid-cols-5" : "2xl:grid-cols-6"}`
                     : hasSelectedSetter(filters)
                       ? "grid gap-4 sm:grid-cols-3"
                       : "grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
@@ -430,7 +430,7 @@ export function VslClosersDashboard() {
                 {
                   length:
                     (hasSelectedSetter(filters) ? 3 : 4) +
-                    (filters.pipeline === "vsl" ? 2 : filters.pipeline === "lig" ? 1 : 0),
+                    (filters.pipeline === "vsl" || filters.pipeline === "lig" ? 2 : 0),
                 },
                 (_, key) => (
                   <Skeleton key={key} className="h-28 rounded-xl" />

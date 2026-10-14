@@ -31,6 +31,27 @@ const { DashboardFilters } = require("../src/components/reports/DashboardFilters
 const { renderToStaticMarkup } = require("react-dom/server");
 const { createElement } = require("react");
 const { getVslClosersReport } = require("../src/services/reports.ts");
+test("LIG pending seteo uses only two exact phases and recomputes percentage from its lead cohort", () => {
+  const r = integrated();
+  const before = JSON.stringify(r);
+  r.etapasPorEmbudo = { porEmbudo: { lig: { totalLeads: 5583, porEtapa: [
+    { fase: " PENDIENTE   DE LLAMADA ", total: 5002, porcentaje: 1 },
+    { fase: "Lead Pendiénte de Llamada", total: 131, porcentaje: 1 },
+    ...["No responde", "No responde Llamada", "Seguimiento", "Seguimiento para Agenda", "Seguimiento Futuro", "Lead Seteado/Agendado", "Otra Pendiente de Llamada"].map(fase => ({ fase, total: 100 })),
+  ] } } };
+  const output = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline: "lig" });
+  assert.match(output, /No calificados[\s\S]*Leads pendientes de seteo[\s\S]*?>5,133<.*?91.94% de los leads LIG/);
+  for (const stages of [[], [{ fase: "Pendiente de Llamada", total: 100 }]]) {
+    r.etapasPorEmbudo.porEmbudo.lig = { totalLeads: 200, porEtapa: stages };
+    const next = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline: "lig" });
+    assert.match(next, stages.length ? /Leads pendientes de seteo[\s\S]*?>100<.*?50.00% de los leads LIG/ : /Leads pendientes de seteo[\s\S]*?>0<.*?0.00% de los leads LIG/);
+  }
+  delete r.etapasPorEmbudo;
+  assert.match(summary(r, { ...EMPTY_REPORT_FILTERS, pipeline: "lig" }), /Leads pendientes de seteo[\s\S]*?>0<.*?0.00% de los leads LIG/);
+  for (const pipeline of ["oei", "all"])
+    assert.doesNotMatch(summary(r, { ...EMPTY_REPORT_FILTERS, pipeline }), /Leads pendientes de seteo/);
+  assert.equal(JSON.stringify(r), before);
+});
 test("closer Calendar groups appointment IDs once across all four states and sums visible totals", () => {
   const { groupCloserCalendar } = require("../src/lib/closer-calendar-detail.ts");
   const rows = [];
@@ -767,9 +788,9 @@ test("LIG no calificados renders the API values after sales, without recalculati
       output,
       /Total de ventas[\s\S]*No calificados[\s\S]*?>86<.*?0.67% de los leads LIG/,
     );
-    assert.equal((output.match(/text-3xl/g) || []).length, booker ? 4 : 5);
+    assert.equal((output.match(/text-3xl/g) || []).length, booker ? 5 : 6);
     assert.match(output, /grid-cols-1.*sm:grid-cols-2/);
-    assert.match(output, booker ? /lg:grid-cols-4/ : /lg:grid-cols-5/);
+    assert.match(output, booker ? /2xl:grid-cols-5/ : /2xl:grid-cols-6/);
   }
   for (const pipeline of ["all", "oei", "vsl"]) {
     const withMetric = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline });
@@ -919,10 +940,11 @@ test("VSL replaces only bookings using API seteo counts and percentages; other f
   assert.match(output, /Total de ventas[\s\S]*?>3</);
   for (const pipeline of ["oei", "lig", "all", "future-funnel"]) {
     const other = summary(r, { ...EMPTY_REPORT_FILTERS, pipeline });
-    assert.equal((other.match(/text-3xl/g) || []).length, pipeline === "lig" ? 5 : 4);
+    assert.equal((other.match(/text-3xl/g) || []).length, pipeline === "lig" ? 6 : 4);
     assert.match(other, /Leads seteados/);
     assert.match(other, /Leads asistidos/);
-    assert.doesNotMatch(other, /Total de agendamientos|Leads pendientes de seteo/);
+    assert.doesNotMatch(other, /Total de agendamientos/);
+    if (pipeline !== "lig") assert.doesNotMatch(other, /Leads pendientes de seteo/);
   }
   r.vslSeteo = {
     ...seteo,

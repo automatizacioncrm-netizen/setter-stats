@@ -76,6 +76,31 @@ export function ExecutiveSummary({
       value: ligNoCalificados?.noCalificados ?? 0,
       hint: `${ligNoCalificados?.noCalificadosPct ?? 0}% de los leads LIG`,
     });
+    const lig = report.etapasPorEmbudo?.porEmbudo?.lig;
+    const normalize = (phase: string) =>
+      phase
+        .trim()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ")
+        .toLowerCase();
+    const stages = Array.isArray(lig?.porEtapa) ? lig.porEtapa : [];
+    const stageCount = (phase: string) => {
+      const total = stages.find(
+        (stage) => typeof stage?.fase === "string" && normalize(stage.fase) === normalize(phase),
+      )?.total;
+      return typeof total === "number" && Number.isFinite(total) && total >= 0 ? total : 0;
+    };
+    const pending = stageCount("Pendiente de Llamada") + stageCount("Lead Pendiente de Llamada");
+    const percentage =
+      typeof lig?.totalLeads === "number" && lig.totalLeads > 0 && Number.isFinite(lig.totalLeads)
+        ? (pending / lig.totalLeads) * 100
+        : 0;
+    cards.push({
+      label: "Leads pendientes de seteo",
+      value: pending.toLocaleString("en-US"),
+      hint: `${percentage.toFixed(2)}% de los leads LIG`,
+    });
   }
   const orderedCards = isVsl
     ? cards
@@ -90,7 +115,7 @@ export function ExecutiveSummary({
         isVsl
           ? `grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 ${selected ? "2xl:grid-cols-5" : "2xl:grid-cols-6"}`
           : isLig
-            ? `grid grid-cols-1 gap-4 sm:grid-cols-2 ${selected ? "lg:grid-cols-4" : "lg:grid-cols-5"}`
+            ? `grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 ${selected ? "2xl:grid-cols-5" : "2xl:grid-cols-6"}`
             : selected
               ? "grid grid-cols-1 gap-4 sm:grid-cols-3"
               : "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"

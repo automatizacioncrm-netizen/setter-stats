@@ -138,7 +138,15 @@ export interface VslClosersReport {
   calendarStatusesAvailable?: boolean;
   vslSeteo?: VslSeteo;
   vslNoAplica?: { fase: string; total: number; porcentaje?: number | undefined };
-  etapasPorEmbudo?: { porEmbudo?: { vsl?: { totalLeads?: unknown; porEtapa?: unknown } } };
+  etapasPorEmbudo?: {
+    porEmbudo?: {
+      vsl?: { totalLeads?: unknown; porEtapa?: unknown };
+      lig?: {
+        totalLeads?: number;
+        porEtapa?: { fase: string; total: number; porcentaje?: number }[];
+      };
+    };
+  };
   businessMetrics?: Record<string, unknown> & { ligNoCalificados?: LigNoCalificados };
   executiveUnavailable?: ("leads" | "appointments" | "attended" | "sales")[];
   leadsVslSinCita?: LeadsWithoutAppointment;
