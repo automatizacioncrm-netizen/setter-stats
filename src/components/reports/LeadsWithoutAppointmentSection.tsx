@@ -27,8 +27,8 @@ export function LeadsWithoutAppointmentSection({
     >
       <h2 id="unbooked-heading" className="text-lg font-semibold">
         {pipeline === "vsl"
-          ? "Conversión de Landing VSL Ads (Automático)"
-          : "Leads OEI sin cita creada"}
+          ? "4. Conversión de Landing VSL Ads (Automático)"
+          : "4. Leads OEI sin cita creada"}
       </h2>
       <p className="text-sm text-muted-foreground">
         Oportunidades únicas creadas en el período seleccionado, vinculadas con sus citas históricas

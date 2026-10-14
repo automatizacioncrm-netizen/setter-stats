@@ -97,7 +97,7 @@ export function SalesSection({
           <SalesFinancialTable sales={sales} />
           <div className="overflow-hidden rounded-lg border border-border">
             <h3 className="border-b border-border px-4 py-3 text-sm font-semibold">
-              Resumen total de Ventas por Embudo y Producto
+              6. Resumen total de Ventas por Embudo y Producto
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[850px] text-sm">

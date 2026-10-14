@@ -464,7 +464,17 @@ export function VslClosersDashboard() {
           </div>
         ) : (
           <>
-            <h2 className="text-lg font-semibold">Resumen ejecutivo</h2>
+            <h2 className="text-lg font-semibold">
+              {filters.pipeline === "all" || !filters.pipeline
+                ? "1. Resumen Comercial de Todos los embudos"
+                : `1. Resumen Comercial de embudo ${
+                    {
+                      vsl: "VSL | Closers",
+                      oei: "Lanzamiento I. Pagado OEI - EM",
+                      lig: "Lanzamiento Interno Gratuito",
+                    }[filters.pipeline]
+                  }`}
+            </h2>
             <ExecutiveSummary report={data} filters={filters} />
             <ExecutivePerformance
               report={data}

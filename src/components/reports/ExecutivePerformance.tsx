@@ -80,7 +80,7 @@ export function ExecutivePerformance({
     <>
       <section className={panel} aria-labelledby="setter-attendance-heading">
         <h2 id="setter-attendance-heading" className="text-lg font-semibold">
-          Conversion de Asistencia por Setter
+          2. Conversion de Asistencia por Setter
         </h2>
         <p className="text-sm text-muted-foreground">{activityLabel}</p>
         {error ? (
@@ -126,7 +126,7 @@ export function ExecutivePerformance({
       </section>
       <section className={panel} aria-labelledby="closer-performance-heading">
         <h2 id="closer-performance-heading" className="text-lg font-semibold">
-          Conversion de Asistencia y Venta por Closer
+          3. Conversion de Asistencia y Venta por Closer
         </h2>
         <p className="text-sm text-muted-foreground">
           Agendamientos, asistencia y conversión de ventas del embudo seleccionado
