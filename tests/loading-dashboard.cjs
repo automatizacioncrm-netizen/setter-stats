@@ -333,7 +333,7 @@ test("el pie de Desempeño por Setter suma solo las filas permitidas", () => {
             .map(text)
             .join("")
         : String(node);
-  assert.equal(text(visit(tree, "tfoot")), "Total equipo visible30034436%100202946");
+  assert.equal(text(visit(tree, "tfoot")), "Total equipo visible300344100202946");
 });
 
 test("los registros sin setter no aparecen como integrantes del equipo", () => {

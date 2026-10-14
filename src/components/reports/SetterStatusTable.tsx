@@ -8,7 +8,6 @@ type SortKey = keyof SetterRow | "attendanceRate";
 const COLUMNS: { key: SortKey; label: string }[] = [
   { key: "confirmado", label: "Confirmado" },
   { key: "asistio", label: "Asistió" },
-  { key: "attendanceRate", label: "% Asistió" },
   { key: "cancelado", label: "Cancelado" },
   { key: "noShow", label: "No asistió" },
   { key: "total", label: "Total agendamientos" },
