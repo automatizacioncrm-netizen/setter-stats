@@ -148,7 +148,7 @@ test("USD presentation consolidates currencies locally and preserves original sa
   assert.match(html, />2<\/td>/);
   assert.equal(JSON.stringify(data), original);
   assert.deepEqual(financialSummary(data), summaryBefore);
-  const detail = renderToStaticMarkup(createElement(SalesSection, { sales: data, available: true, pipeline: "all" })).split("Resumen total de Ventas por Embudo y Producto")[1];
+  const detail = renderToStaticMarkup(createElement(SalesSection, { sales: data, available: true, pipeline: "all" })).split("Detalle de ventas de todos los embudos")[1];
   assert.match(detail, /S\/\s*2,160.12/);
   assert.match(detail, /\$1,497.00/);
 });
@@ -343,7 +343,7 @@ test("sales render one financial table, retain commercial cards and sales detail
   );
   assert.match(html, /Total de ventas/);
   assert.match(html, /Resumen total de Ventas por Embudo y Producto/);
-  assert.match(html, /Ventas y recaudación por embudo y producto/);
+  assert.match(html, /Detalle de ventas de todos los embudos/);
   assert.doesNotMatch(html, /Valor total de ticket de venta|Cash recaudado|% Recaudado/);
   assert.match(html, /Monto total Abonado/);
   assert.doesNotMatch(html, /Precio de referencia unitario|Precio acordado total|Cuota 1 registrada|% Cuota 1 \/ Precio acordado/);

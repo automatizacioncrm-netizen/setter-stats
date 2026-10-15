@@ -33,7 +33,7 @@ export function SalesFinancialTable({ sales }: { sales: SalesReport }) {
   return (
     <section aria-labelledby="financial-heading" className="space-y-3">
       <h3 id="financial-heading" className="text-lg font-semibold">
-        5. Ventas y recaudación por embudo y producto
+        5. Resumen total de Ventas por Embudo y Producto
       </h3>
       <p className="text-sm text-muted-foreground">
         El monto total abonado suma las cuotas 1 registradas en USD. Tipo de cambio fijo: 1 USD = S/ 3.40.
