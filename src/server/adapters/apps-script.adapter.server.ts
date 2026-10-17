@@ -1,4 +1,5 @@
 import { ApiError, getServerEnv } from "../config/env.server";
+import type { ReconciliationPipeline } from "../../types/reconciliation.types";
 export const REPORT_TIMEOUT_MS = 15_000;
 export const RECONCILE_TIMEOUT_MS = 60_000;
 export type ReconciliationAction =
@@ -38,12 +39,17 @@ export type AppointmentDetailRequest = Omit<
 async function requestScript(
   action: "vsl_report" | "appointment_detail" | ReconciliationAction,
   filters?: ReportRequest | AppointmentDetailRequest,
+  pipeline?: ReconciliationPipeline,
 ) {
   const env = getServerEnv();
   const isReconciliation = action.startsWith("reconcile_");
   const url = new URL(env.APPS_SCRIPT_URL);
   url.searchParams.set("action", action);
   url.searchParams.set("key", env.APPS_SCRIPT_SECRET);
+  if (isReconciliation) {
+    url.searchParams.set("pipeline", pipeline ?? "all");
+    url.searchParams.set("secret", env.APPS_SCRIPT_SECRET);
+  }
   if (filters)
     for (const key of [
       "pipeline",
@@ -208,6 +214,9 @@ export function fetchVslReport(filters: ReportRequest) {
 export function fetchAppointmentDetail(filters: AppointmentDetailRequest) {
   return requestScript("appointment_detail", filters);
 }
-export function runVslReconciliation(action: ReconciliationAction = "reconcile_all") {
-  return requestScript(action);
+export function runVslReconciliation(
+  action: ReconciliationAction = "reconcile_all",
+  pipeline: ReconciliationPipeline = "all",
+) {
+  return requestScript(action, undefined, pipeline);
 }

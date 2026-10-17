@@ -1,5 +1,9 @@
 import { reconcileVslReport } from "../services/reconciliation.server";
 import { apiError, ApiError } from "../config/env.server";
+import {
+  RECONCILIATION_PIPELINES,
+  type ReconciliationPipeline,
+} from "../../types/reconciliation.types";
 export async function reconciliationApi(request: Request) {
   try {
     if (
@@ -14,7 +18,10 @@ export async function reconciliationApi(request: Request) {
       action !== "reconcile_appointments"
     )
       throw new ApiError("Acción de reconciliación no válida.", 400);
-    return Response.json(await reconcileVslReport(action), {
+    const pipeline = new URL(request.url).searchParams.get("pipeline") ?? "all";
+    if (!Object.hasOwn(RECONCILIATION_PIPELINES, pipeline))
+      throw new ApiError("Embudo de actualización no válido.", 400);
+    return Response.json(await reconcileVslReport(action, pipeline as ReconciliationPipeline), {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {

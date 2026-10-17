@@ -1,3 +1,13 @@
+export const RECONCILIATION_PIPELINES = {
+  all: "all",
+  vsl: "vsl",
+  oei: "oei",
+  lig: "lig",
+  organico: "organico",
+  gira: "gira",
+} as const;
+export type ReconciliationPipeline = keyof typeof RECONCILIATION_PIPELINES;
+
 export type ReconciliationResult = {
   ok: boolean;
   success?: boolean;

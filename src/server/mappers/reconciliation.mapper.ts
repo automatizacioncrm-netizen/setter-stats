@@ -31,12 +31,10 @@ export function mapReconciliationResponse(raw: unknown): ReconciliationResult {
       ok: z.literal(true),
       success: z.boolean().optional(),
       completed: z.boolean(),
-      stage: z.string(),
-      nextAction: z.string().nullable(),
-      timestamp: z.string(),
-      resultado: z
-        .object({ success: z.literal(true), completed: z.boolean(), result: z.record(z.unknown()) })
-        .passthrough(),
+      stage: z.string().nullable().optional(),
+      nextAction: z.string().nullable().optional(),
+      timestamp: z.string().optional(),
+      resultado: z.unknown().optional(),
     })
     .safeParse(raw);
   if (staged.success) {
@@ -71,18 +69,20 @@ export function mapReconciliationResponse(raw: unknown): ReconciliationResult {
         } else if (item && typeof item === "object") collect(item);
       }
     };
-    collect(body.resultado.result);
+    collect(body.resultado);
     return {
       ...totals,
       ok: true,
       success: true,
       completed: body.completed,
-      stage: body.stage,
-      nextAction: body.nextAction,
+      stage: body.stage ?? null,
+      nextAction: body.nextAction ?? null,
       resultado: body.resultado,
-      timestamp: body.timestamp,
+      timestamp: body.timestamp ?? "",
     };
   }
+  if (raw && typeof raw === "object" && "completed" in raw)
+    throw new ApiError("Apps Script devolvió una reconciliación con formato inválido.");
   // RECONCILIAR_TODO returns separate opportunity and Calendar counters.
   const global = z
     .object({

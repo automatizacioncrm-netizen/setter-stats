@@ -12,6 +12,7 @@ import { SetterStatusTable } from "@/components/reports/SetterStatusTable";
 import { appointmentDetailFilters, getVslClosersReport } from "@/services/reports";
 import { AppointmentDetailModal } from "@/components/reports/AppointmentDetailModal";
 import { triggerVslReconciliation } from "@/services/reconciliation.service";
+import { RECONCILIATION_PIPELINES } from "@/types/reconciliation.types";
 import { RefreshButton } from "@/components/reports/RefreshButton";
 import { LoadingModal } from "@/components/reports/LoadingModal";
 import { LeadDetailTable } from "@/components/reports/LeadDetailTable";
@@ -69,6 +70,8 @@ export function VslClosersDashboard() {
   } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const syncInFlight = useRef(false);
+  const syncController = useRef<AbortController | null>(null);
+  useEffect(() => () => syncController.current?.abort(), []);
   const [syncMessage, setSyncMessage] = useState("");
   const [detail, setDetail] = useState<DetailQuery>(INITIAL_DETAIL);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -236,16 +239,27 @@ export function VslClosersDashboard() {
     [runFilterTransition],
   );
 
+  const latestQuery = useRef(query);
+  latestQuery.current = query;
   const handleSync = useCallback(async () => {
     if (syncInFlight.current) return;
     syncInFlight.current = true;
+    const controller = new AbortController();
+    syncController.current = controller;
+    const pipelineToUpdate = RECONCILIATION_PIPELINES[filters.pipeline ?? "all"];
     setSyncing(true);
     setSyncMessage("");
     let reconciled = false;
     try {
-      const result = await triggerVslReconciliation();
+      const result = await triggerVslReconciliation(
+        "reconcile_all",
+        pipelineToUpdate,
+        controller.signal,
+      );
+      if (controller.signal.aborted) return;
       reconciled = true;
-      const refreshed = await query.refetch();
+      const refreshed = await latestQuery.current.refetch();
+      if (controller.signal.aborted) return;
       if (refreshed.isError) throw refreshed.error;
       const message =
         result.inserted === 0 && result.updated === 0
@@ -259,17 +273,20 @@ export function VslClosersDashboard() {
         setSyncMessage(message);
         toast.success("Datos actualizados correctamente", { description: message });
       }
-    } catch {
+    } catch (error) {
+      if (controller.signal.aborted) return;
       const message = reconciled
         ? "La sincronización terminó, pero no se pudo recargar el reporte. Intenta nuevamente."
-        : "No se pudo actualizar la información.";
+        : error instanceof Error
+          ? error.message
+          : "No se pudo actualizar la información.";
       setSyncMessage(message);
       toast.error(message);
     } finally {
       syncInFlight.current = false;
-      setSyncing(false);
+      if (!controller.signal.aborted) setSyncing(false);
     }
-  }, [query]);
+  }, [filters.pipeline]);
 
   const requestKey = JSON.stringify([filters, { ...detail, search }, requestSourceNames]);
   const lastReport = useRef<{ key: string; data: VslClosersReport } | undefined>(undefined);

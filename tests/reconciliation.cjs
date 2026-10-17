@@ -12,6 +12,64 @@ require.extensions[".ts"] = (module, filename) => {
 };
 const { reconciliationApi } = require("../src/server/api/reconciliation.api.server.ts");
 const { triggerVslReconciliation } = require("../src/services/reconciliation.service.ts");
+const { RECONCILIATION_PIPELINES } = require("../src/types/reconciliation.types.ts");
+
+test("pipeline mapping and sequential checkpoints ignore nextAction", async (t) => {
+  const savedFetch = global.fetch;
+  t.after(() => {
+    global.fetch = savedFetch;
+  });
+  for (const pipeline of ["vsl", "oei", "lig", "organico", "gira", "all"]) {
+    assert.equal(RECONCILIATION_PIPELINES[pipeline], pipeline);
+    let calls = 0;
+    let active = false;
+    global.fetch = async (url, options) => {
+      assert.equal(active, false);
+      active = true;
+      const params = new URL(url, "https://local.test").searchParams;
+      assert.equal(params.get("action"), "reconcile_all");
+      assert.equal(params.get("pipeline"), pipeline);
+      assert.equal(options.method, "POST");
+      await Promise.resolve();
+      active = false;
+      return Response.json({ ok: true, completed: ++calls === 3, nextAction: "IGNORED" });
+    };
+    assert.equal((await triggerVslReconciliation("reconcile_all", pipeline)).completed, true);
+    assert.equal(calls, 3);
+  }
+});
+
+test("reconciliation stops on invalid responses and limits pending checkpoints", async (t) => {
+  const savedFetch = global.fetch;
+  t.after(() => {
+    global.fetch = savedFetch;
+  });
+  for (const response of [
+    () => Response.json({ ok: false, completed: false }),
+    () => Response.json({ ok: true }),
+    () => Response.json(null),
+    () => new Response("invalid JSON"),
+    () => new Response("failed", { status: 503 }),
+    () => {
+      throw new TypeError("network failed");
+    },
+  ]) {
+    let calls = 0;
+    global.fetch = async () => {
+      calls++;
+      return response();
+    };
+    await assert.rejects(triggerVslReconciliation("reconcile_all", "lig"));
+    assert.equal(calls, 1);
+  }
+  let calls = 0;
+  global.fetch = async () => {
+    calls++;
+    return Response.json({ ok: true, completed: false });
+  };
+  await assert.rejects(triggerVslReconciliation(), /checkpoint/);
+  assert.equal(calls, 100);
+});
 
 test("staged actions pass through the proxy and browser follows checkpoints", async (t) => {
   const saved = {
@@ -33,6 +91,8 @@ test("staged actions pass through the proxy and browser follows checkpoints", as
     let calls = 0;
     const upstream = async (url, options) => {
       assert.equal(url.searchParams.get("action"), action);
+      assert.equal(url.searchParams.get("pipeline"), "lig");
+      assert.equal(url.searchParams.get("secret"), "test-secret");
       assert.equal(options.method, "POST");
       const completed = ++calls > 1;
       return Response.json({
@@ -47,10 +107,13 @@ test("staged actions pass through the proxy and browser follows checkpoints", as
     };
     global.fetch = upstream;
     const response = await reconciliationApi(
-      new Request(`https://local.test/api/reports/vsl-closers/reconcile?action=${action}`, {
-        method: "POST",
-        headers: { "x-report-request": "1" },
-      }),
+      new Request(
+        `https://local.test/api/reports/vsl-closers/reconcile?action=${action}&pipeline=lig`,
+        {
+          method: "POST",
+          headers: { "x-report-request": "1" },
+        },
+      ),
     );
     assert.equal(response.status, 200);
     const body = await response.json();
@@ -67,7 +130,7 @@ test("staged actions pass through the proxy and browser follows checkpoints", as
       }
     };
     global.fetch = wrapper;
-    const result = await triggerVslReconciliation(action);
+    const result = await triggerVslReconciliation(action, "lig");
     assert.equal(result.completed, true);
     assert.equal(calls, 2);
   }

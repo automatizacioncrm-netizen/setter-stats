@@ -42,6 +42,7 @@ function harness(autoFrames = true) {
     .outputText.replaceAll("import.meta.env.DEV", "false");
   vm.runInNewContext(source, {
     exports,
+    AbortController,
     requestAnimationFrame: (fn) => {
       const id = ++nextId;
       frames.set(id, fn);
@@ -55,6 +56,8 @@ function harness(autoFrames = true) {
     },
     clearTimeout: (id) => timers.delete(id),
     require(name) {
+      if (name === "@/types/reconciliation.types")
+        return require("../src/types/reconciliation.types.ts");
       if (name === "react/jsx-runtime") return { jsx, jsxs: jsx, Fragment: "Fragment" };
       if (name === "react")
         return {
