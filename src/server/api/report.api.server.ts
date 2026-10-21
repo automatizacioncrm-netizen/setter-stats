@@ -13,7 +13,7 @@ const date = z
         new Date(v).toISOString().slice(0, 10) === v),
   );
 const schema = z.object({
-  pipeline: z.enum(["all", "vsl", "oei", "lig"]).default("all"),
+  pipeline: z.enum(["all", "vsl", "oei", "lig", "organico", "gira"]).default("all"),
   leadType: z.enum(["all", "paid", "organic"]).default("all"),
   calendar: z.string().max(300).default(""),
   dateFrom: date.default(""),

@@ -14,7 +14,7 @@ export type EstadoAgenda = (typeof ESTADOS_AGENDA)[number];
 export type DatePreset = "hoy" | "ayer" | "7dias" | "mes" | "mesPasado" | "custom" | "todos";
 
 export type LeadType = "all" | "paid" | "organic";
-export type Pipeline = "all" | "vsl" | "oei" | "lig";
+export type Pipeline = "all" | "vsl" | "oei" | "lig" | "organico" | "gira";
 
 export interface ReportFilters {
   pipeline?: Pipeline;
@@ -108,7 +108,7 @@ export interface LeadsWithoutAppointment {
         nombreContacto: string;
         fechaCreacion: string;
         setter: string;
-        pipeline: "vsl" | "oei";
+        pipeline: "vsl" | "oei" | "organico" | "gira";
       }[]
     | undefined;
 }
@@ -141,6 +141,18 @@ export interface VslClosersReport {
   etapasPorEmbudo?: {
     porEmbudo?: {
       vsl?: { totalLeads?: unknown; porEtapa?: unknown };
+      oei?: {
+        totalLeads?: number;
+        porEtapa?: { fase: string; total: number; porcentaje?: number }[];
+      };
+      organico?: {
+        totalLeads?: number;
+        porEtapa?: { fase: string; total: number; porcentaje?: number }[];
+      };
+      gira?: {
+        totalLeads?: number;
+        porEtapa?: { fase: string; total: number; porcentaje?: number }[];
+      };
       lig?: {
         totalLeads?: number;
         porEtapa?: { fase: string; total: number; porcentaje?: number }[];
@@ -150,8 +162,10 @@ export interface VslClosersReport {
   businessMetrics?: Record<string, unknown> & { ligNoCalificados?: LigNoCalificados };
   executiveUnavailable?: ("leads" | "appointments" | "attended" | "sales")[];
   leadsVslSinCita?: LeadsWithoutAppointment;
-  leadsSinCitaPorEmbudo?: Partial<Record<"vsl" | "oei", LeadsWithoutAppointment>>;
-  leadsSinCitaErrors?: Partial<Record<"vsl" | "oei", string>>;
+  leadsSinCitaPorEmbudo?: Partial<
+    Record<"vsl" | "oei" | "organico" | "gira", LeadsWithoutAppointment>
+  >;
+  leadsSinCitaErrors?: Partial<Record<"vsl" | "oei" | "organico" | "gira", string>>;
   performance?: ReportPerformance;
   performanceError?: string;
   rawRecords?: LeadDetailRow[];
@@ -256,6 +270,7 @@ export type AppointmentDetailFilters = {
   search: string;
 };
 export interface AppointmentDetailRow {
+  fase?: string | null;
   appointmentId?: string;
   opportunityId?: string;
   contactId?: string;

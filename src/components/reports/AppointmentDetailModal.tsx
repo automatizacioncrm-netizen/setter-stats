@@ -21,9 +21,8 @@ import type {
 const columns: [keyof AppointmentDetailRow, string][] = [
   ["nombreContacto", "Nombre"],
   ["telefono", "Teléfono"],
-  ["agendadoPor", "Agendado por"],
   ["setterAsignado", "Setter asignado"],
-  ["creadoPorCita", "Creado por cita"],
+  ["fase", "Fase"],
   ["calendario", "Calendario"],
   ["estado", "Estado"],
   ["fechaCreacionCita", "Fecha creación cita"],
@@ -339,7 +338,9 @@ export function AppointmentDetailModal({
                                         : row.bookingModeLabel || "—"
                                     : key === "fechaReunion"
                                       ? row.fechaReunion || row.fechaCita || "—"
-                                      : (row[key] ?? "—")}
+                                      : key === "fase"
+                                        ? row.fase || "—"
+                                        : (row[key] ?? "—")}
                             </td>
                           ))}
                         </tr>

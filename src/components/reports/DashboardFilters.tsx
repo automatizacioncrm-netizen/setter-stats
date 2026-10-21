@@ -66,7 +66,8 @@ export function DashboardFilters({
   apiNormalizedSetters = false,
 }: Props) {
   const pipeline = filters.pipeline ?? "all";
-  const usesBooker = pipeline === "oei" || pipeline === "lig";
+  const usesBooker =
+    pipeline === "oei" || pipeline === "lig" || pipeline === "organico" || pipeline === "gira";
   const person = usesBooker ? filters.booker : filters.setter;
   const personLabel = usesBooker
     ? "Agendador"
@@ -130,13 +131,17 @@ export function DashboardFilters({
             className={fieldClass}
             value={pipeline}
             onChange={(event) =>
-              onChange({ pipeline: event.target.value as "all" | "vsl" | "oei" | "lig" })
+              onChange({
+                pipeline: event.target.value as "all" | "vsl" | "oei" | "lig" | "organico" | "gira",
+              })
             }
           >
-            <option value="all">Todos (VSL + OEI + LIG)</option>
+            <option value="all">Todos los embudos</option>
             <option value="vsl">VSL | Closers</option>
             <option value="oei">Lanzamiento I. Pagado OEI - EM</option>
             <option value="lig">Lanzamiento Interno Gratuito</option>
+            <option value="organico">Captación Orgánica</option>
+            <option value="gira">VSL GIRA</option>
           </select>
         </label>
         <label className="min-w-0">

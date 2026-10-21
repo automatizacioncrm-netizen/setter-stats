@@ -639,6 +639,8 @@ test("actual modal renders loading, results, empty/error, page handlers and clos
         nombreContacto: "Contacto de API",
         setterEfectivo: "Setter de API",
         agendadoPor: "Alias",
+        setterAsignado: "Setter asignado API",
+        fase: "Fase recibida desde API",
         creadoPorCita: "Otro creador",
         bookingMode: "automatic",
         diferenciaDiasLabel: "Mismo día",
@@ -663,7 +665,22 @@ test("actual modal renders loading, results, empty/error, page handlers and clos
   assert.match(text(tree), /51 registros/);
   assert.match(text(tree), /Contacto de API/);
   assert.match(text(tree), /Estado: Asistió/);
-  assert.match(text(tree), /Alias/);
+  assert.ok(!text(tree).includes("Alias"));
+  assert.ok(!text(tree).includes("Otro creador"));
+  assert.match(text(tree), /Setter asignado API/);
+  assert.match(text(tree), /Fase recibida desde API/);
+  assert.deepEqual(
+    nodes(tree).filter((node) => node.type === "th").map(text),
+    ["Nombre", "Teléfono", "Setter asignado", "Fase", "Calendario", "Estado",
+      "Fecha creación cita", "Fecha reunión", "Diferencia", "VSL Origen", "Closer"],
+  );
+  for (const fase of [null, undefined, ""]) {
+    query.data.rows[0].fase = fase;
+    const emptyPhaseTree = render();
+    const cells = nodes(emptyPhaseTree).filter((node) => node.type === "td");
+    assert.equal(text(cells[3]), "—");
+  }
+  query.data.rows[0].fase = "Fase recibida desde API";
   assert.match(text(tree), /Origen API/);
   assert.match(text(tree), /Mismo día/);
   assert.ok(!text(tree).includes("oculto@example.com"));

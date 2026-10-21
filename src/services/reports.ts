@@ -27,8 +27,10 @@ export function appointmentDetailFilters(
 ): AppointmentDetailFilters {
   const pipeline = filters.pipeline ?? "all";
   const personSelected = person !== undefined;
-  const usesBooker = pipeline === "oei" || pipeline === "lig";
-  const automatic = person === "Agendado automático" || person === "Agendado automatico";
+  const usesBooker =
+    pipeline === "oei" || pipeline === "lig" || pipeline === "organico" || pipeline === "gira";
+  const automatic =
+    pipeline === "vsl" && (person === "Agendado automático" || person === "Agendado automatico");
   const detailStatus = personSelected ? status : (status ?? filters.estadoAgenda);
   return {
     pipeline,
@@ -60,8 +62,18 @@ export async function getAppointmentDetail(
   signal?: AbortSignal,
   sourceNames?: string[],
 ): Promise<AppointmentDetailResponse> {
-  if (sourceNames?.length && (filters.pipeline === "oei" || filters.pipeline === "lig")) {
-    const usesBooker = filters.pipeline === "oei" || filters.pipeline === "lig";
+  if (
+    sourceNames?.length &&
+    (filters.pipeline === "oei" ||
+      filters.pipeline === "lig" ||
+      filters.pipeline === "organico" ||
+      filters.pipeline === "gira")
+  ) {
+    const usesBooker =
+      filters.pipeline === "oei" ||
+      filters.pipeline === "lig" ||
+      filters.pipeline === "organico" ||
+      filters.pipeline === "gira";
     const names = [
       ...new Set(sourceNames.map((name) => (usesBooker ? name : getSetterApiValue(name)))),
     ];
@@ -172,7 +184,11 @@ export async function getVslClosersReport(
   if (!isValidReportRange(filters))
     throw new Error("Revisa el rango de fechas: Desde debe ser anterior o igual a Hasta.");
   if (sourceNames?.length) {
-    const usesBooker = filters.pipeline === "oei" || filters.pipeline === "lig";
+    const usesBooker =
+      filters.pipeline === "oei" ||
+      filters.pipeline === "lig" ||
+      filters.pipeline === "organico" ||
+      filters.pipeline === "gira";
     const sources = [
       ...new Set(sourceNames.map((name) => (usesBooker ? name : getSetterApiValue(name)))),
     ];

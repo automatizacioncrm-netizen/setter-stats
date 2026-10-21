@@ -22,7 +22,7 @@ export function executiveCards(report: VslClosersReport, selected: boolean, pipe
         !Number.isFinite(report.leadTypeKpis.totalLeads) ||
         report.leadTypeKpis.totalLeads <= 0
           ? "Porcentaje no disponible"
-          : `${Number(((report.kpis.total / report.leadTypeKpis.totalLeads) * 100).toFixed(1))}% de los leads${["vsl", "oei", "lig"].includes(pipeline) ? ` ${pipeline.toUpperCase()}` : ""}`,
+          : `${Number(((report.kpis.total / report.leadTypeKpis.totalLeads) * 100).toFixed(1))}% de los leads${["vsl", "oei", "lig", "organico", "gira"].includes(pipeline) ? ` ${pipeline.toUpperCase()}` : ""}`,
     },
     {
       label: "Leads asistidos",

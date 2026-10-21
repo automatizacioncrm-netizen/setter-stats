@@ -72,7 +72,11 @@ export function changeReportFilters(
   const merged = { ...previous, ...next };
   if (next.pipeline && next.pipeline !== previous.pipeline) {
     const person = previous.setter || previous.booker;
-    const usesBooker = next.pipeline === "oei" || next.pipeline === "lig";
+    const usesBooker =
+      next.pipeline === "oei" ||
+      next.pipeline === "lig" ||
+      next.pipeline === "organico" ||
+      next.pipeline === "gira";
     merged.setter = usesBooker ? "" : person;
     merged.booker = usesBooker ? person : "";
     if (next.pipeline !== "vsl") {

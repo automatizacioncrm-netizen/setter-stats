@@ -142,7 +142,7 @@ function salesReport(value: unknown): SalesReport {
 export function mapVslReportResponse(
   raw: unknown,
   query: {
-    pipeline?: "all" | "vsl" | "oei" | "lig";
+    pipeline?: "all" | "vsl" | "oei" | "lig" | "organico" | "gira";
     leadType?: "all" | "paid" | "organic";
     calendar?: string;
     dateFrom: string;
@@ -330,6 +330,8 @@ export function mapVslReportResponse(
   const vslUnbooked =
     byPipeline["vsl"] == null ? unbooked : mapLeadsWithoutAppointment(byPipeline["vsl"]);
   const oeiUnbooked = mapLeadsWithoutAppointment(byPipeline["oei"], "oei");
+  const organicoUnbooked = mapLeadsWithoutAppointment(byPipeline["organico"], "organico");
+  const giraUnbooked = mapLeadsWithoutAppointment(byPipeline["gira"], "gira");
   if (
     performance.performance?.diagnostics["ventasUnicas"] != null &&
     performance.performance.diagnostics["ventasUnicas"] !== sales.total
@@ -342,6 +344,9 @@ export function mapVslReportResponse(
     calendarStatusesAvailable: ["confirmado", "asistio", "cancelado", "noShow"].every((key) =>
       hasCount(rawKpis[key]),
     ),
+    ...(d["etapasPorEmbudo"]
+      ? { etapasPorEmbudo: object(d["etapasPorEmbudo"]) as NonNullable<VslClosersReport["etapasPorEmbudo"]> }
+      : {}),
     ...noAplicaFields(d),
     ...(vslSeteo.success ? { vslSeteo: vslSeteo.data } : {}),
     ...(d["businessMetrics"] ? { businessMetrics: object(d["businessMetrics"]) } : {}),
@@ -351,10 +356,14 @@ export function mapVslReportResponse(
     leadsSinCitaPorEmbudo: {
       ...(vslUnbooked.data ? { vsl: vslUnbooked.data } : {}),
       ...(oeiUnbooked.data ? { oei: oeiUnbooked.data } : {}),
+      ...(organicoUnbooked.data ? { organico: organicoUnbooked.data } : {}),
+      ...(giraUnbooked.data ? { gira: giraUnbooked.data } : {}),
     },
     leadsSinCitaErrors: {
       ...(vslUnbooked.error ? { vsl: vslUnbooked.error } : {}),
       ...(oeiUnbooked.error ? { oei: oeiUnbooked.error } : {}),
+      ...(organicoUnbooked.error ? { organico: organicoUnbooked.error } : {}),
+      ...(giraUnbooked.error ? { gira: giraUnbooked.error } : {}),
     },
     ...(rawRecords ? { rawRecords } : {}),
     ...(vslSummary ? { vslSummary } : {}),

@@ -51,7 +51,7 @@ export function SalesSection({
   sales: SalesReport;
   available: boolean;
   hideSummary?: boolean;
-  pipeline: "all" | "vsl" | "oei" | "lig";
+  pipeline: "all" | "vsl" | "oei" | "lig" | "organico" | "gira";
 }) {
   const [sort, setSort] = useState<{ key: keyof SaleRow; asc: boolean } | null>(null);
   const columns = baseColumns;

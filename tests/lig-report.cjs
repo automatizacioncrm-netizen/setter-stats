@@ -82,7 +82,7 @@ function setup(t) {
 
 test("all/vsl/oei/lig preserve the existing endpoint, parameters and envelope mapping", async (t) => {
   setup(t);
-  for (const pipeline of ["all", "vsl", "oei", "lig"]) {
+  for (const pipeline of ["all", "vsl", "oei", "lig", "organico", "gira"]) {
     const params = {
       pipeline,
       calendar: calendars[0],
@@ -244,7 +244,7 @@ test("timeouts remain 504 and optional debug logs never include the credential",
 
 test("commercial selector exposes VSL, OEI and LIG", () => {
   const source = fs.readFileSync("src/components/reports/DashboardFilters.tsx", "utf8");
-  assert.match(source, /Todos \(VSL \+ OEI \+ LIG\)/);
+  assert.match(source, /Todos los embudos/);
   assert.match(source, /value="vsl"/);
   assert.match(source, /value="oei"/);
   assert.match(source, /<option value="lig"/);

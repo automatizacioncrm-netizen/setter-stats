@@ -478,9 +478,9 @@ test("commercial selector offers all, vsl, oei and lig", () => {
   const selector = output.match(/<select aria-label="Embudo"[\s\S]*?<\/select>/)[0];
   assert.deepEqual(
     [...selector.matchAll(/<option value="([^"]*)"/g)].map((m) => m[1]),
-    ["all", "vsl", "oei", "lig"],
+    ["all", "vsl", "oei", "lig", "organico", "gira"],
   );
-  assert.match(selector, /Todos \(VSL \+ OEI \+ LIG\)/);
+  assert.match(selector, /Todos los embudos/);
 });
 test("filter changes and combined filters use the same report request, without extra detail downloads", async (t) => {
   const saved = global.fetch;

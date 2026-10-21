@@ -13,7 +13,12 @@ interface ReportRecord {
 }
 
 export function getEffectiveSetter(record?: ReportRecord | null): string {
-  if (record?.pipeline === "oei" || record?.pipeline === "lig") {
+  if (
+    record?.pipeline === "oei" ||
+    record?.pipeline === "lig" ||
+    record?.pipeline === "organico" ||
+    record?.pipeline === "gira"
+  ) {
     return record.agendadorCita || record.createdByUserName || record.setterAsignado || "";
   }
   return record?.setterAsignado || record?.agendadorCita || record?.createdByUserName || "";

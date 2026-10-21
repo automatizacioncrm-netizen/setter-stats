@@ -5,7 +5,7 @@ export const RECONCILE_TIMEOUT_MS = 60_000;
 export type ReconciliationAction =
   "reconcile_all" | "reconcile_opportunities" | "reconcile_appointments";
 export interface ReportRequest {
-  pipeline: "all" | "vsl" | "oei" | "lig";
+  pipeline: "all" | "vsl" | "oei" | "lig" | "organico" | "gira";
   leadType: "all" | "paid" | "organic";
   calendar: string;
   dateFrom: string;

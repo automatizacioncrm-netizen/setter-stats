@@ -96,7 +96,11 @@ export function VslClosersDashboard() {
   });
   const context =
     contextQuery.data?.filters?.pipeline === filters.pipeline ? contextQuery.data : undefined;
-  const usesBooker = filters.pipeline === "oei" || filters.pipeline === "lig";
+  const usesBooker =
+    filters.pipeline === "oei" ||
+    filters.pipeline === "lig" ||
+    filters.pipeline === "organico" ||
+    filters.pipeline === "gira";
   const contextNames = useMemo(
     () =>
       usesBooker
@@ -104,7 +108,9 @@ export function VslClosersDashboard() {
             ...(context?.availableBookers ?? []),
             ...(filters.pipeline === "oei"
               ? (context?.appointmentPeople?.oeiBookers ?? [])
-              : (context?.appointmentPeople?.ligBookers ?? [])
+              : filters.pipeline === "lig"
+                ? (context?.appointmentPeople?.ligBookers ?? [])
+                : (context?.appointmentPeople?.bookers ?? [])
             ).map((person) => person.name),
           ]
         : [
@@ -315,7 +321,10 @@ export function VslClosersDashboard() {
   );
   const attendanceRate = data?.kpis.tasaAsistencia ?? 0;
   const peopleMode =
-    filters.pipeline === "oei" || filters.pipeline === "lig"
+    filters.pipeline === "oei" ||
+    filters.pipeline === "lig" ||
+    filters.pipeline === "organico" ||
+    filters.pipeline === "gira"
       ? "booker"
       : filters.pipeline === "vsl"
         ? "setter"
@@ -489,6 +498,8 @@ export function VslClosersDashboard() {
                       vsl: "VSL | Closers",
                       oei: "Lanzamiento I. Pagado OEI - EM",
                       lig: "Lanzamiento Interno Gratuito",
+                      organico: "Captación Orgánica",
+                      gira: "VSL GIRA",
                     }[filters.pipeline]
                   }`}
             </h2>
@@ -514,7 +525,9 @@ export function VslClosersDashboard() {
                     showStatuses={
                       peopleMode !== "booker" ||
                       filters.pipeline === "oei" ||
-                      filters.pipeline === "lig"
+                      filters.pipeline === "lig" ||
+                      filters.pipeline === "organico" ||
+                      filters.pipeline === "gira"
                     }
                     busy={
                       query.isFetching ||

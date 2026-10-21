@@ -15,14 +15,14 @@ const schema = z.object({
         nombreContacto: z.string(),
         fechaCreacion: z.string(),
         setter: z.string(),
-        pipeline: z.enum(["vsl", "oei"]),
+        pipeline: z.enum(["vsl", "oei", "organico", "gira"]),
       }),
     )
     .optional(),
 });
 export function mapLeadsWithoutAppointment(
   value: unknown,
-  expectedPipeline: "vsl" | "oei" = "vsl",
+  expectedPipeline: "vsl" | "oei" | "organico" | "gira" = "vsl",
 ): {
   data?: LeadsWithoutAppointment;
   error?: string;

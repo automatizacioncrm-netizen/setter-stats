@@ -12,11 +12,16 @@ export function LeadsWithoutAppointmentSection({
   setterSelected?: boolean;
 }) {
   if (setterSelected || report.filters.pipeline === "lig") return null;
-  const pipeline = report.filters.pipeline === "oei" ? "oei" : "vsl";
+  const pipeline =
+    report.filters.pipeline === "organico" || report.filters.pipeline === "gira"
+      ? report.filters.pipeline
+      : report.filters.pipeline === "oei"
+        ? "oei"
+        : "vsl";
   const data =
     pipeline === "vsl"
       ? (report.leadsSinCitaPorEmbudo?.vsl ?? report.leadsVslSinCita)
-      : report.leadsSinCitaPorEmbudo?.oei;
+      : report.leadsSinCitaPorEmbudo?.[pipeline];
   const error = report.leadsSinCitaErrors?.[pipeline];
   const percent = (value: number | null | undefined) =>
     value == null ? "No disponible" : `${formatNumber(value)} %`;
@@ -28,7 +33,7 @@ export function LeadsWithoutAppointmentSection({
       <h2 id="unbooked-heading" className="text-lg font-semibold">
         {pipeline === "vsl"
           ? "4. Conversión de Landing VSL Ads (Automático)"
-          : "4. Leads OEI sin cita creada"}
+          : `4. Leads ${{ oei: "OEI", organico: "Orgánico", gira: "GIRA" }[pipeline]} sin cita creada`}
       </h2>
       <p className="text-sm text-muted-foreground">
         Oportunidades únicas creadas en el período seleccionado, vinculadas con sus citas históricas
