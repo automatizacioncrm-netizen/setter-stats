@@ -3,13 +3,11 @@ import { normalizePersonKey } from "../../lib/report-team";
 import type { ReportPerformance } from "../../types/reports";
 
 const count = z.number().finite().int().nonnegative();
-const attendance = z
-  .object({
-    agendamientos: count,
-    citasAsistidas: count,
-    asistenciaPct: z.number().finite().nullable(),
-  })
-  .refine((row) => row.citasAsistidas <= row.agendamientos);
+const attendance = z.object({
+  agendamientos: count,
+  citasAsistidas: count,
+  asistenciaPct: z.number().finite().nullable(),
+});
 const schema = z.object({
   conversionPorCloser: z.array(
     z.object({
@@ -20,7 +18,12 @@ const schema = z.object({
     }),
   ),
   asistenciaPorSetter: z.array(attendance.and(z.object({ setter: z.string().min(1) }))),
-  asistenciaPorCloserTodosEmbudos: z.array(attendance.and(z.object({ closer: z.string().min(1) }))),
+  // Closer counts share the meeting-date cohort; Setter counts do not.
+  asistenciaPorCloserTodosEmbudos: z.array(
+    attendance
+      .refine((row) => row.citasAsistidas <= row.agendamientos)
+      .and(z.object({ closer: z.string().min(1) })),
+  ),
   alcanceAsistencia: z.string().min(1),
   alcanceConversionCloser: z.string().min(1),
   diagnostics: z.object({

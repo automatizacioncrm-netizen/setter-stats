@@ -45,7 +45,7 @@ export function ExecutivePerformance({
     (r) => r.setter,
     (r) => Number(r.agendamientos),
   ).map((r) => ({ ...r, setter: r.name, agendamientos: r.count }));
-  const setters = allSetters.filter((r) => Number(r.agendamientos) > 0);
+  const setters = allSetters.filter((r) => Number(r.agendamientos) > 0 || r.citasAsistidas > 0);
   const closers = teamPerformanceRows(
     p?.asistenciaPorCloserTodosEmbudos ?? [],
     REPORT_CLOSER_TEAM,

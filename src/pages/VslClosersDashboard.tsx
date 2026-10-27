@@ -204,11 +204,12 @@ export function VslClosersDashboard() {
       const version = ++filterVersion.current;
       setIsFiltering(true);
       setFilterDelayDone(false);
-      // Paint stable placeholders before changing cascading controls.
+      // Commit every edit before scheduling visual feedback. Cancelling a frame
+      // must never discard a date edit when another control changes quickly.
+      apply();
       filterFrame.current = requestAnimationFrame(() => {
         filterFrame.current = requestAnimationFrame(() => {
           if (version !== filterVersion.current) return;
-          apply();
           filterTimer.current = setTimeout(() => {
             if (version === filterVersion.current) setFilterDelayDone(true);
           }, 350);

@@ -369,10 +369,69 @@ test("empty but complete aggregates render a real empty state", () => {
   assert.doesNotMatch(output, /Alvaro Jesus Paniura Marin/);
   assert.match(output, /No hay agendamientos para estos filtros/);
 });
-test("attendance invariant rejects attended greater than assigned", () => {
+test("Setter cohorts allow attendance above bookings; Closer retains its subset invariant", () => {
   const p = fixture();
   p.asistenciaPorSetter[0].citasAsistidas = 5;
+  p.asistenciaPorSetter[0].asistenciaPct = 125;
+  assert.deepEqual(mapPerformance(p).performance, p);
+  p.asistenciaPorCloserTodosEmbudos[0].citasAsistidas = 5;
   assert.ok(mapPerformance(p).performanceError);
+});
+
+test("custom cohorts preserve zero bookings with attendance and percentages above 100", () => {
+  const p = fixture();
+  p.asistenciaPorSetter = [
+    { setter: "Evelyn", agendamientos: 4, citasAsistidas: 5, asistenciaPct: 125 },
+    { setter: "Alvaro", agendamientos: 0, citasAsistidas: 2, asistenciaPct: null },
+    { setter: "Claudia Jimena", agendamientos: 0, citasAsistidas: 0, asistenciaPct: null },
+  ];
+  const result = mapPerformance(p);
+  assert.deepEqual(result.performance, p);
+  const output = html({ filters: { pipeline: "all" }, ...result });
+  assert.match(output, /Alvaro Jesus Paniura Marin/);
+  assert.match(output, /125[.,]00 %/);
+  assert.match(output, /No aplicable/);
+  for (const invalid of [-1, 1.5, "2", null]) {
+    const bad = structuredClone(p);
+    bad.asistenciaPorSetter[0].citasAsistidas = invalid;
+    assert.ok(mapPerformance(bad).performanceError);
+  }
+});
+
+test("A/B/C simulated requests preserve the exact dates and map independent cohorts", async () => {
+  const previous = global.fetch;
+  try {
+    for (const [pipeline, dateFrom, dateTo] of [
+      ["vsl", "2026-10-01", "2026-10-27"],
+      ["vsl", "2026-09-26", "2026-10-25"],
+      ["all", "2026-09-26", "2026-10-25"],
+    ]) {
+      const p = fixture();
+      p.alcanceAsistencia = p.alcanceConversionCloser = pipeline === "all" ? "vsl+oei+lig" : "vsl";
+      p.asistenciaPorSetter[0].citasAsistidas = dateFrom === "2026-09-26" ? 5 : 3;
+      p.asistenciaPorSetter[0].asistenciaPct = dateFrom === "2026-09-26" ? 125 : 75;
+      p.diagnostics.citasUnicasActividadSetter = 4;
+      p.diagnostics.citasUnicasActividadCloser = 4;
+      global.fetch = async (input, options) => {
+        const params = new URL(input, "https://local.test").searchParams;
+        for (const [key, value] of Object.entries({ pipeline, dateFrom, dateTo }))
+          assert.equal(params.get(key), value);
+        assert.equal(options.cache, "no-store");
+        const report = mapVslReportResponse({ ok: true, data: {
+          sales: { total: 3, rows }, performance: p,
+        } }, { ...query, pipeline, dateFrom, dateTo });
+        return Response.json(report);
+      };
+      const report = await getVslClosersReport({ ...EMPTY_REPORT_FILTERS,
+        preset: "custom", pipeline, dateFrom, dateTo,
+      }, { includeDetail: false, page: 1, pageSize: 25, sort: "nombreContacto", direction: "asc" });
+      assert.equal(report.performanceError, undefined);
+      assert.deepEqual(report.performance, p);
+      assert.doesNotMatch(html(report), /role="alert"/);
+    }
+  } finally {
+    global.fetch = previous;
+  }
 });
 test("sales invariant and activity totals reject mismatched aggregates", () => {
   const p = fixture();

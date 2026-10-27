@@ -436,6 +436,26 @@ test("el nombre del agendador también abre el detalle en OEI y LIG", () => {
     );
   }
 });
+test("rapid date edits and preset changes never lose a pending filter update", () => {
+  const h = harness(false);
+  h.loaded();
+  const controls = () => h.find("DashboardFilters").props;
+  controls().onPreset("mes");
+  controls().onPreset("custom");
+  controls().onChange({ dateFrom: "2026-09-26", preset: "custom" });
+  controls().onChange({ dateTo: "2026-10-20", preset: "custom" });
+  controls().onChange({ dateTo: "2026-10-25", preset: "custom" });
+  h.render();
+  assert.equal(controls().filters.dateFrom, "2026-09-26");
+  assert.equal(controls().filters.dateTo, "2026-10-25");
+  assert.equal(controls().filters.preset, "custom");
+  assert.equal(h.query.options.queryKey[1].dateTo, "2026-10-25");
+  h.paint();
+  h.paint();
+  h.advance(350);
+  assert.equal(controls().filters.dateTo, "2026-10-25");
+});
+
 function deferred() {
   let resolve;
   const promise = new Promise((done) => {
@@ -649,16 +669,12 @@ test("all filter handlers show stable skeletons without a modal or reconciliatio
     () => h.find("DashboardFilters").props.onClear(),
   ];
   for (const action of actions) {
-    const previousFilters = h.query.options.queryKey[1];
     action();
     h.render();
     assert.equal(h.find("LoadingModal").props.open, false);
     assert.ok(h.find("Skeleton"));
-    assert.equal(
-      h.query.options.queryKey[1],
-      previousFilters,
-      "placeholder precedes filter application",
-    );
+    assert.equal(h.query.options.queryKey[1], h.find("DashboardFilters").props.filters,
+      "visible filters and the active request change together");
     h.paint();
     h.paint();
     h.render();
