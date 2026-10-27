@@ -15,12 +15,14 @@ export function ExecutiveTable<T>({
   rowKey,
   empty,
   minWidth = "min-w-[600px]",
+  footer,
 }: {
   rows: readonly T[];
   columns: ExecutiveColumn<T>[];
   rowKey: (row: T) => string;
   empty: string;
   minWidth?: string;
+  footer?: ReactNode;
 }) {
   const [sort, setSort] = useState<{ key: string; asc: boolean } | null>(null);
   const column = columns.find((item) => item.key === sort?.key);
@@ -98,6 +100,7 @@ export function ExecutiveTable<T>({
             </tr>
           )}
         </tbody>
+        {footer && <tfoot>{footer}</tfoot>}
       </table>
     </div>
   );

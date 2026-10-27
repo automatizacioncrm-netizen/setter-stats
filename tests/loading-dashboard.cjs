@@ -673,8 +673,11 @@ test("all filter handlers show stable skeletons without a modal or reconciliatio
     h.render();
     assert.equal(h.find("LoadingModal").props.open, false);
     assert.ok(h.find("Skeleton"));
-    assert.equal(h.query.options.queryKey[1], h.find("DashboardFilters").props.filters,
-      "visible filters and the active request change together");
+    assert.equal(
+      h.query.options.queryKey[1],
+      h.find("DashboardFilters").props.filters,
+      "visible filters and the active request change together",
+    );
     h.paint();
     h.paint();
     h.render();
@@ -768,56 +771,36 @@ test("focus refresh retains loaded data without starting a filter transition", (
   assert.ok(h.find("SetterStatusTable"));
 });
 
-test("Calendar detail is lazy, requests includeDetail=true and preserves active filters", async () => {
+test("Calendar daily meetings report is lazy and receives pipeline and the current date range", () => {
   const h = harness();
   h.loaded();
-  assert.equal(h.query.calendarOptions.enabled, false);
-  h.find("DashboardFilters").props.onChange({ pipeline: "lig" });
-  h.render();
-  h.advance(400);
+  assert.equal(h.find("DailyMeetingsReport"), undefined);
   h.find("DashboardFilters").props.onChange({
-    dateFrom: "2026-10-01",
-    dateTo: "2026-10-14",
-    booker: "Jimena",
-    calendar: "LIG",
-    closer: "Fiorela Bernales",
-    estadoAgenda: "Confirmado",
-    vslOrigen: "Origen",
-  });
-  h.render();
-  h.advance(400);
-  h.find("ExecutivePerformance").props.onCalendarToggle(true);
-  h.render();
-  assert.equal(h.query.calendarOptions.enabled, true);
-  const previous = global.fetch;
-  let url;
-  global.fetch = async (input) => {
-    url = new URL(input, "https://local.test");
-    return { ok: true, json: async () => ({ ok: true, data: {} }) };
-  };
-  try {
-    await h.query.calendarOptions.queryFn({ signal: undefined });
-  } finally {
-    global.fetch = previous;
-  }
-  for (const [key, value] of Object.entries({
-    includeDetail: "true",
     pipeline: "lig",
     dateFrom: "2026-10-01",
     dateTo: "2026-10-14",
     booker: "Jimena",
     calendar: "LIG",
     closer: "Fiorela Bernales",
-    status: "Confirmado",
-    vslOrigin: "Origen",
-    search: "",
-    sort: "nombreContacto",
-    direction: "asc",
-  }))
-    assert.equal(url.searchParams.get(key), value, key);
+  });
+  h.render();
+  h.advance(400);
+  const setter = h.find("SetterStatusTable").props;
+  h.find("ExecutivePerformance").props.onCalendarToggle(true);
+  h.render();
+  assert.deepEqual(Object.keys(h.find("DailyMeetingsReport").props).sort(), [
+    "dateFrom",
+    "dateTo",
+    "pipeline",
+  ]);
+  assert.equal(h.find("DailyMeetingsReport").props.pipeline, "lig");
+  assert.equal(h.find("DailyMeetingsReport").props.dateFrom, "2026-10-01");
+  assert.equal(h.find("DailyMeetingsReport").props.dateTo, "2026-10-14");
+  assert.deepEqual(h.find("SetterStatusTable").props.rows, setter.rows);
+  assert.equal(h.find("SetterStatusTable").props.totals, setter.totals);
   h.find("ExecutivePerformance").props.onCalendarToggle(false);
   h.render();
-  assert.equal(h.query.calendarOptions.enabled, false);
+  assert.equal(h.find("DailyMeetingsReport"), undefined);
 });
 
 test("Calendar chart cards are absent and performance follows executive summary", () => {

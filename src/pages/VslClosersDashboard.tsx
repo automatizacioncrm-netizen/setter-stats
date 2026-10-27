@@ -16,6 +16,7 @@ import { RECONCILIATION_PIPELINES } from "@/types/reconciliation.types";
 import { RefreshButton } from "@/components/reports/RefreshButton";
 import { LoadingModal } from "@/components/reports/LoadingModal";
 import { LeadDetailTable } from "@/components/reports/LeadDetailTable";
+import { DailyMeetingsReport } from "@/components/reports/DailyMeetingsReport";
 import { SalesSection } from "@/components/reports/SalesSection";
 import { ExecutivePerformance } from "@/components/reports/ExecutivePerformance";
 import { getPipelineCardMetrics } from "@/lib/pipeline-summary";
@@ -129,13 +130,6 @@ export function VslClosersDashboard() {
   )?.sourceNames;
   const requestSourceNames = undefined;
   const validRange = isValidReportRange(filters);
-  const calendarDetail = useQuery({
-    queryKey: ["vsl-closers-calendar-detail", filters, { ...detail, search }],
-    queryFn: ({ signal }) =>
-      getVslClosersReport(filters, { ...detail, search, includeDetail: true }, signal),
-    enabled: calendarOpen && validRange,
-    retry: false,
-  });
   const query = useQuery({
     queryKey: ["vsl-closers", filters, { ...detail, search }, requestSourceNames],
     queryFn: ({ signal }) =>
@@ -550,19 +544,18 @@ export function VslClosersDashboard() {
                       );
                     }}
                   />
-                  {calendarOpen &&
-                    (calendarDetail.isError ? (
-                      <p role="status">No se pudo cargar el detalle de citas.</p>
-                    ) : (
-                      <LeadDetailTable
-                        rows={calendarDetail.data?.detail ?? []}
-                        total={calendarDetail.data?.detailTotal ?? 0}
-                        page={calendarDetail.data?.detailPage ?? detail.page}
-                        query={{ ...detail, includeDetail: true }}
-                        onChange={(next) => setDetail((prev) => ({ ...prev, ...next }))}
-                        busy={calendarDetail.isFetching}
-                      />
-                    ))}
+                  {calendarOpen && (
+                    <DailyMeetingsReport
+                      key={JSON.stringify([
+                        filters.pipeline ?? "all",
+                        filters.dateFrom,
+                        filters.dateTo,
+                      ])}
+                      pipeline={filters.pipeline ?? "all"}
+                      dateFrom={filters.dateFrom}
+                      dateTo={filters.dateTo}
+                    />
+                  )}
                 </>
               }
             />

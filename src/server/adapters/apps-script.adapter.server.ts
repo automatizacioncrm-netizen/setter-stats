@@ -1,6 +1,7 @@
 import { ApiError, getServerEnv } from "../config/env.server";
 import type { ReconciliationPipeline } from "../../types/reconciliation.types";
 export const REPORT_TIMEOUT_MS = 15_000;
+export const DAILY_MEETINGS_TIMEOUT_MS = 30_000;
 export const RECONCILE_TIMEOUT_MS = 60_000;
 export type ReconciliationAction =
   "reconcile_all" | "reconcile_opportunities" | "reconcile_appointments";
@@ -37,8 +38,11 @@ export type AppointmentDetailRequest = Omit<
 };
 
 async function requestScript(
-  action: "vsl_report" | "appointment_detail" | ReconciliationAction,
-  filters?: ReportRequest | AppointmentDetailRequest,
+  action: "vsl_report" | "appointment_detail" | "daily_meetings_report" | ReconciliationAction,
+  filters?:
+    | ReportRequest
+    | AppointmentDetailRequest
+    | Pick<ReportRequest, "pipeline" | "dateFrom" | "dateTo">,
   pipeline?: ReconciliationPipeline,
 ) {
   const env = getServerEnv();
@@ -73,7 +77,13 @@ async function requestScript(
       "sort",
       "direction",
     ] as const) {
-      if (key === "leadType" && filters.pipeline && filters.pipeline !== "vsl") continue;
+      if (
+        key === "leadType" &&
+        "pipeline" in filters &&
+        filters.pipeline &&
+        filters.pipeline !== "vsl"
+      )
+        continue;
       if (!(key in filters)) continue;
       const value = (filters as unknown as Record<string, unknown>)[key];
       if (value == null) continue;
@@ -92,7 +102,11 @@ async function requestScript(
       );
   const timer = setTimeout(
     () => controller.abort(),
-    isReconciliation ? RECONCILE_TIMEOUT_MS : REPORT_TIMEOUT_MS,
+    isReconciliation
+      ? RECONCILE_TIMEOUT_MS
+      : action === "daily_meetings_report"
+        ? DAILY_MEETINGS_TIMEOUT_MS
+        : REPORT_TIMEOUT_MS,
   );
   const debugReport =
     action === "vsl_report" &&
@@ -106,10 +120,10 @@ async function requestScript(
     "Request received / Query params",
     filters
       ? {
-          pipeline: filters.pipeline,
+          pipeline: "pipeline" in filters ? filters.pipeline : undefined,
           dateFrom: filters.dateFrom,
           dateTo: filters.dateTo,
-          leadType: filters.leadType,
+          leadType: "leadType" in filters ? filters.leadType : undefined,
           includeDetail: "includeDetail" in filters ? filters.includeDetail : undefined,
         }
       : undefined,
@@ -226,6 +240,11 @@ export function fetchVslReport(filters: ReportRequest) {
 }
 export function fetchAppointmentDetail(filters: AppointmentDetailRequest) {
   return requestScript("appointment_detail", filters);
+}
+export function fetchDailyMeetingsReport(
+  range: Pick<ReportRequest, "pipeline" | "dateFrom" | "dateTo">,
+) {
+  return requestScript("daily_meetings_report", range);
 }
 export function runVslReconciliation(
   action: ReconciliationAction = "reconcile_all",

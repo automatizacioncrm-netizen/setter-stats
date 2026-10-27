@@ -1144,3 +1144,124 @@ test("Escape closes the modal and close autofocus returns to its date trigger", 
   assert.equal(restored, 1);
   assert.equal(prevented, true);
 });
+
+test("Landing footer uses official period totals, weighted percentage and stays below sorted daily rows", () => {
+  const source = {
+    pipeline: "vsl",
+    total: {
+      oportunidades: 10,
+      oportunidadesConCita: 6,
+      confirmados: 3,
+      cancelados: 2,
+      asistidos: 1,
+      noAsistidos: 0,
+      sinResultado: 9,
+    },
+    porDia: [
+      {
+        fechaCreacion: "2026-10-21",
+        oportunidades: 1,
+        oportunidadesConCita: 1,
+        confirmados: 0,
+        cancelados: 0,
+        asistidos: 1,
+        noAsistidos: 0,
+        sinResultado: 0,
+      },
+      {
+        fechaCreacion: "2026-10-22",
+        oportunidades: 9,
+        oportunidadesConCita: 5,
+        confirmados: 3,
+        cancelados: 2,
+        asistidos: 0,
+        noAsistidos: 0,
+        sinResultado: 9,
+      },
+    ],
+  };
+  const mapped = mapVslReportResponse(
+    { ok: true, data: { cohorteDiariaVsl: source } },
+    { pipeline: "vsl", ...range, includeDetail: false },
+  );
+  assert.deepEqual(mapped.cohorteDiariaVsl.total, source.total);
+  const h = ui(mapped, true);
+  h.nodes()
+    .find((n) => n.type === "details")
+    .props.onToggle({ currentTarget: { open: true } });
+  h.render();
+  const footer = () => h.nodes().find((n) => n.type === "tfoot");
+  const walk = (node) =>
+    !node || typeof node !== "object"
+      ? []
+      : Array.isArray(node)
+        ? node.flatMap(walk)
+        : [node, ...walk(node.props?.children)];
+  const cells = () => walk(footer()).filter((node) => node.type === "th" || node.type === "td");
+  assert.equal(cells().length, 9);
+  assert.equal(cells()[0].props.children, "TOTAL GENERAL");
+  assert.deepEqual(
+    Array.from(cells().slice(1, 7), (n) => n.props.children),
+    [10, 6, 3, 2, 1, 0],
+  );
+  assert.equal(cells()[7].props.children.join(""), "10.00 %");
+  assert.equal(cells()[8].props.children, undefined);
+  const table = h.nodes().find((n) => n.type === "table");
+  assert.equal(table.props.children.at(-1).type, "tfoot");
+  for (const label of ["Fecha de creación", "Total de leads creados", "Leads asistidos"]) {
+    h.nodes()
+      .find((n) => n.type === "button" && n.props.children?.[0] === label)
+      .props.onClick();
+    h.render();
+    assert.equal(h.nodes().filter((n) => n.type === "tfoot").length, 1);
+    assert.equal(cells()[0].props.children, "TOTAL GENERAL");
+    assert.equal(cells()[7].props.children.join(""), "10.00 %");
+  }
+  assert.equal(
+    h.nodes().filter((n) => n.type === "button" && n.props["aria-haspopup"] === "dialog").length,
+    2,
+  );
+  const invalid = structuredClone(source);
+  invalid.total.asistidos = 2;
+  assert.ok(mapLandingVslCohort(invalid, range).cohorteDiariaVslError);
+});
+
+test("Landing footer distinguishes zero totals from missing official fields", () => {
+  const totals = {
+    oportunidades: 0,
+    oportunidadesConCita: 0,
+    confirmados: 0,
+    cancelados: 0,
+    asistidos: 0,
+    noAsistidos: 0,
+    sinResultado: 0,
+  };
+  for (const kind of ["zero", "absent", "missing"]) {
+    const total = structuredClone(totals);
+    if (kind === "missing") delete total.confirmados;
+    const h = ui(
+      {
+        filters: { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" },
+        cohorteDiariaVsl: { totalLeads: 0, porDia: [], ...(kind === "absent" ? {} : { total }) },
+      },
+      true,
+    );
+    h.nodes()
+      .find((n) => n.type === "details")
+      .props.onToggle({ currentTarget: { open: true } });
+    h.render();
+    const alert = h.nodes().find((n) => n.props.role === "alert");
+    if (kind === "zero") {
+      assert.equal(alert, undefined);
+      assert.ok(
+        h.nodes().some((n) => n.type === "td" && n.props.children?.join?.("") === "0.00 %"),
+      );
+    } else {
+      assert.ok(alert);
+      assert.match(
+        alert.props.children,
+        kind === "absent" ? /no entrega cohorteDiariaVsl.total/ : /confirmados/,
+      );
+    }
+  }
+});

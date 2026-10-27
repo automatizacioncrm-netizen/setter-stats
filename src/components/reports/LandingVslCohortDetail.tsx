@@ -75,6 +75,21 @@ function CohortDays({ report }: { report: VslClosersReport }) {
   );
   const pages = Math.max(1, Math.ceil(days.length / 31));
   const day = data.porDia.find((item) => item.fecha === selected);
+  const total = data.total;
+  const totalFields = [
+    "oportunidades",
+    "oportunidadesConCita",
+    "confirmados",
+    "cancelados",
+    "asistidos",
+    "noAsistidos",
+  ] as const;
+  const missingTotals = totalFields.filter((field) => total?.[field] === undefined);
+  const totalError = !total
+    ? "La API no entrega cohorteDiariaVsl.total para este período."
+    : missingTotals.length
+      ? `Faltan acumulados en cohorteDiariaVsl.total: ${missingTotals.join(", ")}.`
+      : null;
   const missingFields = (["oportunidadesConCita", "confirmados", "cancelados"] as const).filter(
     (field) => days.some((row) => row[field] === undefined),
   );
@@ -106,6 +121,34 @@ function CohortDays({ report }: { report: VslClosersReport }) {
         rowKey={(r) => r.fecha}
         empty="No hay leads Landing VSL creados en el período seleccionado."
         minWidth="min-w-[1250px]"
+        footer={
+          <tr className="border-t-2 border-border bg-brand-soft font-semibold">
+            {totalError ? (
+              <td colSpan={9} className="px-4 py-3 text-destructive" role="alert">
+                {totalError}
+              </td>
+            ) : (
+              <>
+                <th scope="row" className="px-4 py-3 text-left">
+                  TOTAL GENERAL
+                </th>
+                {totalFields.map((field) => (
+                  <td key={field} className="px-4 py-3 tabular-nums">
+                    {total?.[field]}
+                  </td>
+                ))}
+                <td className="px-4 py-3 tabular-nums">
+                  {(total && total.oportunidades > 0
+                    ? (total.asistidos / total.oportunidades) * 100
+                    : 0
+                  ).toFixed(2)}{" "}
+                  %
+                </td>
+                <td />
+              </>
+            )}
+          </tr>
+        }
         columns={[
           {
             key: "date",

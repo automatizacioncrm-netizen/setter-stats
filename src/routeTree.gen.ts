@@ -14,6 +14,7 @@ import { Route as ReportsIndexRouteImport } from './routes/reports.index'
 import { Route as ReportsVslCitasRouteImport } from './routes/reports.vsl-citas'
 import { Route as ReportsVslClosersRouteImport } from './routes/reports.vsl-closers'
 import { Route as ApiCronVslReconcileRouteImport } from './routes/api.cron.vsl-reconcile'
+import { Route as ApiReportsDailyMeetingsRouteImport } from './routes/api.reports.daily-meetings'
 import { Route as ApiReportsVslCitasRouteImport } from './routes/api.reports.vsl-citas'
 import { Route as ApiReportsVslClosersRouteImport } from './routes/api.reports.vsl-closers'
 import { Route as ApiReportsVslCitasReconcileRouteImport } from './routes/api.reports.vsl-citas.reconcile'
@@ -42,6 +43,11 @@ const ReportsVslClosersRoute = ReportsVslClosersRouteImport.update({
 const ApiCronVslReconcileRoute = ApiCronVslReconcileRouteImport.update({
   id: '/api/cron/vsl-reconcile',
   path: '/api/cron/vsl-reconcile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReportsDailyMeetingsRoute = ApiReportsDailyMeetingsRouteImport.update({
+  id: '/api/reports/daily-meetings',
+  path: '/api/reports/daily-meetings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiReportsVslCitasRoute = ApiReportsVslCitasRouteImport.update({
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/reports/vsl-closers': typeof ReportsVslClosersRoute
   '/reports/': typeof ReportsIndexRoute
   '/api/cron/vsl-reconcile': typeof ApiCronVslReconcileRoute
+  '/api/reports/daily-meetings': typeof ApiReportsDailyMeetingsRoute
   '/api/reports/vsl-citas': typeof ApiReportsVslCitasRouteWithChildren
   '/api/reports/vsl-closers': typeof ApiReportsVslClosersRouteWithChildren
   '/api/reports/vsl-citas/reconcile': typeof ApiReportsVslCitasReconcileRoute
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/reports/vsl-closers': typeof ReportsVslClosersRoute
   '/reports': typeof ReportsIndexRoute
   '/api/cron/vsl-reconcile': typeof ApiCronVslReconcileRoute
+  '/api/reports/daily-meetings': typeof ApiReportsDailyMeetingsRoute
   '/api/reports/vsl-citas': typeof ApiReportsVslCitasRouteWithChildren
   '/api/reports/vsl-closers': typeof ApiReportsVslClosersRouteWithChildren
   '/api/reports/vsl-citas/reconcile': typeof ApiReportsVslCitasReconcileRoute
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/reports/vsl-closers': typeof ReportsVslClosersRoute
   '/reports/': typeof ReportsIndexRoute
   '/api/cron/vsl-reconcile': typeof ApiCronVslReconcileRoute
+  '/api/reports/daily-meetings': typeof ApiReportsDailyMeetingsRoute
   '/api/reports/vsl-citas': typeof ApiReportsVslCitasRouteWithChildren
   '/api/reports/vsl-closers': typeof ApiReportsVslClosersRouteWithChildren
   '/api/reports/vsl-citas/reconcile': typeof ApiReportsVslCitasReconcileRoute
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/reports/vsl-closers'
     | '/reports/'
     | '/api/cron/vsl-reconcile'
+    | '/api/reports/daily-meetings'
     | '/api/reports/vsl-citas'
     | '/api/reports/vsl-closers'
     | '/api/reports/vsl-citas/reconcile'
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/reports/vsl-closers'
     | '/reports'
     | '/api/cron/vsl-reconcile'
+    | '/api/reports/daily-meetings'
     | '/api/reports/vsl-citas'
     | '/api/reports/vsl-closers'
     | '/api/reports/vsl-citas/reconcile'
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/reports/vsl-closers'
     | '/reports/'
     | '/api/cron/vsl-reconcile'
+    | '/api/reports/daily-meetings'
     | '/api/reports/vsl-citas'
     | '/api/reports/vsl-closers'
     | '/api/reports/vsl-citas/reconcile'
@@ -143,6 +155,7 @@ export interface RootRouteChildren {
   ReportsVslClosersRoute: typeof ReportsVslClosersRoute
   ReportsIndexRoute: typeof ReportsIndexRoute
   ApiCronVslReconcileRoute: typeof ApiCronVslReconcileRoute
+  ApiReportsDailyMeetingsRoute: typeof ApiReportsDailyMeetingsRoute
   ApiReportsVslCitasRoute: typeof ApiReportsVslCitasRouteWithChildren
   ApiReportsVslClosersRoute: typeof ApiReportsVslClosersRouteWithChildren
 }
@@ -182,6 +195,13 @@ declare module '@tanstack/react-router' {
       path: '/api/cron/vsl-reconcile'
       fullPath: '/api/cron/vsl-reconcile'
       preLoaderRoute: typeof ApiCronVslReconcileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/reports/daily-meetings': {
+      id: '/api/reports/daily-meetings'
+      path: '/api/reports/daily-meetings'
+      fullPath: '/api/reports/daily-meetings'
+      preLoaderRoute: typeof ApiReportsDailyMeetingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/reports/vsl-citas': {
@@ -243,6 +263,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReportsVslClosersRoute: ReportsVslClosersRoute,
   ReportsIndexRoute: ReportsIndexRoute,
   ApiCronVslReconcileRoute: ApiCronVslReconcileRoute,
+  ApiReportsDailyMeetingsRoute: ApiReportsDailyMeetingsRoute,
   ApiReportsVslCitasRoute: ApiReportsVslCitasRouteWithChildren,
   ApiReportsVslClosersRoute: ApiReportsVslClosersRouteWithChildren,
 }
