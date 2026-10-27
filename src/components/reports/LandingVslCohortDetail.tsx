@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
 import type { VslClosersReport } from "@/types/reports";
-import { formatNumber } from "@/lib/executive-metrics";
 import { formatSaleQuotaDate } from "@/lib/sales-detail";
 import { ExecutiveTable } from "./ExecutiveTable";
 import { LandingVslDayModal } from "./LandingVslDayModal";
+import { attendancePercentage } from "@/lib/attendance-percentage";
 
 const dateLabel = (date: string) => (date ? formatSaleQuotaDate(date) : "Sin fecha");
 function Pagination({
@@ -138,10 +138,13 @@ function CohortDays({ report }: { report: VslClosersReport }) {
                   </td>
                 ))}
                 <td className="px-4 py-3 tabular-nums">
-                  {(total && total.oportunidades > 0
-                    ? (total.asistidos / total.oportunidades) * 100
-                    : 0
-                  ).toFixed(2)}{" "}
+                  {total
+                    ? attendancePercentage(
+                        total.porcentajeAsistencia,
+                        total.asistidos,
+                        total.oportunidadesConCita,
+                      )?.toFixed(2)
+                    : "No disponible"}{" "}
                   %
                 </td>
                 <td />
@@ -181,7 +184,10 @@ function CohortDays({ report }: { report: VslClosersReport }) {
             key: "rate",
             label: "Porcentaje de asistencia",
             value: (r) => r.porcentajeAsistencia,
-            render: (r) => `${formatNumber(r.porcentajeAsistencia)} %`,
+            render: (r) =>
+              r.porcentajeAsistencia == null
+                ? "No disponible"
+                : `${r.porcentajeAsistencia.toFixed(2)} %`,
           },
           {
             key: "detail",

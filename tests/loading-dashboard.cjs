@@ -789,11 +789,13 @@ test("Calendar daily meetings report is lazy and receives pipeline and the curre
   h.find("ExecutivePerformance").props.onCalendarToggle(true);
   h.render();
   assert.deepEqual(Object.keys(h.find("DailyMeetingsReport").props).sort(), [
+    "calendar",
     "dateFrom",
     "dateTo",
     "pipeline",
   ]);
   assert.equal(h.find("DailyMeetingsReport").props.pipeline, "lig");
+  assert.equal(h.find("DailyMeetingsReport").props.calendar, "LIG");
   assert.equal(h.find("DailyMeetingsReport").props.dateFrom, "2026-10-01");
   assert.equal(h.find("DailyMeetingsReport").props.dateTo, "2026-10-14");
   assert.deepEqual(h.find("SetterStatusTable").props.rows, setter.rows);

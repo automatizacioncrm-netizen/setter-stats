@@ -42,7 +42,7 @@ async function requestScript(
   filters?:
     | ReportRequest
     | AppointmentDetailRequest
-    | Pick<ReportRequest, "pipeline" | "dateFrom" | "dateTo">,
+    | (Pick<ReportRequest, "pipeline" | "dateFrom" | "dateTo"> & { calendar?: string | undefined }),
   pipeline?: ReconciliationPipeline,
 ) {
   const env = getServerEnv();
@@ -242,7 +242,9 @@ export function fetchAppointmentDetail(filters: AppointmentDetailRequest) {
   return requestScript("appointment_detail", filters);
 }
 export function fetchDailyMeetingsReport(
-  range: Pick<ReportRequest, "pipeline" | "dateFrom" | "dateTo">,
+  range: Pick<ReportRequest, "pipeline" | "dateFrom" | "dateTo"> & {
+    calendar?: string | undefined;
+  },
 ) {
   return requestScript("daily_meetings_report", range);
 }

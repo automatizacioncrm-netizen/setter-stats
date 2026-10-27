@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { LandingVslCohort, ReportFilters } from "../../types/reports";
+import { attendancePercentage } from "../../lib/attendance-percentage";
 
 const count = z.number().finite().int().nonnegative();
 // Optional for older deployments, never defaulted or inferred from other counts.
@@ -13,6 +14,7 @@ const deployedCounts = z.object({
   asistidos: count,
   noAsistidos: count,
   sinResultado: count,
+  porcentajeAsistencia: z.number().finite().min(0).max(100).nullable().optional(),
   ...additionalCounts,
 });
 const date = z
@@ -106,7 +108,7 @@ const schema = z.object({
       leadsAsistidos: count,
       leadsNoAsistidos: count,
       leadsPendientesResultado: count,
-      porcentajeAsistencia: z.number().finite().min(0).max(100),
+      porcentajeAsistencia: z.number().finite().min(0).max(100).nullable(),
       ...additionalCounts,
       // A summary without individual records remains useful, but never invent detail.
       leads: z.array(lead).optional(),
@@ -171,9 +173,11 @@ export function mapLandingVslCohort(
         ...(day.confirmados !== undefined ? { confirmados: day.confirmados } : {}),
         ...(day.cancelados !== undefined ? { cancelados: day.cancelados } : {}),
         ...(day.detalles !== undefined ? { detalles: day.detalles } : {}),
-        porcentajeAsistencia: day.oportunidades
-          ? Number(((day.asistidos * 100) / day.oportunidades).toFixed(2))
-          : 0,
+        porcentajeAsistencia: attendancePercentage(
+          day.porcentajeAsistencia,
+          day.asistidos,
+          day.oportunidadesConCita,
+        ),
       })),
     };
   }
@@ -198,11 +202,7 @@ export function mapLandingVslCohort(
       days.has(day.fecha) ||
       (filters.dateFrom && day.fecha < filters.dateFrom) ||
       (filters.dateTo && day.fecha > filters.dateTo) ||
-      day.leadsAsistidos + day.leadsNoAsistidos + day.leadsPendientesResultado !== day.totalLeads ||
-      Math.abs(
-        day.porcentajeAsistencia -
-          (day.totalLeads ? (day.leadsAsistidos * 100) / day.totalLeads : 0),
-      ) > 0.011
+      day.leadsAsistidos + day.leadsNoAsistidos + day.leadsPendientesResultado !== day.totalLeads
     )
       return error("La cohorte diaria no concilia con las fechas o los totales de la API.");
     days.add(day.fecha);

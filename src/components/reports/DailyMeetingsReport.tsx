@@ -15,8 +15,9 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { ExecutiveTable } from "./ExecutiveTable";
+import { attendancePercentage } from "@/lib/attendance-percentage";
 
-const countColumns = [
+const summaryColumns = [
   ["totalCitas", "Total agendamientos"],
   ["confirmados", "Confirmados"],
   ["cancelados", "Cancelados"],
@@ -24,6 +25,13 @@ const countColumns = [
   ["noAsistidos", "No asistidos"],
   ["sinEstado", "Sin estado"],
 ] as const;
+const countColumns = summaryColumns.filter(([key]) => key !== "sinEstado");
+const meetingRate = (row: DailyMeetingTotals) =>
+  attendancePercentage(row.porcentajeAsistencia, row.asistidos, row.totalCitas);
+const rateLabel = (row: DailyMeetingTotals) => {
+  const value = meetingRate(row);
+  return value === null ? "No disponible" : `${value.toFixed(2)} %`;
+};
 const dateLabel = (value: string) => (value ? formatSaleQuotaDate(value) : "—");
 
 function MeetingDayModal({
@@ -57,7 +65,7 @@ function MeetingDayModal({
           </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {countColumns.map(([key, label]) => (
+          {summaryColumns.map(([key, label]) => (
             <div key={key} className="rounded-lg border border-border p-3">
               <p className="text-xs text-muted-foreground">{label}</p>
               <p className="text-xl font-semibold tabular-nums">{day[key]}</p>
@@ -126,10 +134,16 @@ const pipelineLabels = {
   organico: "Captación Orgánica",
   gira: "VSL GIRA",
 };
-export function DailyMeetingsReport({ pipeline, dateFrom, dateTo }: DailyMeetingsFilters) {
+export function DailyMeetingsReport({
+  pipeline,
+  dateFrom,
+  dateTo,
+  calendar = "",
+}: DailyMeetingsFilters) {
   const query = useQuery({
-    queryKey: ["daily-meetings", pipeline, dateFrom, dateTo],
-    queryFn: ({ signal }) => getDailyMeetingsReport({ pipeline, dateFrom, dateTo }, signal),
+    queryKey: ["daily-meetings", pipeline, dateFrom, dateTo, calendar],
+    queryFn: ({ signal }) =>
+      getDailyMeetingsReport({ pipeline, dateFrom, dateTo, calendar }, signal),
     retry: 1,
     refetchOnWindowFocus: false,
   });
@@ -142,8 +156,10 @@ export function DailyMeetingsReport({ pipeline, dateFrom, dateTo }: DailyMeeting
   const data = query.data;
   const days = data
     ? [...data.porDia].sort((a, b) => {
-        const av = a[sort.key],
-          bv = b[sort.key];
+        const av = sort.key === "porcentajeAsistencia" ? meetingRate(a) : a[sort.key],
+          bv = sort.key === "porcentajeAsistencia" ? meetingRate(b) : b[sort.key];
+        if (av == null) return bv == null ? 0 : 1;
+        if (bv == null) return -1;
         return (
           (typeof av === "number" && typeof bv === "number"
             ? av - bv
@@ -154,7 +170,10 @@ export function DailyMeetingsReport({ pipeline, dateFrom, dateTo }: DailyMeeting
   // Also bind selection to the active range, even if the caller forgets a key.
   const selectionKey = selected?.split("|");
   const day =
-    selectionKey?.[0] === pipeline && selectionKey[1] === dateFrom && selectionKey[2] === dateTo
+    selectionKey?.[0] === pipeline &&
+    selectionKey[1] === dateFrom &&
+    selectionKey[2] === dateTo &&
+    selectionKey[4] === calendar
       ? data?.porDia.find((row) => row.fechaReunion === selectionKey[3])
       : undefined;
   const changeSort = (key: typeof sort.key) =>
@@ -244,6 +263,21 @@ export function DailyMeetingsReport({ pipeline, dateFrom, dateTo }: DailyMeeting
                         </button>
                       </th>
                     ))}
+                    <th
+                      scope="col"
+                      className="px-4 py-3 font-medium"
+                      aria-sort={
+                        sort.key === "porcentajeAsistencia"
+                          ? sort.asc
+                            ? "ascending"
+                            : "descending"
+                          : "none"
+                      }
+                    >
+                      <button type="button" onClick={() => changeSort("porcentajeAsistencia")}>
+                        % Asistencia ↕
+                      </button>
+                    </th>
                     <th scope="col" className="px-4 py-3 font-medium">
                       Acción
                     </th>
@@ -261,6 +295,7 @@ export function DailyMeetingsReport({ pipeline, dateFrom, dateTo }: DailyMeeting
                           {row[key]}
                         </td>
                       ))}
+                      <td className="px-4 py-3 tabular-nums">{rateLabel(row)}</td>
                       <td className="px-4 py-3">
                         <button
                           type="button"
@@ -269,7 +304,9 @@ export function DailyMeetingsReport({ pipeline, dateFrom, dateTo }: DailyMeeting
                           aria-label={`Ver detalle del ${dateLabel(row.fechaReunion)}`}
                           onClick={(event) => {
                             trigger.current = event?.currentTarget ?? null;
-                            setSelected(`${pipeline}|${dateFrom}|${dateTo}|${row.fechaReunion}`);
+                            setSelected(
+                              `${pipeline}|${dateFrom}|${dateTo}|${row.fechaReunion}|${calendar}`,
+                            );
                           }}
                         >
                           Ver detalle
@@ -295,6 +332,7 @@ export function DailyMeetingsReport({ pipeline, dateFrom, dateTo }: DailyMeeting
                         {data.total[key]}
                       </td>
                     ))}
+                    <td className="px-4 py-3 tabular-nums">{rateLabel(data.total)}</td>
                     <td />
                   </tr>
                 </tfoot>
@@ -305,7 +343,7 @@ export function DailyMeetingsReport({ pipeline, dateFrom, dateTo }: DailyMeeting
       )}
       {day && !query.isError && (
         <MeetingDayModal
-          key={`${pipeline}|${dateFrom}|${dateTo}|${day.fechaReunion}`}
+          key={`${pipeline}|${dateFrom}|${dateTo}|${day.fechaReunion}|${calendar}`}
           day={day}
           onClose={() => setSelected(null)}
           onRestoreFocus={() => trigger.current?.focus()}

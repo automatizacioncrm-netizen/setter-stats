@@ -118,6 +118,7 @@ test("new proxy preserves all funnels, appointment identity and official totals 
     assert.equal(calls[0].url.searchParams.get("key"), "private-test-only");
     assert.deepEqual([...calls[0].url.searchParams.keys()].sort(), [
       "action",
+      "calendar",
       "dateFrom",
       "dateTo",
       "key",
@@ -174,7 +175,7 @@ test("client sends pipeline and dates and passes AbortSignal, errors remain erro
     global.fetch = async (url, options) => {
       const q = new URL(url, "https://local.test");
       assert.equal(q.pathname, "/api/reports/daily-meetings");
-      assert.deepEqual([...q.searchParams.keys()], ["pipeline", "dateFrom", "dateTo"]);
+      assert.deepEqual([...q.searchParams.keys()], ["pipeline", "dateFrom", "dateTo", "calendar"]);
       assert.equal(q.searchParams.get("pipeline"), "all");
       assert.equal(options.signal, controller.signal);
       return Response.json({ message: "upstream unavailable" }, { status: 502 });
@@ -329,6 +330,7 @@ test("daily table sorts without moving TOTAL GENERAL, modal uses only selected a
     "all",
     "2026-11-01",
     "2026-11-30",
+    "",
   ]);
 });
 test("loading, empty and retry states never fabricate zero counts on failure", () => {
@@ -359,17 +361,17 @@ test("loading, empty and retry states never fabricate zero counts on failure", (
       ),
   );
 });
-test("late responses cannot replace the current React Query date range", async () => {
+test("late responses cannot replace the selected pipeline at the same dates", async () => {
   const { QueryClient, QueryObserver } = require("@tanstack/react-query");
   const client = new QueryClient();
   let first, second;
   const observer = new QueryObserver(client, {
-    queryKey: ["daily-meetings", "old"],
+    queryKey: ["daily-meetings", "vsl", range.dateFrom, range.dateTo],
     queryFn: () => new Promise((resolve) => (first = resolve)),
   });
   const stop = observer.subscribe(() => {});
   observer.setOptions({
-    queryKey: ["daily-meetings", "new"],
+    queryKey: ["daily-meetings", "oei", range.dateFrom, range.dateTo],
     queryFn: () => new Promise((resolve) => (second = resolve)),
   });
   second("new-data");
@@ -397,6 +399,7 @@ test("all supported pipeline identifiers reach Apps Script without other filters
       assert.equal(calls[0].url.searchParams.get("pipeline"), pipeline);
       assert.deepEqual([...calls[0].url.searchParams.keys()].sort(), [
         "action",
+        "calendar",
         "dateFrom",
         "dateTo",
         "key",
@@ -428,6 +431,7 @@ test("pipeline changes update title, cache identity and modal selection even whe
     "vsl",
     range.dateFrom,
     range.dateTo,
+    "",
   ]);
   h.nodes()
     .find((n) => n.type === "button" && n.props["aria-haspopup"] === "dialog")
@@ -451,6 +455,7 @@ test("pipeline changes update title, cache identity and modal selection even whe
     "oei",
     range.dateFrom,
     range.dateTo,
+    "",
   ]);
   const previous = global.fetch;
   try {
@@ -465,4 +470,75 @@ test("pipeline changes update title, cache identity and modal selection even whe
   } finally {
     global.fetch = previous;
   }
+});
+
+test("meeting attendance column replaces Sin estado and uses row/official total percentages", async () => {
+  const raw = fixture();
+  raw.data.porDia = [
+    { ...totals(7), asistidos: 4, confirmados: 3, fechaReunion: "2026-10-01", detalles: [] },
+    { ...totals(10), asistidos: 5, confirmados: 5, fechaReunion: "2026-10-02", detalles: [] },
+    { ...totals(0), fechaReunion: "2026-10-03", detalles: [] },
+  ];
+  raw.data.total = { ...totals(17), asistidos: 9, confirmados: 8 };
+  const h = ui({ ...raw.data, warnings: [] });
+  const daily = () => h.nodes().filter((n) => n.type === "tr" && n.key);
+  assert.deepEqual(
+    Array.from(daily(), (n) => n.props.children[2].props.children),
+    ["57.14 %", "50.00 %", "0.00 %"],
+  );
+  const headers = h.nodes().filter((n) => n.type === "th" && n.props.scope === "col");
+  assert.equal(headers.length, 8);
+  assert.equal(JSON.stringify(headers).includes("Sin estado"), false);
+  assert.ok(h.nodes().some((n) => n.type === "button" && n.props.children === "% Asistencia ↕"));
+  const footer = () => h.nodes().find((n) => n.type === "tfoot").props.children;
+  assert.equal(footer().props.children[2].props.children, "52.94 %");
+  h.nodes()
+    .find((n) => n.type === "button" && n.props.children === "% Asistencia ↕")
+    .props.onClick();
+  h.render();
+  assert.deepEqual(
+    Array.from(daily(), (n) => n.key),
+    ["2026-10-03", "2026-10-02", "2026-10-01"],
+  );
+  assert.equal(footer().props.children[2].props.children, "52.94 %");
+  raw.data.porDia[0].porcentajeAsistencia = 56.78;
+  raw.data.total.porcentajeAsistencia = 53.21;
+  h.query.data = { ...raw.data, warnings: [] };
+  h.render();
+  assert.equal(
+    daily().find((n) => n.key === "2026-10-01").props.children[2].props.children,
+    "56.78 %",
+  );
+  assert.equal(footer().props.children[2].props.children, "53.21 %");
+  await withApi(raw, async () => {
+    const response = await dailyMeetingsApi(request());
+    const body = await response.json();
+    assert.equal(body.porDia[0].porcentajeAsistencia, 56.78);
+    assert.equal(body.total.porcentajeAsistencia, 53.21);
+  });
+});
+
+test("calendar is forwarded literally, included in cache identity and closes the prior modal", async () => {
+  const calendar = "VSL PAGADO - CIRCULO MILLONARIO";
+  await withApi(
+    { ...fixture(), data: { ...fixture().data, pipeline: "vsl", alcance: "embudo_seleccionado" } },
+    async (calls) => {
+      assert.equal((await dailyMeetingsApi(request({ pipeline: "vsl", calendar }))).status, 200);
+      assert.equal(calls[0].url.searchParams.get("calendar"), calendar);
+      assert.equal(calls[0].url.searchParams.get("pipeline"), "vsl");
+    },
+  );
+  const h = ui({ ...fixture().data, warnings: [] });
+  h.setRange({ ...range, pipeline: "vsl", calendar });
+  h.nodes()
+    .find((n) => n.type === "button" && n.props["aria-haspopup"] === "dialog")
+    .props.onClick();
+  h.render();
+  assert.ok(h.nodes().find((n) => n.type === "Dialog"));
+  assert.equal(h.query.options.queryKey.at(-1), calendar);
+  h.setRange({ ...range, pipeline: "vsl", calendar: "VSL PAGADO - EQUIPO MILLONARIO" });
+  assert.equal(
+    h.nodes().find((n) => n.type === "Dialog"),
+    undefined,
+  );
 });

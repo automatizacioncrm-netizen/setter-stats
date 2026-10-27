@@ -548,10 +548,12 @@ export function VslClosersDashboard() {
                     <DailyMeetingsReport
                       key={JSON.stringify([
                         filters.pipeline ?? "all",
+                        filters.calendar ?? "",
                         filters.dateFrom,
                         filters.dateTo,
                       ])}
                       pipeline={filters.pipeline ?? "all"}
+                      calendar={filters.calendar ?? ""}
                       dateFrom={filters.dateFrom}
                       dateTo={filters.dateTo}
                     />

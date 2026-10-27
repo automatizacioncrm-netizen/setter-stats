@@ -5,6 +5,7 @@ export async function getDailyMeetingsReport(range: DailyMeetingsFilters, signal
     pipeline: range.pipeline,
     dateFrom: range.dateFrom,
     dateTo: range.dateTo,
+    calendar: range.calendar ?? "",
   });
   return readResponse<DailyMeetingsReport>(
     await fetch(`/api/reports/daily-meetings?${params}`, {

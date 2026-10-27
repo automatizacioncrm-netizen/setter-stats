@@ -140,7 +140,7 @@ export interface LandingVslDay {
   leadsAsistidos: number;
   leadsNoAsistidos: number;
   leadsPendientesResultado: number;
-  porcentajeAsistencia: number;
+  porcentajeAsistencia: number | null;
   oportunidadesConCita?: number | undefined;
   confirmados?: number | undefined;
   cancelados?: number | undefined;
@@ -214,6 +214,7 @@ export interface LandingVslCohort {
         asistidos: number;
         noAsistidos: number;
         sinResultado: number;
+        porcentajeAsistencia?: number | null | undefined;
         oportunidadesConCita?: number | undefined;
         confirmados?: number | undefined;
         cancelados?: number | undefined;

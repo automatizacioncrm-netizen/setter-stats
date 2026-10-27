@@ -371,7 +371,7 @@ test("invalid or partial data stays unavailable without fabricated counts", () =
     (d) => d.porDia[0].leads[0].citas.push(d.porDia[0].leads[0].citas[0]),
     (d) => (d.porDia[0].leads[0].pipeline = "oei"),
     (d) => (d.porDia[0].fecha = "2026-10-20"),
-    (d) => (d.porDia[0].porcentajeAsistencia = 99),
+    (d) => (d.porDia[0].porcentajeAsistencia = -1),
     (d) => (d.porDia[0].leads[0].resultadoAsistencia = "No asistió"),
     (d) => (d.totalLeads = 6),
     (d) => (d.porDia[0].leadsNoAsistidos = 0),
@@ -407,7 +407,7 @@ test("user-supplied deployed schema maps opportunity counts, not appointment cou
         leadsAsistidos: 8,
         leadsNoAsistidos: 5,
         leadsPendientesResultado: 7,
-        porcentajeAsistencia: 40,
+        porcentajeAsistencia: 66.67,
         oportunidadesConCita: 12,
       },
     ],
@@ -425,7 +425,7 @@ test("user-supplied deployed schema maps opportunity counts, not appointment cou
     porDia: [],
   });
   const zero = structuredClone(empty);
-  zero.porDia = [{ fechaCreacion: "2026-10-21", ...empty.total }];
+  zero.porDia = [{ fechaCreacion: "2026-10-21", ...empty.total, oportunidadesConCita: 0 }];
   assert.equal(
     mapLandingVslCohort(zero, range, 0).cohorteDiariaVsl.porDia[0].porcentajeAsistencia,
     0,
@@ -922,7 +922,7 @@ test("deployed summary renders its day without inventing individual lead records
   const table = h.nodes().find((n) => n.type === "Table");
   assert.equal(table.props.rows[0].fecha, "2026-10-21");
   assert.equal(table.props.rows[0].totalLeads, 20);
-  assert.equal(table.props.rows[0].porcentajeAsistencia, 40);
+  assert.equal(table.props.rows[0].porcentajeAsistencia, 66.67);
   table.props.columns
     .find((c) => c.key === "detail")
     .render(table.props.rows[0])
@@ -1204,7 +1204,7 @@ test("Landing footer uses official period totals, weighted percentage and stays 
     Array.from(cells().slice(1, 7), (n) => n.props.children),
     [10, 6, 3, 2, 1, 0],
   );
-  assert.equal(cells()[7].props.children.join(""), "10.00 %");
+  assert.equal(cells()[7].props.children.join(""), "16.67 %");
   assert.equal(cells()[8].props.children, undefined);
   const table = h.nodes().find((n) => n.type === "table");
   assert.equal(table.props.children.at(-1).type, "tfoot");
@@ -1215,7 +1215,7 @@ test("Landing footer uses official period totals, weighted percentage and stays 
     h.render();
     assert.equal(h.nodes().filter((n) => n.type === "tfoot").length, 1);
     assert.equal(cells()[0].props.children, "TOTAL GENERAL");
-    assert.equal(cells()[7].props.children.join(""), "10.00 %");
+    assert.equal(cells()[7].props.children.join(""), "16.67 %");
   }
   assert.equal(
     h.nodes().filter((n) => n.type === "button" && n.props["aria-haspopup"] === "dialog").length,
@@ -1264,4 +1264,90 @@ test("Landing footer distinguishes zero totals from missing official fields", ()
       );
     }
   }
+});
+
+test("Landing attendance uses booked opportunities for fallback, API rates first and weighted totals", () => {
+  const source = {
+    pipeline: "vsl",
+    porDia: [
+      {
+        fechaCreacion: "2026-10-21",
+        oportunidades: 9,
+        oportunidadesConCita: 4,
+        asistidos: 2,
+        noAsistidos: 0,
+        sinResultado: 7,
+        confirmados: 0,
+        cancelados: 0,
+        porcentajeAsistencia: 50,
+      },
+      {
+        fechaCreacion: "2026-10-22",
+        oportunidades: 10,
+        oportunidadesConCita: 3,
+        asistidos: 1,
+        noAsistidos: 0,
+        sinResultado: 9,
+        confirmados: 0,
+        cancelados: 0,
+      },
+      {
+        fechaCreacion: "2026-10-23",
+        oportunidades: 12,
+        oportunidadesConCita: 7,
+        asistidos: 0,
+        noAsistidos: 0,
+        sinResultado: 12,
+        confirmados: 0,
+        cancelados: 0,
+      },
+    ],
+    total: {
+      oportunidades: 31,
+      oportunidadesConCita: 14,
+      asistidos: 3,
+      noAsistidos: 0,
+      sinResultado: 28,
+      confirmados: 0,
+      cancelados: 0,
+    },
+  };
+  const mapped = mapLandingVslCohort(source, range, 31);
+  assert.equal(mapped.cohorteDiariaVslError, undefined);
+  assert.deepEqual(
+    mapped.cohorteDiariaVsl.porDia.map((d) => d.porcentajeAsistencia),
+    [50, 33.33, 0],
+  );
+  const h = ui(
+    { filters: { ...EMPTY_REPORT_FILTERS, pipeline: "vsl", ...range }, ...mapped },
+    true,
+  );
+  h.nodes()
+    .find((n) => n.type === "details")
+    .props.onToggle({ currentTarget: { open: true } });
+  h.render();
+  const rows = h.nodes().filter((n) => n.type === "tr" && n.key);
+  assert.deepEqual(
+    Array.from(rows, (n) => n.props.children[7].props.children),
+    ["50.00 %", "33.33 %", "0.00 %"],
+  );
+  const walk = (n) =>
+    !n || typeof n !== "object"
+      ? []
+      : Array.isArray(n)
+        ? n.flatMap(walk)
+        : [n, ...walk(n.props?.children)];
+  const footer = h.nodes().find((n) => n.type === "tfoot");
+  assert.ok(
+    walk(footer).some((n) => n.type === "td" && n.props.children?.join?.("") === "21.43 %"),
+  );
+  source.porDia[0].porcentajeAsistencia = 49.25;
+  source.total.porcentajeAsistencia = 22.75;
+  const explicit = mapLandingVslCohort(source, range, 31).cohorteDiariaVsl;
+  assert.equal(explicit.porDia[0].porcentajeAsistencia, 49.25);
+  assert.equal(explicit.total.porcentajeAsistencia, 22.75);
+  const { attendancePercentage } = require("../src/lib/attendance-percentage.ts");
+  assert.equal(attendancePercentage(99, 0, 0), 0);
+  assert.equal(attendancePercentage(undefined, 2, undefined), null);
+  assert.equal(attendancePercentage(undefined, 0, 0), 0);
 });

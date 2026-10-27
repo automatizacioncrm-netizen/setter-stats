@@ -13,6 +13,7 @@ const counts = z.object({
   asistidos: count,
   noAsistidos: count,
   sinEstado: count,
+  porcentajeAsistencia: z.number().finite().min(0).max(100).nullable().optional(),
 });
 const detail = z
   .object({
@@ -54,10 +55,16 @@ export async function dailyMeetingsApi(request: Request) {
     const params = new URL(request.url).searchParams;
     const pipeline = pipelineSchema.safeParse(params.get("pipeline") ?? "all");
     if (!pipeline.success) throw new ApiError("El embudo solicitado no es válido.", 400);
+    const calendar = z
+      .string()
+      .max(300)
+      .safeParse(params.get("calendar") ?? "");
+    if (!calendar.success) throw new ApiError("El calendario solicitado no es válido.", 400);
     const range = {
       pipeline: pipeline.data,
       dateFrom: params.get("dateFrom") ?? "",
       dateTo: params.get("dateTo") ?? "",
+      calendar: calendar.data,
     };
     if (!isValidReportRange(range)) throw new ApiError("El rango de fechas no es válido.", 400);
     const parsed = schema.safeParse(await fetchDailyMeetingsReport(range));

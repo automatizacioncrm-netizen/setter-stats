@@ -5,6 +5,7 @@ export interface DailyMeetingTotals {
   asistidos: number;
   noAsistidos: number;
   sinEstado: number;
+  porcentajeAsistencia?: number | null | undefined;
 }
 export interface DailyMeeting {
   appointmentId: string;
@@ -44,4 +45,5 @@ export interface DailyMeetingsFilters {
   pipeline: Pipeline;
   dateFrom: string;
   dateTo: string;
+  calendar?: string | undefined;
 }
