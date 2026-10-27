@@ -4,6 +4,7 @@ import { formatNumber } from "@/lib/executive-metrics";
 import { formatSaleQuotaDate } from "@/lib/sales-detail";
 import { KpiCard } from "./KpiCard";
 import { ExecutiveTable } from "./ExecutiveTable";
+import { LandingVslCohortDetail } from "./LandingVslCohortDetail";
 export function LeadsWithoutAppointmentSection({
   report,
   setterSelected = hasSelectedSetter(report.filters),
@@ -78,7 +79,7 @@ export function LeadsWithoutAppointmentSection({
               </>
             )}
           </div>
-          {data.detalleSinCita && (
+          {report.filters.pipeline !== "vsl" && data.detalleSinCita && (
             <details>
               <summary className="cursor-pointer text-sm font-medium">
                 {pipeline === "vsl"
@@ -113,6 +114,9 @@ export function LeadsWithoutAppointmentSection({
             </details>
           )}
         </>
+      )}
+      {report.filters.pipeline === "vsl" && (
+        <LandingVslCohortDetail key={JSON.stringify(report.filters)} report={report} />
       )}
     </section>
   );

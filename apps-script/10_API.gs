@@ -2436,6 +2436,7 @@ function API_BUILD_VSL_REPORT(filtros) {
       estadoCita: estadoCita,
       estadoAgenda: API_GET_EFFECTIVE_APPOINTMENT_STATUS(estadoCita, ""),
       fechaCita: API_NORMALIZE_DATE(API_MASTER_VALUE_(row, ai.fechaCita)),
+      fechaReunionLandingVsl: API_LANDING_COHORT_DATE_(API_MASTER_VALUE_(row, ai.fechaCita)),
       appointmentCreatedAt: API_NORMALIZE_DATE(API_MASTER_VALUE_(row, ai.appointmentCreatedAt)),
       appointmentUpdatedAt: API_NORMALIZE_DATE(API_MASTER_VALUE_(row, ai.appointmentUpdatedAt)),
       closerCita: API_CELL_STRING(API_MASTER_VALUE_(row, ai.closerCita)),
@@ -2602,6 +2603,8 @@ function API_BUILD_VSL_REPORT(filtros) {
       telefono: API_CELL_STRING(API_MASTER_VALUE_(row, oi.telefono)),
       correo: API_CELL_STRING(API_MASTER_VALUE_(row, oi.correo)),
       fechaCreacionOportunidad: API_NORMALIZE_DATE(API_MASTER_VALUE_(row, oi.creadoEl)),
+      fechaCreacionLandingVsl: o.pipeline === "vsl"
+        ? API_LANDING_COHORT_DATE_(API_MASTER_VALUE_(row, oi.creadoEl)) : "",
       pipeline: o.pipeline,
       secuencia: o.secuencia,
       setterAsignado: setter,
@@ -2807,6 +2810,9 @@ function API_BUILD_VSL_REPORT(filtros) {
     };
   });
   const leadsVslSinCita = leadsSinCitaPorEmbudo.vsl;
+  const cohorteDiariaVsl = filtros.pipeline === "vsl"
+    ? API_BUILD_LANDING_VSL_COHORT_(registros, appointmentsByOpportunity, filtros)
+    : undefined;
 
   // Resumen explícito de Landing VSL Ads basado SOLO en VSL Origen.
   // Este bloque evita que el frontend tenga que inferir la regla.
@@ -4842,6 +4848,7 @@ function API_BUILD_VSL_REPORT(filtros) {
 
     leadsVslSinCita: leadsVslSinCita,
     leadsSinCitaPorEmbudo: leadsSinCitaPorEmbudo,
+    cohorteDiariaVsl: cohorteDiariaVsl,
 
     performance: performance,
 
@@ -5417,6 +5424,9 @@ function API_EMPTY_VSL_REPORT(
 
 
   return {
+
+    cohorteDiariaVsl: normalizedPipeline === "vsl"
+      ? { version: 1, totalLeads: 0, porDia: [] } : undefined,
 
     report:
       "VSL | Closers + OEI + LIG",
@@ -6209,6 +6219,82 @@ function API_DATE_IN_RANGE(
 // ============================================================
 // NORMALIZAR FECHA YYYY-MM-DD
 // ============================================================
+
+// Additive Landing-only contract. Membership uses the existing commercial filters
+// plus opportunity creation dates; historical appointments have no date filter.
+function API_BUILD_LANDING_VSL_COHORT_(leads, appointmentsByOpportunity, filters) {
+  const unique = new Map();
+  leads.forEach(lead => {
+    const id = String(lead.opportunityId || "").trim();
+    const fecha = API_LANDING_COHORT_DATE_(lead.fechaCreacionLandingVsl || lead.fechaCreacionOportunidad);
+    if (filters && fecha && ((filters.dateFrom && fecha < filters.dateFrom) ||
+        (filters.dateTo && fecha > filters.dateTo))) return;
+    if (id && lead.pipeline === "vsl" && API_IS_VSL_PAID_ORIGIN_(lead.vslOrigen) && !unique.has(id)) {
+      unique.set(id, lead);
+    }
+  });
+  if (Array.from(unique.values()).some(lead => !API_LANDING_COHORT_DATE_(lead.fechaCreacionLandingVsl || lead.fechaCreacionOportunidad))) {
+    return { error: "Landing VSL: oportunidad sin fecha de creación válida." };
+  }
+  const days = new Map();
+  unique.forEach((lead, opportunityId) => {
+    const fecha = API_LANDING_COHORT_DATE_(lead.fechaCreacionLandingVsl || lead.fechaCreacionOportunidad);
+    const seen = new Set();
+    const citas = (appointmentsByOpportunity.get(opportunityId) || [])
+      .filter(a => {
+        if (!a.appointmentId || seen.has(a.appointmentId) ||
+            (a.pipeline && a.pipeline !== "vsl") ||
+            !API_IS_CALENDAR_ALLOWED("vsl", a.calendarioCita)) return false;
+        seen.add(a.appointmentId);
+        return true;
+      })
+      .map(a => ({
+        appointmentId: a.appointmentId,
+        fechaReunion: API_LANDING_COHORT_DATE_(a.fechaReunionLandingVsl || a.fechaCita),
+        estadoCalendar: a.estadoCita || "",
+        estadoAgenda: API_GET_EFFECTIVE_APPOINTMENT_STATUS(a.estadoCita, ""),
+        agendador: a.createdByUserName || "",
+        closer: a.closerCita || "",
+        calendario: a.calendarioCita || ""
+      }));
+    const resultadoAsistencia = citas.some(a => a.estadoAgenda === "Asistió") ? "Asistió"
+      : citas.some(a => a.estadoAgenda === "No asistió") ? "No asistió"
+      : citas.length ? "Sin resultado" : "Pendiente de agenda";
+    if (!days.has(fecha)) days.set(fecha, {
+      fecha, totalLeads: 0, leadsAsistidos: 0, leadsNoAsistidos: 0,
+      leadsPendientesResultado: 0, porcentajeAsistencia: 0, leads: []
+    });
+    const day = days.get(fecha);
+    day.totalLeads++;
+    if (resultadoAsistencia === "Asistió") day.leadsAsistidos++;
+    else if (resultadoAsistencia === "No asistió") day.leadsNoAsistidos++;
+    else day.leadsPendientesResultado++;
+    day.leads.push({
+      opportunityId,
+      nombreContacto: lead.nombreContacto || "",
+      fechaCreacion: fecha,
+      setter: lead.setterOpportunity || "",
+      closerAsignado: lead.closerOpportunity || "",
+      pipeline: "vsl",
+      resultadoAsistencia,
+      citas
+    });
+  });
+  const porDia = Array.from(days.values()).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  porDia.forEach(day => {
+    day.porcentajeAsistencia = Number((day.leadsAsistidos * 100 / day.totalLeads).toFixed(2));
+  });
+  return { version: 1, totalLeads: unique.size, porDia };
+}
+
+// Date-only sheet values stay unchanged; timestamps use the configured business zone.
+function API_LANDING_COHORT_DATE_(value) {
+  if (!value) return "";
+  const text = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const date = value instanceof Date ? value : new Date(value);
+  return isNaN(date.getTime()) ? "" : Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy-MM-dd");
+}
 
 function API_NORMALIZE_DATE(
   value

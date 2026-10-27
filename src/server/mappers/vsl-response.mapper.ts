@@ -10,6 +10,7 @@ import type {
 } from "../../types/reports";
 import { ApiError } from "../config/env.server";
 import { mapPerformance } from "./performance.mapper";
+import { mapLandingVslCohort } from "./landing-vsl-cohort.mapper";
 
 const envelope = z.object({ ok: z.literal(true), data: z.record(z.unknown()) });
 export const vslResponseSchema = envelope;
@@ -341,11 +342,25 @@ export function mapVslReportResponse(
   }
   return {
     report: str(d["report"]),
+    ...(query.pipeline === "vsl"
+      ? mapLandingVslCohort(
+          d["cohorteDiariaVsl"],
+          {
+            dateFrom: query.dateFrom ?? "",
+            dateTo: query.dateTo ?? "",
+          },
+          vslUnbooked.data?.totalLeads,
+        )
+      : {}),
     calendarStatusesAvailable: ["confirmado", "asistio", "cancelado", "noShow"].every((key) =>
       hasCount(rawKpis[key]),
     ),
     ...(d["etapasPorEmbudo"]
-      ? { etapasPorEmbudo: object(d["etapasPorEmbudo"]) as NonNullable<VslClosersReport["etapasPorEmbudo"]> }
+      ? {
+          etapasPorEmbudo: object(d["etapasPorEmbudo"]) as NonNullable<
+            VslClosersReport["etapasPorEmbudo"]
+          >,
+        }
       : {}),
     ...noAplicaFields(d),
     ...(vslSeteo.success ? { vslSeteo: vslSeteo.data } : {}),

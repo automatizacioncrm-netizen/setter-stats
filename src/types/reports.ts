@@ -113,6 +113,42 @@ export interface LeadsWithoutAppointment {
     | undefined;
 }
 
+export interface LandingVslAppointment {
+  appointmentId: string;
+  fechaReunion: string;
+  estadoCalendar: string;
+  estadoAgenda: string;
+  agendador: string;
+  closer: string;
+  calendario: string;
+}
+
+export interface LandingVslLead {
+  opportunityId: string;
+  nombreContacto: string;
+  fechaCreacion: string;
+  setter: string;
+  closerAsignado: string;
+  pipeline: "vsl";
+  resultadoAsistencia: "Asistió" | "No asistió" | "Sin resultado" | "Pendiente de agenda";
+  citas: LandingVslAppointment[];
+}
+
+export interface LandingVslDay {
+  fecha: string;
+  totalLeads: number;
+  leadsAsistidos: number;
+  leadsNoAsistidos: number;
+  leadsPendientesResultado: number;
+  porcentajeAsistencia: number;
+  leads?: LandingVslLead[] | undefined;
+}
+
+export interface LandingVslCohort {
+  totalLeads: number;
+  porDia: LandingVslDay[];
+}
+
 export interface VslSeteo {
   aplicaSoloA?: string | undefined;
   totalLeadsVsl?: number | null | undefined;
@@ -135,6 +171,8 @@ export interface LigNoCalificados {
 }
 
 export interface VslClosersReport {
+  cohorteDiariaVsl?: LandingVslCohort;
+  cohorteDiariaVslError?: string;
   calendarStatusesAvailable?: boolean;
   vslSeteo?: VslSeteo;
   vslNoAplica?: { fase: string; total: number; porcentaje?: number | undefined };
