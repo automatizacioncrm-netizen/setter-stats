@@ -76,6 +76,168 @@ const deployedFixture = () => ({
     citasNoAsistidas: 6,
   },
 });
+const detailsFixture = () => {
+  const row = (id, estado, fecha = "2026-10-21") => ({
+    opportunityId: id,
+    nombreContacto: `Lead ${id}`,
+    correo: "",
+    telefono: "",
+    estado,
+    fechaReunion: "",
+    fechaCreacion: fecha,
+    citas: [],
+  });
+  const a = row("a", "Asistió");
+  a.correo = "ana@example.test";
+  a.nombreContacto = "Ana Pérez";
+  a.telefono = "+51 999000111";
+  a.fechaReunion = "2026-11-05";
+  a.citas = [
+    { appointmentId: "a1", fechaReunion: "2026-10-25", estado: "No asistió" },
+    { appointmentId: "a2", fechaReunion: "2026-11-05", estado: "Asistió" },
+  ];
+  const b = row("b", "No asistió");
+  b.citas = [{ appointmentId: "b1", fechaReunion: "2026-10-26", estado: "No asistió" }];
+  b.fechaReunion = "2026-10-26";
+  return {
+    pipeline: "vsl",
+    total: { oportunidades: 5, asistidos: 1, noAsistidos: 1, sinResultado: 3 },
+    porDia: [
+      {
+        fechaCreacion: "2026-10-21",
+        oportunidades: 3,
+        asistidos: 1,
+        noAsistidos: 1,
+        sinResultado: 1,
+        detalles: [a, b, row("c", "Sin resultado")],
+      },
+      {
+        fechaCreacion: "2026-10-22",
+        oportunidades: 2,
+        asistidos: 0,
+        noAsistidos: 0,
+        sinResultado: 2,
+        detalles: [
+          row("d", "Sin resultado", "2026-10-22"),
+          row("e", "Sin resultado", "2026-10-22"),
+        ],
+      },
+    ],
+  };
+};
+const extendedFixture = () => {
+  const source = detailsFixture();
+  Object.assign(source.porDia[0], { oportunidadesConCita: 3, confirmados: 1, cancelados: 0 });
+  Object.assign(source.porDia[1], { oportunidadesConCita: 2, confirmados: 1, cancelados: 1 });
+  Object.assign(source.total, { oportunidadesConCita: 5, confirmados: 2, cancelados: 1 });
+  source.porDia[0].detalles[2].estadoConsolidado = "Confirmado";
+  source.porDia[1].detalles[0].estadoConsolidado = "Confirmado";
+  source.porDia[1].detalles[1].estadoConsolidado = "Cancelado";
+  return source;
+};
+const fullContractFixture = () => {
+  const states = [
+    "Asistió",
+    "No asistió",
+    "Confirmado",
+    "Cancelado",
+    "Asistió",
+    "Sin resultado",
+    "Sin resultado",
+    "Sin resultado",
+    "Sin resultado",
+  ];
+  const detalles = states.map((state, i) => {
+    const oid = `full-${i}`;
+    const citas =
+      i < 5
+        ? Array.from({ length: i === 0 ? 2 : 1 }, (_, n) => ({
+            appointmentId: `appt-${i}-${n}`,
+            opportunityId: oid,
+            fechaCita: "2026-11-05",
+            fechaReunion: "2026-11-05",
+            appointmentCreatedAt: "2026-10-22",
+            fechaCreacionCita: "2026-10-22",
+            calendarioCita: calendar,
+            estadoCita:
+              state === "Asistió"
+                ? "showed"
+                : state === "No asistió"
+                  ? "noshow"
+                  : state === "Confirmado"
+                    ? "confirmed"
+                    : "cancelled",
+            estadoAgenda: state,
+            estadoConsolidado: state,
+            setterAsignado: "Setter de prueba",
+            creadorCita: "Creador de prueba",
+            agendadorCita: "Agendador de prueba",
+            closerAsignado: "Closer de prueba",
+            closerCita: "Closer de prueba",
+            bookingMode: "automatic",
+          }))
+        : [];
+    return {
+      opportunityId: oid,
+      contactId: `contact-${i}`,
+      nombreContacto: `Contacto simulado ${i}`,
+      telefono: "",
+      correo: "",
+      fechaCreacion: "2026-10-21",
+      fechaCreacionOportunidad: "2026-10-21",
+      pipeline: "vsl",
+      secuencia: "VSL | Closers",
+      fuente: "VSL FUNNEL",
+      vslOrigen: "Agendado automatico",
+      fase: "Fase de prueba",
+      setterAsignado: "Setter de prueba",
+      setterOpportunity: "Setter de prueba",
+      creadorCita: "Creador de prueba",
+      agendadorCita: "Agendador de prueba",
+      closerAsignado: "Closer de prueba",
+      closerOpportunity: "Closer de prueba",
+      calendarioCita: citas.length ? calendar : "",
+      estadoCita: citas[0]?.estadoCita || "",
+      estadoAgenda: state,
+      estadoConsolidado: state,
+      // Deliberately different legacy alias proves consolidated state is authoritative.
+      estado: "Sin resultado",
+      fechaCita: citas.length ? "2026-11-05" : "",
+      fechaReunion: citas.length ? "2026-11-05" : "",
+      fechaAgendamiento: citas.length ? "2026-10-22" : "",
+      appointmentCreatedAt: citas.length ? "2026-10-22" : "",
+      appointmentId: citas[0]?.appointmentId || "",
+      tieneCita: citas.length > 0,
+      numeroCitas: citas.length,
+      citas,
+    };
+  });
+  return {
+    pipeline: "vsl",
+    total: {
+      oportunidades: 9,
+      oportunidadesConCita: 5,
+      asistidos: 2,
+      noAsistidos: 1,
+      confirmados: 1,
+      cancelados: 1,
+      sinResultado: 6,
+    },
+    porDia: [
+      {
+        fechaCreacion: "2026-10-21",
+        oportunidades: 9,
+        oportunidadesConCita: 5,
+        asistidos: 2,
+        noAsistidos: 1,
+        confirmados: 1,
+        cancelados: 1,
+        sinResultado: 6,
+        detalles,
+      },
+    ],
+  };
+};
 const zoneDate = (d) =>
   new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Lima",
@@ -231,6 +393,13 @@ test("user-supplied deployed schema maps opportunity counts, not appointment cou
   assert.equal(result.cohorteDiariaVslError, undefined);
   assert.deepEqual(result.cohorteDiariaVsl, {
     totalLeads: 20,
+    total: {
+      oportunidades: 20,
+      asistidos: 8,
+      noAsistidos: 5,
+      sinResultado: 7,
+      oportunidadesConCita: 12,
+    },
     porDia: [
       {
         fecha: "2026-10-21",
@@ -239,6 +408,7 @@ test("user-supplied deployed schema maps opportunity counts, not appointment cou
         leadsNoAsistidos: 5,
         leadsPendientesResultado: 7,
         porcentajeAsistencia: 40,
+        oportunidadesConCita: 12,
       },
     ],
   });
@@ -251,6 +421,7 @@ test("user-supplied deployed schema maps opportunity counts, not appointment cou
   };
   assert.deepEqual(mapLandingVslCohort(empty, range, 0).cohorteDiariaVsl, {
     totalLeads: 0,
+    total: empty.total,
     porDia: [],
   });
   const zero = structuredClone(empty);
@@ -314,7 +485,7 @@ test("simulated HTTP journey preserves deployed cohort through adapter, proxy an
   process.env.NODE_ENV = "production";
   try {
     for (const empty of [false, true]) {
-      const source = deployedFixture();
+      const source = fullContractFixture();
       if (empty) {
         source.porDia = [];
         source.total = { oportunidades: 0, asistidos: 0, noAsistidos: 0, sinResultado: 0 };
@@ -325,9 +496,9 @@ test("simulated HTTP journey preserves deployed cohort through adapter, proxy an
           cohorteDiariaVsl: source,
           updatedAt: "2026-10-27T15:00:00Z",
           leadsVslSinCita: {
-            totalLeads: empty ? 0 : 20,
-            leadsConCita: empty ? 0 : 12,
-            leadsSinCita: empty ? 0 : 8,
+            totalLeads: empty ? 0 : 9,
+            leadsConCita: empty ? 0 : 2,
+            leadsSinCita: empty ? 0 : 7,
           },
           kpis: { total: 15, confirmado: 2, asistio: 8, cancelado: 0, noShow: 5 },
         },
@@ -372,9 +543,19 @@ test("simulated HTTP journey preserves deployed cohort through adapter, proxy an
       });
       assert.equal(upstream, 1);
       assert.equal(finalBody.cohorteDiariaVslError, undefined);
-      assert.equal(finalBody.cohorteDiariaVsl.totalLeads, empty ? 0 : 20);
+      assert.equal(finalBody.cohorteDiariaVsl.totalLeads, empty ? 0 : 9);
       assert.deepEqual(result.cohorteDiariaVsl, finalBody.cohorteDiariaVsl);
       assert.equal(result.cohorteDiariaVsl.porDia.length, empty ? 0 : 1);
+      if (!empty) {
+        for (const key of ["oportunidadesConCita", "confirmados", "cancelados"]) {
+          assert.equal(finalBody.cohorteDiariaVsl.total[key], source.total[key]);
+          assert.equal(finalBody.cohorteDiariaVsl.porDia[0][key], source.porDia[0][key]);
+        }
+        assert.deepEqual(result.cohorteDiariaVsl.porDia[0].detalles, source.porDia[0].detalles);
+        const modal = openDay(result, 0);
+        assert.equal(modal.h.nodes().filter((n) => n.type === "Table")[1].props.rows.length, 9);
+        assert.equal(modal.h.nodes().find((n) => n.type === "Dialog").props.open, true);
+      }
       assert.doesNotMatch(JSON.stringify(finalBody), /test-only-credential/);
       // Removing only the cohort at the upstream source must not change any
       // existing metric, filter, attribution or other section of the response.
@@ -513,39 +694,58 @@ test("complete Apps Script report uses the master-sheet join and respects select
     assert.equal(h.report({ pipeline, ...range }).cohorteDiariaVsl, undefined);
 });
 
-function ui(report) {
+function ui(report, renderTables = false) {
   const states = new Map();
   let current;
-  const exports = {};
   const jsx = (type, props, key) => ({ type, props, key });
-  vm.runInNewContext(
-    ts.transpileModule(
-      fs.readFileSync("src/components/reports/LandingVslCohortDetail.tsx", "utf8"),
-      {
+  function loadComponent(filename) {
+    const exports = {};
+    vm.runInNewContext(
+      ts.transpileModule(fs.readFileSync(filename, "utf8"), {
         compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+      }).outputText,
+      {
+        exports,
+        require(name) {
+          if (name === "react/jsx-runtime") return { jsx, jsxs: jsx };
+          if (name === "react")
+            return {
+              useRef(initial) {
+                const hook = current,
+                  index = hook.cursor++;
+                if (!(index in hook.values)) hook.values[index] = { current: initial };
+                return hook.values[index];
+              },
+              useState(initial) {
+                const hook = current,
+                  index = hook.cursor++;
+                if (!(index in hook.values)) hook.values[index] = initial;
+                return [
+                  hook.values[index],
+                  (v) => (hook.values[index] = typeof v === "function" ? v(hook.values[index]) : v),
+                ];
+              },
+            };
+          if (name === "./ExecutiveTable")
+            return renderTables
+              ? loadComponent("src/components/reports/ExecutiveTable.tsx")
+              : { ExecutiveTable: "Table" };
+          if (name === "lucide-react") return { ArrowUpDown: "ArrowUpDown" };
+          if (name === "./LandingVslDayModal")
+            return loadComponent("src/components/reports/LandingVslDayModal.tsx");
+          if (name === "@/components/ui/dialog")
+            return Object.fromEntries(
+              ["Dialog", "DialogContent", "DialogTitle", "DialogDescription", "DialogHeader"].map(
+                (name) => [name, name],
+              ),
+            );
+          return require(name);
+        },
       },
-    ).outputText,
-    {
-      exports,
-      require(name) {
-        if (name === "react/jsx-runtime") return { jsx, jsxs: jsx };
-        if (name === "react")
-          return {
-            useState(initial) {
-              const hook = current,
-                index = hook.cursor++;
-              if (!(index in hook.values)) hook.values[index] = initial;
-              return [
-                hook.values[index],
-                (v) => (hook.values[index] = typeof v === "function" ? v(hook.values[index]) : v),
-              ];
-            },
-          };
-        if (name === "./ExecutiveTable") return { ExecutiveTable: "Table" };
-        return require(name);
-      },
-    },
-  );
+    );
+    return exports;
+  }
+  const exports = loadComponent("src/components/reports/LandingVslCohortDetail.tsx");
   function expand(node) {
     if (!node || typeof node !== "object") return node;
     if (Array.isArray(node)) return node.map(expand);
@@ -569,17 +769,8 @@ function ui(report) {
   render();
   return { render, nodes: () => collect(tree) };
 }
-test("expand, daily actions, lead pagination and appointment subdetails work on the real component", () => {
-  const data = fixture();
-  const first = data.porDia[0];
-  first.leads = Array.from({ length: 26 }, (_, i) => ({
-    ...first.leads[0],
-    opportunityId: `lead-${i}`,
-  }));
-  first.totalLeads = first.leadsAsistidos = 26;
-  first.leadsNoAsistidos = first.leadsPendientesResultado = 0;
-  first.porcentajeAsistencia = 100;
-  data.totalLeads = 28;
+test("modal opens for the exact date, closes, searches locally and preserves counters", () => {
+  const data = mapLandingVslCohort(detailsFixture(), range, 5).cohorteDiariaVsl;
   const report = {
     filters: { ...EMPTY_REPORT_FILTERS, pipeline: "vsl", ...range },
     cohorteDiariaVsl: data,
@@ -591,31 +782,131 @@ test("expand, daily actions, lead pagination and appointment subdetails work on 
     .props.onToggle({ currentTarget: { open: true } });
   h.render();
   let summary = h.nodes().find((n) => n.type === "Table");
-  assert.equal(summary.props.rows.length, 3);
+  assert.equal(summary.props.rows.length, 2);
   const action = summary.props.columns
     .find((c) => c.key === "detail")
     .render(summary.props.rows[0]);
   action.props.onClick();
   h.render();
   let detail = h.nodes().filter((n) => n.type === "Table")[1];
-  assert.equal(detail.props.rows.length, 25);
-  assert.equal(detail.props.columns.length, 10);
   assert.equal(
-    detail.props.columns.find((c) => c.key === "calendar").render(detail.props.rows[0]).type,
-    "details",
+    h
+      .nodes()
+      .find((n) => n.type === "DialogTitle")
+      .props.children.join(""),
+    "Detalle de leads — 21/10/2026",
   );
-  h.nodes()
-    .find((n) => n.type === "button" && n.props.children === "Siguiente")
-    .props.onClick();
+  assert.equal(
+    h
+      .nodes()
+      .find((n) => n.type === "DialogDescription")
+      .props.children.join(""),
+    "3 leads creados en esta fecha",
+  );
+  const counters = () =>
+    h
+      .nodes()
+      .filter((n) => n.type === "p" && n.props.className?.includes("text-xl"))
+      .map((n) => n.props.children);
+  const originalCounters = counters();
+  assert.equal(detail.props.rows.length, 3);
+  assert.equal(detail.props.columns.length, 10);
+  assert.deepEqual(
+    Array.from(detail.props.rows, (r) => r.estado),
+    ["Asistió", "No asistió", "Sin resultado"],
+  );
+  assert.equal(
+    detail.props.columns.find((c) => c.key === "email").value(detail.props.rows[1]),
+    "No registrado",
+  );
+  assert.equal(
+    detail.props.columns.find((c) => c.key === "phone").value(detail.props.rows[1]),
+    "No registrado",
+  );
+  assert.equal(
+    detail.props.columns.find((c) => c.key === "meeting").render(detail.props.rows[2]),
+    "Sin cita",
+  );
+  const stateCell = detail.props.columns
+    .find((c) => c.key === "history")
+    .render(detail.props.rows[0]);
+  assert.equal(stateCell.type, "details");
+  const search = () => h.nodes().find((n) => n.type === "input");
+  search().props.onChange({ target: { value: "perez" } });
   h.render();
   detail = h.nodes().filter((n) => n.type === "Table")[1];
   assert.equal(detail.props.rows.length, 1);
-  assert.equal(detail.props.rows[0].opportunityId, "lead-25");
+  assert.equal(detail.props.rows[0].opportunityId, "a");
+  assert.equal(data.porDia[0].totalLeads, 3);
+  assert.deepEqual(counters(), originalCounters);
+  for (const query of ["ana@example.test", "999000111"]) {
+    search().props.onChange({ target: { value: query } });
+    h.render();
+    assert.equal(h.nodes().filter((n) => n.type === "Table")[1].props.rows.length, 1);
+  }
+  h.nodes()
+    .find((n) => n.type === "button" && n.props.children === "Cerrar")
+    .props.onClick();
+  h.render();
+  assert.equal(
+    h.nodes().find((n) => n.type === "Dialog"),
+    undefined,
+  );
+  const next = h.nodes().find((n) => n.type === "Table");
+  next.props.columns
+    .find((c) => c.key === "detail")
+    .render(next.props.rows[1])
+    .props.onClick();
+  h.render();
+  assert.equal(h.nodes().filter((n) => n.type === "Table")[1].props.rows.length, 2);
+  assert.equal(
+    h.nodes().filter((n) => n.type === "Table")[1].props.rows[0].fechaCreacion,
+    "2026-10-22",
+  );
+  h.nodes()
+    .find((n) => n.type === "Dialog")
+    .props.onOpenChange(false);
+  h.render();
   const sort = h.nodes().find((n) => n.type === "button" && Array.isArray(n.props.children));
   sort.props.onClick();
   h.render();
   summary = h.nodes().find((n) => n.type === "Table");
-  assert.equal(summary.props.rows[0].fecha, "2026-10-23");
+  assert.equal(summary.props.rows[0].fecha, "2026-10-22");
+});
+
+function openDay(report, index) {
+  const h = ui(report);
+  h.nodes()
+    .find((n) => n.type === "details")
+    .props.onToggle({ currentTarget: { open: true } });
+  h.render();
+  const table = h.nodes().find((n) => n.type === "Table");
+  table.props.columns
+    .find((c) => c.key === "detail")
+    .render(table.props.rows[index])
+    .props.onClick();
+  h.render();
+  return { h };
+}
+
+test("detail integrity uses backend consolidated states and rejects mismatches without exposing lead data", () => {
+  const source = detailsFixture();
+  // Backend state is authoritative even when its history is unavailable.
+  source.porDia[0].detalles[0].citas = [];
+  assert.ok(mapLandingVslCohort(source, range, 5).cohorteDiariaVsl);
+  for (const mutate of [
+    (d) => d.porDia[0].detalles.pop(),
+    (d) => (d.porDia[0].detalles[1].opportunityId = "a"),
+    (d) => (d.porDia[0].detalles[0].fechaCreacion = "2026-10-22"),
+    (d) => (d.porDia[0].detalles[0].estado = "Sin resultado"),
+  ]) {
+    const invalid = detailsFixture();
+    mutate(invalid);
+    const error = mapLandingVslCohort(invalid, range, 5).cohorteDiariaVslError;
+    assert.ok(error);
+    assert.match(error, /2026-10-21/);
+    assert.doesNotMatch(error, /Ana|example.test|999000111/);
+  }
 });
 
 test("deployed summary renders its day without inventing individual lead records", () => {
@@ -641,4 +932,215 @@ test("deployed summary renders its day without inventing individual lead records
     h.nodes().some((n) => n.type === "p" && /no sus registros individuales/.test(n.props.children)),
   );
   assert.equal(h.nodes().filter((n) => n.type === "Table").length, 1);
+});
+
+test("new daily counters preserve API values, zeros and totals without adding to pending", () => {
+  const source = extendedFixture();
+  const before = JSON.stringify(source);
+  const result = mapLandingVslCohort(source, range, 5);
+  assert.equal(result.cohorteDiariaVslError, undefined);
+  assert.equal(result.cohorteDiariaVsl.porDia[0].cancelados, 0);
+  assert.equal(result.cohorteDiariaVsl.porDia[0].leadsPendientesResultado, 1);
+  assert.equal(result.cohorteDiariaVsl.porDia[1].leadsPendientesResultado, 2);
+  for (const key of ["oportunidadesConCita", "confirmados", "cancelados"]) {
+    assert.equal(result.cohorteDiariaVsl.total[key], source.total[key]);
+    for (let i = 0; i < 2; i++)
+      assert.equal(result.cohorteDiariaVsl.porDia[i][key], source.porDia[i][key]);
+    for (const invalid of [null, "1", -1, 1.5]) {
+      const bad = structuredClone(source);
+      bad.porDia[0][key] = invalid;
+      assert.ok(mapLandingVslCohort(bad, range, 5).cohorteDiariaVslError);
+    }
+    const badTotal = structuredClone(source);
+    badTotal.total[key]++;
+    assert.match(mapLandingVslCohort(badTotal, range, 5).cohorteDiariaVslError, /no concilia/);
+  }
+  assert.equal(JSON.stringify(source), before);
+  const missing = detailsFixture();
+  const report = {
+    filters: { ...EMPTY_REPORT_FILTERS, pipeline: "vsl", ...range },
+    ...mapLandingVslCohort(missing, range, 5),
+  };
+  const h = ui(report);
+  h.nodes()
+    .find((n) => n.type === "details")
+    .props.onToggle({ currentTarget: { open: true } });
+  h.render();
+  const table = h.nodes().find((n) => n.type === "Table");
+  for (const key of ["booked", "confirmed", "cancelled"]) {
+    const col = table.props.columns.find((c) => c.key === key);
+    assert.equal(col.value(table.props.rows[0]), null);
+    assert.equal(col.render(table.props.rows[0]), "No disponible");
+  }
+  assert.ok(
+    h
+      .nodes()
+      .some(
+        (n) =>
+          n.type === "p" &&
+          JSON.stringify(n.props.children).includes(
+            "oportunidadesConCita, confirmados, cancelados",
+          ),
+      ),
+  );
+});
+
+test("all three new columns sort numerically in both directions, keeping missing values last", () => {
+  const base = {
+    totalLeads: 20,
+    leadsAsistidos: 0,
+    leadsNoAsistidos: 0,
+    leadsPendientesResultado: 20,
+    porcentajeAsistencia: 0,
+  };
+  const report = {
+    filters: { ...EMPTY_REPORT_FILTERS, pipeline: "vsl" },
+    cohorteDiariaVsl: {
+      totalLeads: 60,
+      porDia: [
+        { ...base, fecha: "2026-10-21", oportunidadesConCita: 12, confirmados: 2, cancelados: 0 },
+        { ...base, fecha: "2026-10-22", oportunidadesConCita: 2, confirmados: 1, cancelados: 1 },
+        { ...base, fecha: "2026-10-23" },
+      ],
+    },
+  };
+  const h = ui(report, true);
+  h.nodes()
+    .find((n) => n.type === "details")
+    .props.onToggle({ currentTarget: { open: true } });
+  h.render();
+  const header = (label) =>
+    h.nodes().find((n) => n.type === "button" && n.props.children?.[0] === label);
+  const order = () =>
+    h
+      .nodes()
+      .filter((n) => n.type === "tr" && n.key)
+      .map((n) => n.key);
+  for (const [label, asc] of [
+    ["Total agendados", ["2026-10-22", "2026-10-21", "2026-10-23"]],
+    ["Leads confirmados", ["2026-10-22", "2026-10-21", "2026-10-23"]],
+    ["Leads cancelados", ["2026-10-21", "2026-10-22", "2026-10-23"]],
+  ]) {
+    header(label).props.onClick();
+    h.render();
+    assert.deepEqual(Array.from(order()), asc);
+    header(label).props.onClick();
+    h.render();
+    assert.deepEqual(Array.from(order()), [asc[1], asc[0], asc[2]]);
+  }
+});
+
+test("full nine-lead contract preserves all fields and authoritative states in the expanded modal", () => {
+  const source = fullContractFixture();
+  const mapped = mapLandingVslCohort(source, range, 9);
+  assert.equal(mapped.cohorteDiariaVslError, undefined);
+  assert.deepEqual(mapped.cohorteDiariaVsl.porDia[0].detalles, source.porDia[0].detalles);
+  const { h } = openDay(
+    { filters: { ...EMPTY_REPORT_FILTERS, pipeline: "vsl", ...range }, ...mapped },
+    0,
+  );
+  const table = h.nodes().filter((n) => n.type === "Table")[1];
+  assert.equal(table.props.rows.length, 9);
+  assert.equal(new Set(table.props.rows.map((r) => r.opportunityId)).size, 9);
+  assert.deepEqual(
+    Array.from(table.props.columns, (c) => c.label),
+    [
+      "Nombre del contacto",
+      "Teléfono",
+      "Correo electrónico",
+      "Estado consolidado",
+      "Fecha de creación",
+      "Fecha de reunión",
+      "Setter",
+      "Closer",
+      "Número de citas",
+      "Acción",
+    ],
+  );
+  const state = table.props.columns.find((c) => c.key === "state");
+  assert.deepEqual(
+    Array.from(table.props.rows, (r) => state.value(r)),
+    source.porDia[0].detalles.map((r) => r.estadoConsolidado),
+  );
+  assert.equal(
+    table.props.columns.find((c) => c.key === "meeting").render(table.props.rows[5]),
+    "Sin cita",
+  );
+  assert.equal(
+    table.props.columns.find((c) => c.key === "appointments").value(table.props.rows[0]),
+    2,
+  );
+  assert.equal(
+    table.props.columns.find((c) => c.key === "meeting").render(table.props.rows[0]),
+    "05/11/2026",
+  );
+  const summaries = h
+    .nodes()
+    .filter((n) => n.type === "p" && n.props.className?.includes("text-xl"))
+    .map((n) => n.props.children);
+  assert.deepEqual(Array.from(summaries), [9, 5, 1, 1, 2, 1, 6]);
+  const history = table.props.columns.find((c) => c.key === "history").render(table.props.rows[0]);
+  assert.equal(history.type, "details");
+  assert.equal(history.props.children[1].props.children.length, 2);
+  const empty = structuredClone(source);
+  empty.porDia[0].detalles = [];
+  assert.match(mapLandingVslCohort(empty, range, 9).cohorteDiariaVslError, /incompleto/);
+  const zero = {
+    pipeline: "vsl",
+    total: { oportunidades: 0, asistidos: 0, noAsistidos: 0, sinResultado: 0 },
+    porDia: [
+      {
+        fechaCreacion: "2026-10-21",
+        oportunidades: 0,
+        asistidos: 0,
+        noAsistidos: 0,
+        sinResultado: 0,
+        detalles: [],
+      },
+    ],
+  };
+  assert.deepEqual(mapLandingVslCohort(zero, range, 0).cohorteDiariaVsl.porDia[0].detalles, []);
+  const wrong = structuredClone(source);
+  wrong.porDia[0].detalles[0].citas[0].opportunityId = "other";
+  assert.match(mapLandingVslCohort(wrong, range, 9).cohorteDiariaVslError, /otra oportunidad/);
+});
+
+test("Escape closes the modal and close autofocus returns to its date trigger", () => {
+  const report = {
+    filters: { ...EMPTY_REPORT_FILTERS, pipeline: "vsl", ...range },
+    ...mapLandingVslCohort(fullContractFixture(), range, 9),
+  };
+  const h = ui(report);
+  let restored = 0;
+  h.nodes()
+    .find((n) => n.type === "details")
+    .props.onToggle({ currentTarget: { open: true } });
+  h.render();
+  const table = h.nodes().find((n) => n.type === "Table");
+  table.props.columns
+    .find((c) => c.key === "detail")
+    .render(table.props.rows[0])
+    .props.onClick({
+      currentTarget: {
+        focus() {
+          restored++;
+        },
+      },
+    });
+  h.render();
+  const content = h.nodes().find((n) => n.type === "DialogContent");
+  content.props.onEscapeKeyDown();
+  h.render();
+  assert.equal(
+    h.nodes().find((n) => n.type === "Dialog"),
+    undefined,
+  );
+  let prevented = false;
+  content.props.onCloseAutoFocus({
+    preventDefault() {
+      prevented = true;
+    },
+  });
+  assert.equal(restored, 1);
+  assert.equal(prevented, true);
 });

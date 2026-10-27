@@ -113,6 +113,11 @@ export async function reportApi(request: Request) {
         total: data.detailTotal,
         page: data.detailPage,
         calendars: data.availableCalendars?.length,
+        cohortDays: data.cohorteDiariaVsl?.porDia.length,
+        cohortDaysWithDetails: data.cohorteDiariaVsl?.porDia.filter(
+          (day) => day.detalles !== undefined,
+        ).length,
+        cohortError: data.cohorteDiariaVslError,
       });
     return Response.json(data, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

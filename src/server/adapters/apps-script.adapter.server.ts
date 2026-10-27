@@ -102,8 +102,19 @@ async function requestScript(
     if (debugReport)
       console.info(`[REPORTS] ${label}`, redact(JSON.stringify(value)).slice(0, 16000));
   };
-  reportLog("Request received / Query params", filters);
-  reportLog("Apps Script URL", url.toString());
+  reportLog(
+    "Request received / Query params",
+    filters
+      ? {
+          pipeline: filters.pipeline,
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+          leadType: filters.leadType,
+          includeDetail: "includeDetail" in filters ? filters.includeDetail : undefined,
+        }
+      : undefined,
+  );
+  reportLog("Apps Script URL", { origin: url.origin, action });
   if (isReconciliation)
     console.info("[reconcile_all] started", { timeoutMs: RECONCILE_TIMEOUT_MS });
   try {
@@ -150,7 +161,6 @@ async function requestScript(
       redirected: response.redirected,
       durationMs: Date.now() - startedAt,
       bytes: new TextEncoder().encode(text).length,
-      rawResponse: redact(text).slice(0, 16000),
     });
     const failure = (details: string) =>
       new ApiError("Apps Script request failed", 502, {
@@ -165,7 +175,10 @@ async function requestScript(
     } catch {
       throw failure(`Respuesta no JSON (${contentType ?? "sin Content-Type"}): ${text}`);
     }
-    reportLog("Parsed response", body);
+    reportLog("Parsed response", {
+      isObject: !!body && typeof body === "object",
+      hasData: !!body && typeof body === "object" && "data" in body,
+    });
     if (!body || typeof body !== "object" || !("ok" in body) || body.ok !== true)
       throw failure(JSON.stringify(body));
     return body;
@@ -174,8 +187,8 @@ async function requestScript(
       reportLog("Request failed", {
         durationMs: Date.now() - startedAt,
         timedOut: controller.signal.aborted,
-        error: error instanceof Error ? error.message : String(error),
-        diagnostics: error instanceof ApiError ? error.diagnostics : undefined,
+        errorType: error instanceof Error ? error.name : "unknown",
+        status: error instanceof ApiError ? error.status : undefined,
       });
     if (isReconciliation && !(error instanceof ApiError)) {
       const cause = error instanceof Error ? error.cause : undefined;

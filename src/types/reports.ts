@@ -141,12 +141,84 @@ export interface LandingVslDay {
   leadsNoAsistidos: number;
   leadsPendientesResultado: number;
   porcentajeAsistencia: number;
+  oportunidadesConCita?: number | undefined;
+  confirmados?: number | undefined;
+  cancelados?: number | undefined;
   leads?: LandingVslLead[] | undefined;
+  detalles?: LandingVslLeadDetail[] | undefined;
+}
+
+export type LandingVslState =
+  "Asistió" | "No asistió" | "Cancelado" | "Confirmado" | "Sin resultado";
+
+export interface LandingVslAppointmentDetail {
+  appointmentId: string;
+  fechaReunion: string;
+  estado?: string | undefined;
+  opportunityId?: string | undefined;
+  fechaCita?: string | undefined;
+  appointmentCreatedAt?: string | undefined;
+  fechaCreacionCita?: string | undefined;
+  calendarioCita?: string | undefined;
+  estadoCita?: string | undefined;
+  estadoAgenda?: string | undefined;
+  estadoConsolidado?: string | undefined;
+  setterAsignado?: string | undefined;
+  creadorCita?: string | undefined;
+  agendadorCita?: string | undefined;
+  closerAsignado?: string | undefined;
+  closerCita?: string | undefined;
+  bookingMode?: string | undefined;
+}
+
+export interface LandingVslLeadDetail {
+  opportunityId: string;
+  nombreContacto: string;
+  correo: string;
+  telefono: string;
+  estado: LandingVslState;
+  estadoConsolidado?: LandingVslState | undefined;
+  fechaReunion: string;
+  fechaCreacion: string;
+  citas: LandingVslAppointmentDetail[];
+  contactId?: string | undefined;
+  fechaCreacionOportunidad?: string | undefined;
+  pipeline?: "vsl" | undefined;
+  secuencia?: string | undefined;
+  fuente?: string | undefined;
+  vslOrigen?: string | undefined;
+  fase?: string | undefined;
+  setterAsignado?: string | undefined;
+  setterOpportunity?: string | undefined;
+  creadorCita?: string | undefined;
+  agendadorCita?: string | undefined;
+  closerAsignado?: string | undefined;
+  closerOpportunity?: string | undefined;
+  calendarioCita?: string | undefined;
+  estadoCita?: string | undefined;
+  estadoAgenda?: string | undefined;
+  fechaCita?: string | undefined;
+  fechaAgendamiento?: string | undefined;
+  appointmentCreatedAt?: string | undefined;
+  appointmentId?: string | undefined;
+  tieneCita?: boolean | undefined;
+  numeroCitas?: number | undefined;
 }
 
 export interface LandingVslCohort {
   totalLeads: number;
   porDia: LandingVslDay[];
+  total?:
+    | {
+        oportunidades: number;
+        asistidos: number;
+        noAsistidos: number;
+        sinResultado: number;
+        oportunidadesConCita?: number | undefined;
+        confirmados?: number | undefined;
+        cancelados?: number | undefined;
+      }
+    | undefined;
 }
 
 export interface VslSeteo {
