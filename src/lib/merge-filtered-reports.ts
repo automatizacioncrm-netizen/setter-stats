@@ -188,6 +188,10 @@ export function mergeFilteredReports(
     },
     sales: {
       ...first.sales,
+      // Separate person queries cannot establish unique shared denominators.
+      // Do not reuse the first person's monthly aggregate for a combined selection.
+      conversionPorProductoMensual:
+        reports.length === 1 ? first.sales.conversionPorProductoMensual : undefined,
       total: sum((report) => report.sales.total),
       byStage: mergeGroups(
         reports.flatMap((report) => report.sales.byStage),

@@ -46,6 +46,7 @@ const baseColumns: { key: keyof SaleRow; label: string }[] = [
 export function SalesSection({
   sales,
   available,
+  pipeline,
   hideSummary = false,
 }: {
   sales: SalesReport;
@@ -94,7 +95,7 @@ export function SalesSection({
       ) : (
         <>
           {!hideSummary && <SalesSummaryCards sales={sales} />}
-          <SalesFinancialTable sales={sales} />
+          <SalesFinancialTable sales={sales} pipeline={pipeline} />
           <div className="overflow-hidden rounded-lg border border-border">
             <h3 className="border-b border-border px-4 py-3 text-sm font-semibold">
               6. Detalle de ventas de todos los embudos

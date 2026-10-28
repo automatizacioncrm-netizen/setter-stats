@@ -1,18 +1,28 @@
-import type { SalesReport } from "@/types/reports";
+import type { SalesReport, Pipeline } from "@/types/reports";
+import { MonthlyProductConversionTable } from "./MonthlyProductConversionTable";
 import { financialSummary, financialAmount } from "@/lib/executive-metrics";
 import { useState } from "react";
 import { ArrowUpDown } from "lucide-react";
 import type { ExecutiveColumn } from "./ExecutiveTable";
 
-export function SalesFinancialTable({ sales }: { sales: SalesReport }) {
+export function SalesFinancialTable({
+  sales,
+  pipeline = "all",
+}: {
+  sales: SalesReport;
+  pipeline?: Pipeline;
+}) {
   const summary = financialSummary(sales);
-  const usdGroups = new Map<string, {
-    pipeline: string;
-    product: string;
-    sales: number;
-    paid: number;
-    missingPaid: number;
-  }>();
+  const usdGroups = new Map<
+    string,
+    {
+      pipeline: string;
+      product: string;
+      sales: number;
+      paid: number;
+      missingPaid: number;
+    }
+  >();
   for (const group of summary.groups) {
     const key = JSON.stringify([group.pipeline, group.product]);
     const row = usdGroups.get(key) ?? {
@@ -24,7 +34,7 @@ export function SalesFinancialTable({ sales }: { sales: SalesReport }) {
     };
     row.sales += group.sales;
     if (group.currency === "USD" || group.currency === "PEN") {
-      row.paid += group.currency === "PEN" ? group.paid / 3.40 : group.paid;
+      row.paid += group.currency === "PEN" ? group.paid / 3.4 : group.paid;
       row.missingPaid += group.missingPaid;
     } else {
       row.missingPaid += group.sales;
@@ -38,7 +48,8 @@ export function SalesFinancialTable({ sales }: { sales: SalesReport }) {
         5. Resumen total de Ventas por Embudo y Producto
       </h3>
       <p className="text-sm text-muted-foreground">
-        El monto total abonado suma las cuotas 1 registradas en USD. Tipo de cambio fijo: 1 USD = S/ 3.40.
+        El monto total abonado suma las cuotas 1 registradas en USD. Tipo de cambio fijo: 1 USD = S/
+        3.40.
       </p>
       {!summary.complete ? (
         <p role="status" className="rounded-lg bg-muted p-4 text-sm">
@@ -60,7 +71,8 @@ export function SalesFinancialTable({ sales }: { sales: SalesReport }) {
                 key: "paid",
                 label: "Monto total Abonado",
                 value: (r) => r.paid,
-                formula: "Suma de cuotas 1 en USD más cuotas 1 en PEN / 3.40. Si faltan importes o la moneda es desconocida, la suma es parcial.",
+                formula:
+                  "Suma de cuotas 1 en USD más cuotas 1 en PEN / 3.40. Si faltan importes o la moneda es desconocida, la suma es parcial.",
                 render: (r) => (
                   <>
                     {financialAmount(r.paid, "USD")}
@@ -74,17 +86,21 @@ export function SalesFinancialTable({ sales }: { sales: SalesReport }) {
               },
             ]}
           />
-          {!summary.idsVerified && (
-            <details className="text-xs text-muted-foreground">
-              <summary className="cursor-pointer">Identificación de ventas</summary>
-              <p>
-                Conteo según el reporte de oportunidades. La fuente no envía todos los Opportunity
-                ID; no puede certificarse aquí la unicidad por identificador.
-              </p>
-            </details>
-          )}
         </>
       )}
+      <details className="text-xs text-muted-foreground">
+        <summary className="cursor-pointer">Identificación de ventas</summary>
+        {!summary.idsVerified && (
+          <p>
+            Conteo según el reporte de oportunidades. La fuente no envía todos los Opportunity ID;
+            no puede certificarse aquí la unicidad por identificador.
+          </p>
+        )}
+        <MonthlyProductConversionTable
+          rows={sales.conversionPorProductoMensual}
+          pipeline={pipeline}
+        />
+      </details>
     </section>
   );
 }

@@ -1,3 +1,4 @@
+import { readMonthlyConversion } from "../../lib/monthly-product-conversion";
 import { mapLeadsWithoutAppointment } from "./leads-without-appointment.mapper";
 import { z } from "zod";
 import { noAplicaFields } from "./vsl-no-aplica";
@@ -52,6 +53,7 @@ const counts = (row: Record<string, unknown>) => ({
 
 function salesReport(value: unknown): SalesReport {
   const sales = object(value);
+  const monthlyConversion = readMonthlyConversion(sales["conversionPorProductoMensual"]);
   const optionalAmount = (value: unknown): number | null => {
     if (value == null || (typeof value === "string" && !value.trim())) return null;
     if (typeof value !== "number" && typeof value !== "string") return null;
@@ -103,6 +105,7 @@ function salesReport(value: unknown): SalesReport {
     };
   };
   return {
+    ...(monthlyConversion !== undefined ? { conversionPorProductoMensual: monthlyConversion } : {}),
     total: num(sales["total"]),
     byStage: array(sales["byStage"]).map((item) => ({
       stage: str(object(item)["stage"]),

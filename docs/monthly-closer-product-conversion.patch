@@ -1,0 +1,131 @@
+diff --git a/apps-script/10_API.gs b/apps-script/10_API.gs
+index 310785c..49bda1e 100644
+--- a/apps-script/10_API.gs
++++ b/apps-script/10_API.gs
+@@ -2353,6 +2353,106 @@ function API_GET_SALE_DATE_(registro) {
+   return API_NORMALIZE_DATE(registro.fechaPrimerPago);
+ }
+ 
++// BEGIN MONTHLY_CLOSER_PRODUCT_CONVERSION
++// Isolated metric: appointment month = Fecha cita; sale month = Fecha de primer pago.
++// Each appointment belongs to exactly one linked opportunity product (or Sin identificar).
++function API_MONTHLY_CLOSER_PRODUCT_CONVERSION_(oppData, apptData, oi, ai, filtros, leadType, vslTipo) {
++  const monthlyOi = Object.assign({}, oi, {
++    asignado: API_MASTER_INDEX_ANY_(oppData.headers, ["Asignado a", "Asignado"], false)
++  });
++  const metric = {};
++  metric.cell = (row, key) => API_CELL_STRING(API_MASTER_VALUE_(row, monthlyOi[key]));
++  metric.product = value => {
++    const key = API_NORMALIZE_PRODUCT(value);
++    if (key === "EQUIPO MILLONARIO") return "Equipo Millonario";
++    if (key === "CIRCULO MILLONARIO") return "Círculo Millonario";
++    return "Sin identificar";
++  };
++  metric.name = value => String(value || "").trim().replace(/\s+/g, " ") || "Sin closer identificado";
++  const names = new Map();
++  metric.canonicalCloser = value => {
++    const label = metric.name(value);
++    const key = API_NORMALIZE_PERSON_KEY_(label);
++    if (!names.has(key)) names.set(key, label);
++    return names.get(key);
++  };
++  metric.matchesCloser = value => !filtros.closer ||
++    API_NORMALIZE_PERSON_KEY_(metric.name(value)) === API_NORMALIZE_PERSON_KEY_(metric.name(filtros.closer));
++  // Reuse the existing non-date appointment filters, but attribute closers per source below.
++  // Deduplicate opportunities before joining so duplicate rows cannot change attribution.
++  const opportunityRows = new Map();
++  oppData.rows.forEach(row => {
++    const id = metric.cell(row, "opportunityId");
++    if (id && !opportunityRows.has(id)) opportunityRows.set(id, row);
++  });
++  const uniqueOppData = Object.assign({}, oppData, { rows: Array.from(opportunityRows.values()) });
++  opportunityRows.forEach(row => metric.canonicalCloser(metric.cell(row, "asignado")));
++  const appointments = API_BUILD_DIRECT_APPOINTMENT_RECORDS_(
++    apptData, ai, uniqueOppData, monthlyOi,
++    Object.assign({}, filtros, { closer: "" }), leadType, vslTipo
++  );
++  const byOpportunity = new Map();
++  appointments.forEach(a => {
++    const key = String(a.opportunityId || "").trim();
++    if (!byOpportunity.has(key)) byOpportunity.set(key, []);
++    byOpportunity.get(key).push(a);
++  });
++  const groups = new Map();
++  metric.add = (date, pipeline, closerValue, productValue, field, id) => {
++    if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !metric.matchesCloser(closerValue) ||
++        !API_DATE_IN_RANGE(date, filtros.dateFrom, filtros.dateTo)) return;
++    const closer = metric.canonicalCloser(closerValue);
++    [pipeline, "all"].forEach(embudo => {
++      const key = JSON.stringify([date.slice(0, 7), embudo, API_NORMALIZE_PERSON_KEY_(closer), productValue]);
++      if (!groups.has(key)) groups.set(key, {
++        mes: date.slice(0, 7), embudo: embudo,
++        embudoNombre: embudo === "all" ? "Todos los embudos" : API_GET_PIPELINE_LABEL(embudo),
++        closer: closer, producto: productValue, appointmentIds: new Set(), opportunityIds: new Set()
++      });
++      groups.get(key)[field].add(id);
++    });
++  };
++  const seenAppointments = new Set();
++  appointments.forEach(a => {
++    const id = String(a.appointmentId || "").trim();
++    // Only Calendar attendance; never inherit attendance from Opportunity.
++    if (!id || seenAppointments.has(id) || !String(a.estadoCita || "").trim() || a.estadoAgenda !== "Asistió") return;
++    seenAppointments.add(id);
++    metric.add(API_NORMALIZE_DATE(a.fechaCita), a.pipeline, a.closerCita || a.closerOpportunity,
++      metric.product(a.productoEvento), "appointmentIds", id);
++  });
++  const allowedStages = new Set([
++    "Venta Confirmada/Reserva", "Venta Confirmada / Reserva",
++    "Venta confirmada/Reserva", "Ventas Confirmadas"
++  ].map(value => API_NORMALIZE_STAGE(value).replace(/\s*\/\s*/g, "/")));
++  opportunityRows.forEach((row, id) => {
++    const pipeline = API_GET_PIPELINE_KEY(metric.cell(row, "secuencia"));
++    if (!pipeline || (filtros.pipeline && filtros.pipeline !== "all" && pipeline !== filtros.pipeline)) return;
++    if (!allowedStages.has(API_NORMALIZE_STAGE(metric.cell(row, "fase")).replace(/\s*\/\s*/g, "/"))) return;
++    const origin = metric.cell(row, "vslOrigen");
++    const source = metric.cell(row, "fuente");
++    if (pipeline === "vsl" && !API_IS_VSL_PAID_ORIGIN_(origin)) return;
++    const category = API_GET_VSL_CATEGORY(origin, source);
++    if (vslTipo !== "all" && category !== vslTipo) return;
++    if (filtros.vslOrigin && API_NORMALIZE_SOURCE(origin) !== API_NORMALIZE_SOURCE(filtros.vslOrigin)) return;
++    const linked = byOpportunity.get(id) || [];
++    // Same paid-origin opportunity cohort as the main report; a sale needs no appointment.
++    if (leadType !== "all" && (pipeline !== "vsl" || leadType !== "paid")) return;
++    if ((filtros.setter || filtros.booker || filtros.calendar || filtros.status || filtros.bookingMode) && !linked.length) return;
++    metric.add(API_GET_SALE_DATE_({ fechaPrimerPago: API_MASTER_VALUE_(row, monthlyOi.fechaPrimerPago) }),
++      pipeline, metric.cell(row, "asignado"), metric.product(metric.cell(row, "producto")), "opportunityIds", id);
++  });
++  return Array.from(groups.values()).map(group => ({
++    mes: group.mes, embudo: group.embudo, embudoNombre: group.embudoNombre,
++    closer: group.closer, producto: group.producto,
++    citasAsistidas: group.appointmentIds.size, ventas: group.opportunityIds.size,
++    porcentajeConversion: group.appointmentIds.size > 0 ?
++      (group.opportunityIds.size / group.appointmentIds.size) * 100 : null
++  })).sort((a, b) => a.mes.localeCompare(b.mes) || a.embudo.localeCompare(b.embudo) ||
++    a.closer.localeCompare(b.closer) || a.producto.localeCompare(b.producto));
++}
++// END MONTHLY_CLOSER_PRODUCT_CONVERSION
++
+ function API_BUILD_VSL_REPORT(filtros) {
+   filtros = filtros || {};
+ 
+@@ -2379,7 +2479,7 @@ function API_BUILD_VSL_REPORT(filtros) {
+     secuencia: API_MASTER_INDEX_ANY_(oh, ["Secuencia"], true),
+     fase: API_MASTER_INDEX_ANY_(oh, ["Fase"], true),
+     fuente: API_MASTER_INDEX_ANY_(oh, ["Fuente"], true),
+-    asignado: API_MASTER_INDEX_ANY_(oh, ["Asignado"], true),
++    asignado: API_MASTER_INDEX_ANY_(oh, ["Asignado", "Asignado a"], true),
+     creadoEl: API_MASTER_INDEX_ANY_(oh, ["Creado el"], true),
+     estado: API_MASTER_INDEX_ANY_(oh, ["Estado"], false),
+     opportunityAssigned: API_MASTER_INDEX_ANY_(oh, ["Opportunity assigned"], false),
+@@ -3892,6 +3992,10 @@ function API_BUILD_VSL_REPORT(filtros) {
+ 
+   const sales = {
+ 
++    conversionPorProductoMensual: API_MONTHLY_CLOSER_PRODUCT_CONVERSION_(
++      oppData, apptData, oi, ai, filtros, requestedLeadType, requestedVslTipo
++    ),
++
+     total:
+       salesRows.length,
+ 

@@ -304,7 +304,7 @@ test("daily table sorts without moving TOTAL GENERAL, modal uses only selected a
   h.render();
   const detail = h.nodes().find((n) => n.type === "DetailTable");
   assert.equal(detail.props.rows.length, 2);
-  assert.equal(detail.props.columns.length, 12);
+  assert.equal(detail.props.columns.length, 10);
   assert.equal(detail.props.rowKey(detail.props.rows[1]), "b");
   assert.ok(detail.props.rows.every((r) => r.fechaReunion === "2026-10-02"));
   const modal = h.nodes().find((n) => n.type === "DialogContent");

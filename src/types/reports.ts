@@ -482,7 +482,19 @@ export interface SaleRow {
   fechaReunion?: string;
 }
 
+export interface ConversionMensualProducto {
+  closer: string;
+  mes: string;
+  embudo: string;
+  embudoNombre: string;
+  producto: string;
+  citasAsistidas: number;
+  ventas: number;
+  porcentajeConversion: number | null;
+}
+
 export interface SalesReport {
+  conversionPorProductoMensual?: ConversionMensualProducto[] | undefined;
   detailRows?: SaleRow[];
   productSummary: SalesProductSummary[];
   salesValueByCurrency: SalesValueByCurrency[];
