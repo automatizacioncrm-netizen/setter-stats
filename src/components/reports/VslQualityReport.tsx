@@ -27,20 +27,26 @@ export function ReportTable({
   const rows = survey
     ? groupSurveyRows(table.rows)
     : table.rows.map((row) => ({ row, monthLabel: "", monthRowSpan: 1, endOfMonth: false }));
-  const visibleColumn = (index: number) => survey || (index !== 13 && index !== 14);
+  const visibleColumn = (index: number) => (survey ? index !== 18 : index !== 13 && index !== 14);
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-background shadow-card">
       <h2 className="bg-zinc-700 p-4 text-center text-base font-bold text-white">{title}</h2>
       <div className="max-h-[65vh] overflow-auto">
         <table
           className={`w-full border-collapse text-sm ${survey ? "table-fixed" : ""}`}
-          style={survey ? { minWidth: table.columns.length * 160 } : undefined}
+          style={
+            survey
+              ? { minWidth: table.columns.filter((_, i) => visibleColumn(i)).length * 160 }
+              : undefined
+          }
         >
           {survey && (
             <colgroup>
-              {table.columns.map((_, i) => (
-                <col key={i} style={i < 2 ? { width: 160 } : undefined} />
-              ))}
+              {table.columns.map((_, i) =>
+                visibleColumn(i) ? (
+                  <col key={i} style={i < 2 ? { width: 160 } : undefined} />
+                ) : null,
+              )}
             </colgroup>
           )}
           <thead className="sticky top-0 z-20 bg-white text-black">

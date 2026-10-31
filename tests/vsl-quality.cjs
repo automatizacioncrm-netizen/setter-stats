@@ -222,7 +222,7 @@ test("rendered surveys show month once, blank following cells and monthly divide
   );
   assert.equal((html.match(/>OCTUBRE</g) || []).length, 1);
   assert.ok(!html.includes("2026-10-01"));
-  assert.equal((html.match(/<\/td>/g) || []).length, 5 * 18 + 1);
+  assert.equal((html.match(/<\/td>/g) || []).length, 5 * 17 + 1);
   assert.equal((html.match(/rowspan="5"/gi) || []).length, 1);
   assert.ok(html.includes("OTRO"));
   const quality = renderToStaticMarkup(
