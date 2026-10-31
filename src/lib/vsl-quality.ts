@@ -1,4 +1,4 @@
-import { formatSurveyMonth } from "./survey-month";
+import { formatSurveyMonth, normalizeSurveyMonth } from "./survey-month";
 import { z } from "zod";
 export const qualityColumns = [
   "EMBUDO VSL/CLOSER",
@@ -19,34 +19,39 @@ export const qualityColumns = [
 ];
 export const surveyColumns = [
   "PERIODO / MES",
-  "ESTADO DE AGENDA",
-  "Sí, soy empresario",
-  "No soy empresario",
-  "Menos de USD 5,000",
-  "USD 5,000–10,000",
-  "USD 10,000–20,000",
-  "USD 20,000–50,000",
-  "Más de USD 50,000",
-  "3 principales cuellos de botella",
-  "Dispuesto a invertir (respuesta afirmativa)",
-  "No cuenta con presupuesto",
-  "Sí contestará llamada",
-  "No contestará llamada",
-  "Leads con encuesta y cita",
-  "% factura más de 5k",
-  "% dispuesto a invertir",
-  "% calificados (factura >5k y dispuesto)",
-  "Sin rango de facturación",
+  "Leads que completaron la encuesta",
+  "% de leads que facturan USD 5,000 o más",
+  "% de leads con disposición de inversión de al menos USD 3,000",
+  "% leads calificados por encuesta (dispuestos y facturan 5k+ / facturan 5k+)",
 ];
 export const agendaStates = ["CONFIRMADO", "ASISTIÓ", "CANCELADO", "NO ASISTIÓ", "OTRO"];
 export const qualityPercentIndices = [3, 5, 8, 10];
-export const surveyPercentIndices = [15, 16, 17];
+export const surveyPercentIndices = [2, 3, 4];
 const cell = z.union([z.string(), z.number().finite(), z.null()]);
-function table(width: number, textIndices: number[]) {
+function table(width: number, textIndices: number[], safeMissing = false) {
   return z.object({
-    columns: z.array(z.string()).length(width),
+    columns: z
+      .array(z.string())
+      .length(
+        width,
+        safeMissing
+          ? "La Tabla 2 requiere cinco columnas mensuales. El despliegue de la API sigue usando un contrato diferente (por ejemplo, las 19 columnas antiguas por estado)."
+          : undefined,
+      ),
     rows: z
-      .array(z.array(cell))
+      .array(
+        z.array(
+          safeMissing
+            ? z.preprocess(
+                (value) =>
+                  value === undefined || (typeof value === "number" && !Number.isFinite(value))
+                    ? null
+                    : value,
+                cell,
+              )
+            : cell,
+        ),
+      )
       .superRefine((rows, ctx) => {
         rows.forEach((row, i) => {
           if (row.length !== width)
@@ -79,12 +84,89 @@ function table(width: number, textIndices: number[]) {
     truncated: z.boolean().optional(),
   });
 }
+function normalizedHeader(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+export const monthlySurveySchema = table(5, [0], true).superRefine((data, ctx) => {
+  if (
+    data.columns.some(
+      (header, index) => normalizedHeader(header) !== normalizedHeader(surveyColumns[index] ?? ""),
+    )
+  )
+    ctx.addIssue({
+      code: "custom",
+      path: ["columns"],
+      message:
+        "La Tabla 2 requiere los cinco indicadores mensuales nuevos, en su orden definido. Actualiza el despliegue si aún devuelve las 19 columnas por estado.",
+    });
+  data.rows.forEach((row, index) => {
+    for (const column of surveyPercentIndices) {
+      const value = row[column];
+      if (typeof value === "number" && (value < 0 || value > 1))
+        ctx.addIssue({
+          code: "custom",
+          path: ["rows", index, column],
+          message:
+            "El porcentaje debe ser una proporción entre 0 y 1; no se recalcula ni convierte desde puntos porcentuales.",
+        });
+    }
+  });
+  const months = new Set<string>();
+  data.rows.forEach((row, index) => {
+    if (typeof row[0] !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(normalizeSurveyMonth(row[0])))
+      ctx.addIssue({
+        code: "custom",
+        path: ["rows", index, 0],
+        message: "El periodo mensual debe ser YYYY-MM.",
+      });
+    const key = normalizeSurveyMonth(row[0]);
+    if (key && months.has(key))
+      ctx.addIssue({
+        code: "custom",
+        path: ["rows", index],
+        message:
+          "Mes duplicado en la Tabla 2: se requiere una sola fila por mes; no se agregan filas antiguas.",
+      });
+    if (key) months.add(key);
+  });
+});
+export const surveyAgendaStates = ["CONFIRMADO", "ASISTIÓ", "CANCELADO", "NO ASISTIÓ"] as const;
+export const surveyStatusSchema = table(14, [0, 1, 9]).superRefine((data, ctx) => {
+  const seen = new Set<string>();
+  data.rows.forEach((row, index) => {
+    if (typeof row[0] !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(normalizeSurveyMonth(row[0])))
+      ctx.addIssue({
+        code: "custom",
+        path: ["rows", index, 0],
+        message: "El periodo debe ser YYYY-MM.",
+      });
+    if (!surveyAgendaStates.some((state) => state === row[1]))
+      ctx.addIssue({
+        code: "custom",
+        path: ["rows", index, 1],
+        message: "Estado incompatible: se requieren los cuatro estados de agenda definidos.",
+      });
+    const key = normalizeSurveyMonth(row[0]) + "/" + String(row[1]);
+    if (seen.has(key))
+      ctx.addIssue({
+        code: "custom",
+        path: ["rows", index],
+        message: "Mes y estado duplicados; no se suman ni descartan filas.",
+      });
+    seen.add(key);
+  });
+});
 export const qualityReportSchema = z.object({
   success: z.literal(true),
   generatedAt: z.string().datetime({ offset: true }),
   timeZone: z.literal("America/Lima"),
   quality: table(15, [0]),
-  surveys: table(19, [0, 1, 9]),
+  surveys: monthlySurveySchema,
+  surveyStatus: surveyStatusSchema,
   diagnostics: z
     .object({
       available: z.boolean().optional(),
@@ -107,6 +189,9 @@ export function displayReportCell(
   if (index === 0 && survey) return displayMonth(String(value));
   const indices = survey ? surveyPercentIndices : qualityPercentIndices;
   if (indices.includes(index) && typeof value === "number")
-    return value.toLocaleString("es-PE", { style: "percent", maximumFractionDigits: 0 });
+    return value.toLocaleString("es-PE", {
+      style: "percent",
+      maximumFractionDigits: survey ? 1 : 0,
+    });
   return String(value);
 }

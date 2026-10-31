@@ -8,7 +8,11 @@ export function qualityStatus() {
 async function loadReport(): Promise<Response> {
   const headers = { "Cache-Control": "no-store" };
   try {
-    const raw = await fetchVslJson();
+    const raw = await fetchVslJson({ action: "report" });
+    if (raw && typeof raw === "object" && !("surveyStatus" in raw))
+      throw new Error(
+        "La API no incluye surveyStatus. Actualiza o ejecuta la versión del reporte de Google Apps Script que genera el desglose por estado.",
+      );
     const result = qualityReportSchema.safeParse(raw);
     if (!result.success)
       throw new Error(

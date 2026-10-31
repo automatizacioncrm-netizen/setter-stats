@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { SurveyDetailModal } from "./SurveyDetailModal";
+import { MonthlySurveyTable } from "./MonthlySurveyTable";
 import { isDetailCount, type SurveySelection } from "@/lib/survey-detail";
 import { normalizeSurveyMonth } from "@/lib/survey-month";
 import { groupSurveyRows } from "@/lib/survey-month";
@@ -132,11 +131,8 @@ export function ReportTable({
   );
 }
 export function VslQualityReport() {
-  const [detail, setDetail] = useState<{ selection: SurveySelection; trigger: HTMLElement } | null>(
-    null,
-  );
   const query = useQuery({
-    queryKey: ["vsl-quality-report"],
+    queryKey: ["vsl-quality-report", "survey-status-kpis-v3"],
     queryFn: async () => {
       const r = await fetch("/api/reports/vsl-calidad", { signal: AbortSignal.timeout(45000) });
       const body = await r.json();
@@ -166,14 +162,6 @@ export function VslQualityReport() {
           {query.isFetching ? "Cargando…" : "Actualizar datos"}
         </button>
       </header>
-      {detail && (
-        <SurveyDetailModal
-          key={[detail.selection.month, detail.selection.status, detail.selection.column].join("/")}
-          selection={detail.selection}
-          trigger={detail.trigger}
-          onClose={() => setDetail(null)}
-        />
-      )}
       {query.isPending && <p role="status">Cargando ambas tablas…</p>}
       {query.isError && (
         <p role="alert" className="rounded-lg border border-destructive p-4 text-destructive">
@@ -196,7 +184,9 @@ export function VslQualityReport() {
               (America/Lima)
             </p>
           )}
-          {(query.data.quality.truncated || query.data.surveys.truncated) && (
+          {(query.data.quality.truncated ||
+            query.data.surveys.truncated ||
+            query.data.surveyStatus.truncated) && (
             <p role="status">El servidor indica que el reporte está truncado.</p>
           )}
           <ReportTable
@@ -204,12 +194,7 @@ export function VslQualityReport() {
             table={query.data.quality}
             frozen={1}
           />
-          <ReportTable
-            title="TABLA 2: ANÁLISIS DE ENCUESTA DE LA VSL | CLOSER (TRÁFICO PAGO)"
-            table={query.data.surveys}
-            frozen={2}
-            onDetail={(selection, trigger) => setDetail({ selection, trigger })}
-          />
+          <MonthlySurveyTable table={query.data.surveys} statusTable={query.data.surveyStatus} />
           {(query.data.diagnostics?.warnings ?? []).map((w, i) => (
             <p key={i} className="text-sm text-muted-foreground">
               {w}

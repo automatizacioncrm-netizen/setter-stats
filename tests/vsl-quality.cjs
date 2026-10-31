@@ -30,51 +30,68 @@ function fixture() {
     },
     surveys: {
       columns: [...surveyColumns],
-      rows: agendaStates.map((s) => ["2026-10", s, ...Array(17).fill(0)]),
+      rows: [
+        ["2026-10", 100, 0.86, 0.426, 0.493],
+        ["2026-09", 80, 0.5, 0.25, 0.4],
+      ],
+    },
+    surveyStatus: {
+      columns: [
+        "PERIODO / MES",
+        "ESTADO DE AGENDA",
+        ...Array.from({ length: 12 }, (_, i) => "Pregunta " + i),
+      ],
+      rows: ["2026-09", "2026-10"].flatMap((month) =>
+        ["NO ASISTIÓ", "CANCELADO", "ASISTIÓ", "CONFIRMADO"].map((state, i) => [
+          month,
+          state,
+          ...Array(12).fill(i + 1),
+        ]),
+      ),
     },
     diagnostics: { available: true, details: {} },
   };
 }
-test("real arrays, alternate headers, accents, OTRO and optional diagnostic warnings are accepted", () => {
+test("monthly contract uses five real indicators, preserves API values/order and quality schema", () => {
   const f = fixture();
-  assert.equal(f.quality.columns.length, 15);
-  assert.equal(f.surveys.columns.length, 19);
-  f.quality.columns[0] = " embudo vsl / closer ";
-  f.surveys.columns[2] = "SI SOY EMPRESARIO";
-  f.quality.rows[0][3] = 0.31;
-  f.surveys.rows[0][15] = 0.5;
-  f.surveys.rows[0][18] = 7;
-  f.surveys.rows[0][9] = "  Cuello original  ";
-  f.surveys.rows[0][3] = "";
-  f.surveys.rows[0][4] = null;
-  f.surveys.rows[0][5] = "12";
   const parsed = qualityReportSchema.parse(f);
-  assert.equal(parsed.quality.rows[0][3], 0.31);
-  assert.equal(parsed.surveys.rows[0][5], 12);
-  assert.equal(parsed.surveys.rows[0][9], "  Cuello original  ");
-  assert.equal(parsed.surveys.rows[4][1], "OTRO");
-  assert.equal(parsed.surveys.rows[0][0], "2026-10");
-  assert.equal(displayReportCell(0.31, 3, false), "31%");
-  assert.equal(displayReportCell(0.31, 15, true), "31%");
-  assert.equal(displayReportCell(7, 18, true), "7");
-  assert.equal(displayReportCell(null, 4, true), "—");
-  assert.match(displayReportCell("2026-10", 0, true), /OCTUBRE/);
-  f.surveys.rows.pop();
-  assert.equal(qualityReportSchema.safeParse(f).success, true);
+  assert.equal(parsed.surveys.columns.length, 5);
+  assert.deepEqual(parsed.surveys.rows, f.surveys.rows);
+  assert.equal(parsed.quality.columns.length, 15);
+  assert.deepEqual(parsed.quality.rows, f.quality.rows);
+  assert.equal(displayReportCell(0.86, 2, true), "86%");
+  assert.equal(displayReportCell(0.426, 3, true), "42.6%");
+  assert.equal(displayReportCell(0.493, 4, true), "49.3%");
+  assert.equal(displayReportCell(0.426, 3, false), "43%");
+  f.surveys.rows[0][1] = "100";
+  f.surveys.rows[0][2] = null;
+  f.surveys.rows[0][3] = undefined;
+  f.surveys.rows[0][4] = NaN;
+  assert.deepEqual(qualityReportSchema.parse(f).surveys.rows[0].slice(1), [100, null, null, null]);
+  assert.equal(displayReportCell(null, 2, true), "—");
 });
-test("incorrect row width identifies table and row; objects and wrong header widths rejected", () => {
+test("monthly schema rejects obsolete layouts, incorrect headers, duplicate months and row widths", () => {
+  const old = fixture();
+  old.surveys.columns = Array(19).fill("ANTERIOR");
+  old.surveys.rows = [["2026-10", "ASISTIÓ", ...Array(17).fill(0)]];
+  assert.equal(qualityReportSchema.safeParse(old).success, false);
   const f = fixture();
   f.surveys.rows[1].pop();
-  let r = qualityReportSchema.safeParse(f);
+  const r = qualityReportSchema.safeParse(f);
   assert.equal(r.success, false);
-  assert.deepEqual(r.error.issues[0].path, ["surveys", "rows", 1]);
-  assert.match(r.error.issues[0].message, /Fila 2.*19.*18/);
+  assert.ok(r.error.issues.some((i) => i.message.includes("se esperaban 5")));
   const g = fixture();
-  g.quality.rows = [{ period: "JULIO" }];
+  g.surveys.columns[1] = "ESTADO DE AGENDA";
   assert.equal(qualityReportSchema.safeParse(g).success, false);
-  const h = fixture();
-  h.quality.columns.pop();
-  assert.equal(qualityReportSchema.safeParse(h).success, false);
+  const duplicate = fixture();
+  duplicate.surveys.rows.push(["OCTUBRE", 1, 0, 0, 0]);
+  assert.equal(qualityReportSchema.safeParse(duplicate).success, false);
+  const empty = fixture();
+  empty.surveys.rows = [];
+  assert.equal(qualityReportSchema.safeParse(empty).success, true);
+  const failed = fixture();
+  failed.success = false;
+  assert.equal(qualityReportSchema.safeParse(failed).success, false);
 });
 
 test("status does not request upstream; simultaneous requests share one response; malformed responses fail closed", async () => {
@@ -185,7 +202,7 @@ test("survey groups sort years, months and agenda states without aggregating or 
   assert.equal(grouped.length, rows.length);
   for (const g of grouped) assert.ok(rows.includes(g.row));
 });
-test("rendered surveys show month once, blank following cells and monthly dividers; quality stays unchanged", () => {
+test("integrated surveys render all questions and four merged KPI cells per month", () => {
   const Module = require("node:module"),
     path = require("node:path");
   const resolve = Module._resolveFilename;
@@ -207,36 +224,46 @@ test("rendered surveys show month once, blank following cells and monthly divide
       ...args,
     );
   };
-  let ReportTable;
+  let ReportTable, MonthlySurveyTable;
   try {
     ({ ReportTable } = require("../src/components/reports/VslQualityReport.tsx"));
+    ({ MonthlySurveyTable } = require("../src/components/reports/MonthlySurveyTable.tsx"));
   } finally {
     Module._resolveFilename = resolve;
   }
   const React = require("react"),
     { renderToStaticMarkup } = require("react-dom/server");
+
   const f = fixture();
-  f.surveys.rows.forEach((r) => (r[0] = "2026-10-01T00:00:00-05:00"));
+  const before = JSON.stringify(f);
   const html = renderToStaticMarkup(
-    React.createElement(ReportTable, { title: "Encuestas", table: f.surveys, frozen: 2 }),
+    React.createElement(MonthlySurveyTable, { table: f.surveys, statusTable: f.surveyStatus }),
   );
+  assert.equal((html.match(/<th /g) || []).length, 18);
+  assert.equal((html.match(/<td /g) || []).length, 114);
+  assert.equal((html.match(/rowspan="4"/gi) || []).length, 10);
   assert.equal((html.match(/>OCTUBRE</g) || []).length, 1);
-  assert.ok(!html.includes("2026-10-01"));
-  assert.equal((html.match(/<\/td>/g) || []).length, 5 * 17 + 1);
-  assert.equal((html.match(/rowspan="5"/gi) || []).length, 1);
-  assert.ok(html.includes("OTRO"));
+  assert.ok(html.indexOf("OCTUBRE") < html.indexOf("SEPTIEMBRE"));
+  for (const value of ["100", "86%", "42.6%", "49.3%"]) assert.ok(html.includes(value));
+  for (const value of ["ASISTIÓ", "CONFIRMADO", "ESTADO DE AGENDA", ...f.surveyStatus.columns])
+    assert.ok(html.includes(value));
+  assert.equal((html.match(/>100</g) || []).length, 1);
+  assert.ok(html.includes("overflow-auto"));
+  assert.ok(html.includes("sticky top-0"));
+  assert.equal(JSON.stringify(f), before);
   const quality = renderToStaticMarkup(
     React.createElement(ReportTable, { title: "Calidad", table: f.quality, frozen: 1 }),
   );
   assert.ok(quality.includes("DEL 22 AL 27 DE OCT"));
+  assert.equal((quality.match(/<td /g) || []).length, 13);
   assert.ok(!quality.includes("CITAS CON MATCH"));
-  assert.ok(!quality.includes("CITAS SIN MATCH"));
-  assert.equal((quality.match(/<\/td>/g) || []).length, 13);
-  const four = { ...f.surveys, rows: f.surveys.rows.slice(0, 4) };
-  const fourHtml = renderToStaticMarkup(
-    React.createElement(ReportTable, { title: "Encuestas", table: four, frozen: 2 }),
+  const empty = renderToStaticMarkup(
+    React.createElement(MonthlySurveyTable, {
+      table: { ...f.surveys, rows: [] },
+      statusTable: { ...f.surveyStatus, rows: [] },
+    }),
   );
-  assert.ok(/rowspan="4"/i.test(fourHtml));
+  assert.ok(empty.includes("Sin resultados"));
 });
 const {
   surveyDetailSchema,
@@ -348,4 +375,68 @@ test("detail API validates inputs, shares only identical in-flight requests and 
     if (oldEnv === undefined) delete process.env.APPS_SCRIPT_URL_VSL;
     else process.env.APPS_SCRIPT_URL_VSL = oldEnv;
   }
+});
+test("confirmed API headings are accepted while header and decimal range validation remain enforced", () => {
+  const f = fixture();
+  f.surveys.columns = [
+    "PERIODO / MES",
+    "Leads que completaron la encuesta",
+    "% de leads que facturan USD 5,000 o más",
+    "% de leads con disposición de inversión de al menos USD 3,000",
+    "% leads calificados por encuesta (dispuestos y facturan 5k+ / facturan 5k+)",
+  ];
+  assert.equal(qualityReportSchema.safeParse(f).success, true);
+  f.surveys.rows[0][2] = 86;
+  assert.equal(qualityReportSchema.safeParse(f).success, false);
+  f.surveys.rows[0][2] = -0.1;
+  assert.equal(qualityReportSchema.safeParse(f).success, false);
+  f.surveys.rows[0][2] = 1;
+  assert.equal(qualityReportSchema.safeParse(f).success, true);
+});
+const { joinSurveyMonths } = require("../src/lib/join-survey-months.ts");
+test("integrated month join uses keys, sorts months, preserves missing data and never sums KPI", () => {
+  const f = fixture();
+  const before = JSON.stringify(f);
+  f.surveys.rows.reverse();
+  const groups = joinSurveyMonths(f.surveys, f.surveyStatus);
+  assert.deepEqual(
+    groups.map((g) => g.month),
+    ["2026-10", "2026-09"],
+  );
+  assert.equal(groups[0].kpis[1], 100);
+  assert.equal(groups[1].kpis[1], 80);
+  assert.deepEqual(
+    groups[0].rows.map((r) => r.state),
+    ["CONFIRMADO", "ASISTIÓ", "CANCELADO", "NO ASISTIÓ"],
+  );
+  assert.equal(groups[0].rows[0].values[2], 4);
+  f.surveys.rows.reverse();
+  assert.equal(JSON.stringify(f), before);
+  f.surveys.rows.push(["2027-01", 9, 0.733, 0.422, 0.484]);
+  f.surveyStatus.rows.push(["2026-08", "ASISTIÓ", ...Array(12).fill(1)]);
+  const partial = joinSurveyMonths(f.surveys, f.surveyStatus);
+  assert.equal(partial[0].month, "2027-01");
+  assert.equal(partial[0].kpis[2], 0.733);
+  assert.ok(partial[0].rows.every((r) => r.values === undefined));
+  assert.equal(partial.at(-1).kpis, undefined);
+  const missing = fixture();
+  delete missing.surveyStatus;
+  assert.equal(qualityReportSchema.safeParse(missing).success, false);
+  const duplicate = fixture();
+  duplicate.surveyStatus.rows.push(duplicate.surveyStatus.rows[0]);
+  assert.equal(qualityReportSchema.safeParse(duplicate).success, false);
+});
+
+test("real ISO month periods are validated and joined without timezone conversion or mutating originals", () => {
+  const f = fixture();
+  f.surveys.rows[0][0] = "2026-10-01T00:00:00-05:00";
+  f.surveyStatus.rows
+    .filter((r) => r[0] === "2026-10")
+    .forEach((r) => (r[0] = "2026-10-01T00:00:00-05:00"));
+  const data = qualityReportSchema.parse(f);
+  const joined = joinSurveyMonths(data.surveys, data.surveyStatus);
+  assert.equal(joined[0].month, "2026-10");
+  assert.equal(joined[0].kpis[1], 100);
+  assert.ok(joined[0].rows.every((r) => r.values));
+  assert.equal(data.surveys.rows[0][0], f.surveys.rows[0][0]);
 });
