@@ -5,10 +5,19 @@ interface ReportCardProps {
   title: string;
   description: string;
   available: boolean;
-  to?: "/reports/vsl-closers" | "/reports/vsl-citas";
+  to?: "/reports/vsl-closers" | "/reports/vsl-citas" | "/reports/vsl-calidad";
+  accessible?: boolean;
+  pendingLabel?: string;
 }
 
-export function ReportCard({ title, description, available, to }: ReportCardProps) {
+export function ReportCard({
+  title,
+  description,
+  available,
+  to,
+  accessible,
+  pendingLabel,
+}: ReportCardProps) {
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-5 shadow-card sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
@@ -16,19 +25,17 @@ export function ReportCard({ title, description, available, to }: ReportCardProp
           <h2 className="truncate text-base font-semibold text-foreground">{title}</h2>
           <span
             className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-              available
-                ? "bg-brand-soft text-brand"
-                : "bg-muted text-muted-foreground"
+              available ? "bg-brand-soft text-brand" : "bg-muted text-muted-foreground"
             }`}
           >
             {available ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-            {available ? "Disponible" : "Próximamente"}
+            {available ? "Disponible" : (pendingLabel ?? "Próximamente")}
           </span>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       </div>
 
-      {available && to ? (
+      {(available || accessible) && to ? (
         <Link
           to={to}
           className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
