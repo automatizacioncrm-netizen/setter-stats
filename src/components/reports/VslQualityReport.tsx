@@ -32,14 +32,25 @@ export function ReportTable({
     <section className="overflow-hidden rounded-xl border border-border bg-background shadow-card">
       <h2 className="bg-zinc-700 p-4 text-center text-base font-bold text-white">{title}</h2>
       <div className="max-h-[65vh] overflow-auto">
-        <table className="w-full border-collapse text-sm">
+        <table
+          className={`w-full border-collapse text-sm ${survey ? "table-fixed" : ""}`}
+          style={survey ? { minWidth: table.columns.length * 160 } : undefined}
+        >
+          {survey && (
+            <colgroup>
+              {table.columns.map((_, i) => (
+                <col key={i} style={i < 2 ? { width: 160 } : undefined} />
+              ))}
+            </colgroup>
+          )}
           <thead className="sticky top-0 z-20 bg-white text-black">
             <tr>
               {table.columns.map((c, i) =>
                 visibleColumn(i) ? (
                   <th
                     key={i}
-                    className={`min-w-40 border border-zinc-300 p-3 text-center font-bold ${i === 0 ? "sticky left-0 z-30 bg-white" : ""}`}
+                    style={survey && i < 2 ? { left: i * 160 } : undefined}
+                    className={`min-w-40 border border-zinc-300 p-3 text-center font-bold ${survey && i < 2 ? "sticky z-30 bg-white" : i === 0 ? "sticky left-0 z-30 bg-white" : ""}`}
                   >
                     {c}
                   </th>
@@ -66,7 +77,8 @@ export function ReportTable({
                     <td
                       key={i}
                       rowSpan={survey && i === 0 ? monthRowSpan : undefined}
-                      className={`${survey && i === 0 ? "align-middle !text-center border-b-2 border-b-zinc-400" : ""} border border-border p-2 tabular-nums ${i < frozen ? "text-left" : "text-right"} ${i === 0 ? "sticky left-0 z-10 bg-background font-semibold" : ""} ${(frozen === 2 ? surveyPercentIndices : qualityPercentIndices).includes(i) ? "bg-brand-soft font-semibold text-brand" : ""}`}
+                      style={survey && i < 2 ? { left: i * 160 } : undefined}
+                      className={`${survey && i === 0 ? "align-middle !text-center border-b-2 border-b-zinc-400" : ""} border border-border p-2 tabular-nums ${i < frozen ? "text-left" : "text-right"} ${survey && i < 2 ? "sticky z-10 bg-background" : ""} ${i === 0 ? "sticky left-0 z-10 bg-background font-semibold" : ""} ${(frozen === 2 ? surveyPercentIndices : qualityPercentIndices).includes(i) ? "bg-brand-soft font-semibold text-brand" : ""}`}
                     >
                       {survey && isDetailCount(v, i) && onDetail ? (
                         <button
