@@ -1,3 +1,4 @@
+import { AppointmentsByFunnelTable } from "./AppointmentsByFunnelTable";
 import { LoadingModal } from "./LoadingModal";
 import { useEffect, useState } from "react";
 import { VslDateFilter } from "./VslDateFilter";
@@ -147,9 +148,11 @@ export function VslQualityReport() {
     [customStart, setCustomStart] = useState(""),
     [customEnd, setCustomEnd] = useState(""),
     [filterError, setFilterError] = useState("");
-  const [applied, setApplied] = useState<{ preset: DatePreset; range?: DateRange | undefined }>({
-      preset: "all",
-    }),
+  const [applied, setApplied] = useState<{ preset: DatePreset; range?: DateRange | undefined }>(
+      () => ({
+        preset: "all",
+      }),
+    ),
     [revision, setRevision] = useState(0);
   const [lastValid, setLastValid] = useState<QualityReport | null>(null);
   const sync = useVslSync(() => {
@@ -176,7 +179,7 @@ export function VslQualityReport() {
   const query = useQuery({
     queryKey: [
       "vsl-quality-report",
-      "date-filter-v4",
+      "calendar-month-funnels-v6",
       applied.range?.startDate ?? "all",
       applied.range?.endDate ?? "all",
       revision,
@@ -265,7 +268,7 @@ export function VslQualityReport() {
       <LoadingModal
         open={query.isFetching}
         title="Cargando datos…"
-        description={`Consultando ambas tablas para ${rangeLabel(applied.range)}. Espera un momento.`}
+        description={`Consultando las tres tablas para ${rangeLabel(applied.range)}. Espera un momento.`}
       />
       {query.isError && (
         <div
@@ -311,6 +314,10 @@ export function VslQualityReport() {
             frozen={1}
           />
           <MonthlySurveyTable table={data.surveys} statusTable={data.surveyStatus} />
+          <AppointmentsByFunnelTable
+            table={data.appointmentsByFunnel}
+            error={data.appointmentsByFunnelError}
+          />
           {(data.diagnostics?.warnings ?? []).map((warning, index) => (
             <p key={index} className="text-sm text-muted-foreground">
               {warning}

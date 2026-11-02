@@ -642,3 +642,332 @@ test("token-free sync parses the deployed job envelope, rejects cross-origin POS
     else process.env.VSL_REFRESH_TOKEN = previousToken;
   }
 });
+const {
+  appointmentsByFunnelSchema,
+  validateAppointmentsByFunnel,
+  funnelAppointmentColumns,
+  displayFunnelCell,
+} = require("../src/lib/appointments-by-funnel.ts");
+function funnelFixture(period = "2026-09-01 / 2026-09-30") {
+  return {
+    columns: [...funnelAppointmentColumns],
+    rows: [
+      "ORGÁNICO EQUIPO + ORGÁNICO CÍRCULO",
+      "VSL PAGO CÍRCULO + VSL PAGO EQUIPO",
+      "LIG CÍRCULO + LIG EQUIPO",
+    ].map((funnel) => [funnel, period, 13, 9, 9 / 13, 4, 4 / 13, 1, 1, 2, 0]),
+    sourceSheet: "VSL_APPOINTMENTS",
+    truncated: false,
+    skippedWithoutDate: 0,
+    percentColumns: [4, 6],
+  };
+}
+test("funnel table validates eleven positional columns, preserves metrics and only formats ratio indices", () => {
+  const raw = funnelFixture(),
+    before = JSON.stringify(raw),
+    data = appointmentsByFunnelSchema.parse(raw);
+  assert.equal(data.columns.length, 11);
+  assert.deepEqual(data.rows, raw.rows);
+  assert.equal(JSON.stringify(raw), before);
+  assert.equal(displayFunnelCell(0.6923, 4), "69%");
+  assert.equal(displayFunnelCell(0.3, 6), "30%");
+  assert.equal(displayFunnelCell(0, 4), "0%");
+  assert.equal(displayFunnelCell(0, 10), "0");
+  for (const value of [NaN, Infinity, -1]) {
+    const bad = funnelFixture();
+    bad.rows[0][4] = value;
+    assert.equal(appointmentsByFunnelSchema.safeParse(bad).success, false);
+  }
+  const duplicate = funnelFixture();
+  duplicate.rows.push(duplicate.rows[0]);
+  assert.equal(appointmentsByFunnelSchema.safeParse(duplicate).success, false);
+  const narrow = funnelFixture();
+  narrow.rows[0].pop();
+  assert.equal(appointmentsByFunnelSchema.safeParse(narrow).success, false);
+  const invalidHeaders = funnelFixture();
+  invalidHeaders.columns[5] = "CANCELADOS";
+  assert.equal(appointmentsByFunnelSchema.safeParse(invalidHeaders).success, false);
+  assert.equal(validateAppointmentsByFunnel(undefined).data, undefined);
+  assert.ok(
+    validateAppointmentsByFunnel(raw, { startDate: "2026-10-01", endDate: "2026-10-31" }).error,
+  );
+});
+test("funnel render handles real labels, eleven columns, percentages, empty/missing/error/truncation", () => {
+  const Module = require("node:module"),
+    path = require("node:path"),
+    resolve = Module._resolveFilename;
+  Module._resolveFilename = function (name, ...args) {
+    return resolve.call(
+      this,
+      name.startsWith("@/") ? path.resolve("src", name.slice(2)) : name,
+      ...args,
+    );
+  };
+  let AppointmentsByFunnelTable;
+  try {
+    ({
+      AppointmentsByFunnelTable,
+    } = require("../src/components/reports/AppointmentsByFunnelTable.tsx"));
+  } finally {
+    Module._resolveFilename = resolve;
+  }
+  const React = require("react"),
+    { renderToStaticMarkup } = require("react-dom/server");
+  const render = (table, error) =>
+    renderToStaticMarkup(React.createElement(AppointmentsByFunnelTable, { table, error }));
+  const data = funnelFixture(),
+    html = render(data);
+  assert.equal((html.match(/<th /g) || []).length, 30);
+  assert.equal((html.match(/<table /g) || []).length, 3);
+  assert.equal((html.match(/<td /g) || []).length, 30);
+  for (const body of html.match(/<tbody>[\s\S]*?<\/tbody>/g) || []) {
+    assert.ok(!body.includes("ORGÁNICO"));
+    assert.ok(!body.includes("VSL PAGO"));
+    assert.ok(!body.includes("LIG"));
+  }
+  assert.ok(html.includes("69%"));
+  assert.ok(html.includes("31%"));
+  assert.ok(html.includes("SEPTIEMBRE"));
+  assert.ok(html.includes("ORGÁNICO"));
+  assert.ok(html.includes("VSL PAGO"));
+  assert.ok(html.includes("LIG"));
+  assert.ok(html.includes("overflow-auto"));
+  assert.ok(
+    render({ ...data, rows: [] }).includes("No hay agendamientos para el período seleccionado"),
+  );
+  assert.ok(render(undefined).includes("La API todavía no entrega appointmentsByFunnel"));
+  assert.ok(render(undefined, "Contrato incompatible").includes("Contrato incompatible"));
+  assert.ok(render({ ...data, truncated: true }).includes("pueden estar incompletos"));
+  assert.ok(!html.includes("NaN"));
+  assert.ok(!html.includes("Infinity"));
+  assert.ok(!html.includes("undefined"));
+});
+test("shared report carries funnel data for each global range without extra fetches or breaking tables 1/2", async () => {
+  const previous = global.fetch,
+    previousEnv = process.env.APPS_SCRIPT_URL_VSL;
+  process.env.APPS_SCRIPT_URL_VSL = "https://script.google.com/macros/s/test/exec";
+  let calls = 0;
+  const request = (startDate, endDate) =>
+    new Request(
+      "https://local.test/api/reports/vsl-calidad?" + new URLSearchParams({ startDate, endDate }),
+    );
+  try {
+    global.fetch = async (input) => {
+      calls++;
+      const url = new URL(input),
+        start = url.searchParams.get("startDate"),
+        end = url.searchParams.get("endDate");
+      const raw = filteredFixture(start, end);
+      raw.appointmentsByFunnel = funnelFixture(start + " / " + end);
+      return Response.json(raw);
+    };
+    for (const [start, end] of [
+      ["2026-09-01", "2026-09-30"],
+      ["2026-10-22", "2026-10-27"],
+    ]) {
+      const response = await qualityApi(request(start, end)),
+        body = await response.json();
+      assert.equal(response.status, 200);
+      assert.equal(body.appointmentsByFunnel.rows.length, 3);
+      assert.equal(body.appointmentsByFunnel.rows[0][1], start + " / " + end);
+      assert.equal(body.quality.rows.length, 1);
+      assert.equal(body.surveyStatus.rows.length, 4);
+      assert.equal(body.surveys.rows.length, 1);
+    }
+    assert.equal(calls, 2);
+    global.fetch = async () => Response.json(filteredFixture("2026-09-01", "2026-09-30"));
+    let body = await (await qualityApi(request("2026-09-01", "2026-09-30"))).json();
+    assert.ok(body.quality);
+    assert.equal(body.appointmentsByFunnel, undefined);
+    global.fetch = async () => {
+      const raw = filteredFixture("2026-09-01", "2026-09-30");
+      raw.appointmentsByFunnel = funnelFixture("2026-10-01 / 2026-10-31");
+      return Response.json(raw);
+    };
+    body = await (await qualityApi(request("2026-09-01", "2026-09-30"))).json();
+    assert.ok(body.quality);
+    assert.ok(body.surveys);
+    assert.equal(body.appointmentsByFunnel, undefined);
+    assert.ok(body.appointmentsByFunnelError.includes("intervalo solicitado"));
+    global.fetch = async () => {
+      const raw = filteredFixture("2026-09-01", "2026-09-30");
+      raw.appointmentsByFunnel = { columns: [], rows: [] };
+      return Response.json(raw);
+    };
+    body = await (await qualityApi(request("2026-09-01", "2026-09-30"))).json();
+    assert.ok(body.appointmentsByFunnelError.includes("datos incompatibles"));
+    assert.ok(body.quality);
+  } finally {
+    global.fetch = previous;
+    if (previousEnv === undefined) delete process.env.APPS_SCRIPT_URL_VSL;
+    else process.env.APPS_SCRIPT_URL_VSL = previousEnv;
+  }
+});
+
+test("Table 3 period labels distinguish historical cuts without changing quantities", () => {
+  const { displayFunnelPeriod } = require("../src/lib/appointments-by-funnel.ts");
+  for (const period of ["2026-10", "2026-10-01T00:00:00-05:00", "2026-10-01 / 2026-10-31"])
+    assert.equal(displayFunnelPeriod(period), "OCTUBRE");
+  assert.equal(displayFunnelPeriod("DEL 21 AL 27 DE OCT"), "OCTUBRE DEL 21 AL 27");
+  assert.equal(displayFunnelPeriod("1 AL 20 OCT"), "OCTUBRE DEL 01 AL 20");
+  assert.equal(displayFunnelPeriod("2026-10-22 / 2026-10-27"), "OCTUBRE");
+  assert.equal(displayFunnelPeriod("SEPTIEMBRE"), "SEPTIEMBRE");
+  assert.equal(displayFunnelPeriod("AGOSTO"), "AGOSTO");
+  assert.equal(displayFunnelPeriod("2026-11-01 / 2026-11-30"), "NOVIEMBRE");
+  assert.equal(
+    displayFunnelPeriod("2026-10-26 / 2026-11-01"),
+    "26 DE OCTUBRE DE 2026 AL 01 DE NOVIEMBRE DE 2026",
+  );
+  const rows = funnelFixture("DEL 21 AL 27 DE OCT").rows,
+    before = JSON.stringify(rows);
+  rows.forEach((row) => displayFunnelPeriod(row[1]));
+  assert.equal(JSON.stringify(rows), before);
+});
+test("Table 3 separates groups, sorts historical periods and retains overlapping intervals without aggregation", () => {
+  const {
+    presentFunnelGroups,
+    displayFunnelPeriod,
+  } = require("../src/lib/appointments-by-funnel.ts");
+  const base = funnelFixture(),
+    rows = base.rows.flatMap((row) =>
+      ["AGOSTO", "1 AL 20 OCT", "SEPTIEMBRE", "DEL 21 AL 27 DE OCT", "JULIO"].map(
+        (period, index) => {
+          const copy = [...row];
+          copy[1] = period;
+          copy[2] = index + 10;
+          return copy;
+        },
+      ),
+    );
+  const before = JSON.stringify(rows),
+    groups = presentFunnelGroups(rows);
+  assert.equal(groups.length, 3);
+  for (const group of groups) {
+    assert.equal(group.rows.length, 5);
+    assert.ok(group.rows.every((row) => row[0] === group.name));
+    assert.deepEqual(
+      group.rows.map((row) => displayFunnelPeriod(row[1])),
+      ["OCTUBRE DEL 21 AL 27", "OCTUBRE DEL 01 AL 20", "SEPTIEMBRE", "AGOSTO", "JULIO"],
+    );
+    assert.deepEqual(
+      group.rows.map((row) => row[2]),
+      [13, 11, 12, 10, 14],
+    );
+  }
+  assert.equal(JSON.stringify(rows), before);
+  const month = presentFunnelGroups(funnelFixture("2026-10-01 / 2026-10-31").rows);
+  assert.ok(
+    month.every(
+      (group) => group.rows.length === 1 && displayFunnelPeriod(group.rows[0][1]) === "OCTUBRE",
+    ),
+  );
+  const partial = presentFunnelGroups(funnelFixture("2026-10-22 / 2026-10-27").rows);
+  assert.ok(
+    partial.every(
+      (group) => group.rows.length === 1 && displayFunnelPeriod(group.rows[0][1]) === "OCTUBRE",
+    ),
+  );
+  const zero = funnelFixture().rows[2];
+  zero.splice(2, 9, ...Array(9).fill(0));
+  const zeros = presentFunnelGroups([zero]);
+  assert.equal(zeros[2].rows.length, 1);
+  assert.equal(zeros[2].rows[0][2], 0);
+  assert.equal(zeros[0].rows.length, 0);
+});
+test("monthly funnel validation never sums historical cuts, overlapping ranges or multi-month totals", () => {
+  const raw = funnelFixture("1 AL 20 OCT");
+  raw.rows.push(...funnelFixture("DEL 21 AL 27 DE OCT").rows);
+  const before = JSON.stringify(raw);
+  assert.match(validateAppointmentsByFunnel(raw).error, /agregación mensual/);
+  assert.equal(JSON.stringify(raw), before);
+  const overlap = funnelFixture("2026-10-01 / 2026-10-20");
+  overlap.rows.push(...funnelFixture("2026-10-15 / 2026-10-31").rows);
+  assert.ok(
+    validateAppointmentsByFunnel(overlap, { startDate: "2026-10-01", endDate: "2026-10-31" }).error,
+  );
+  assert.match(
+    validateAppointmentsByFunnel(funnelFixture("2026-10-22 / 2026-11-05"), {
+      startDate: "2026-10-22",
+      endDate: "2026-11-05",
+    }).error,
+    /cruza meses/,
+  );
+  const duplicateMonth = funnelFixture("2026-10");
+  duplicateMonth.rows.push(...funnelFixture("OCTUBRE").rows);
+  assert.match(
+    validateAppointmentsByFunnel(duplicateMonth).error,
+    /más de una fila|Fila duplicada/,
+  );
+  const badPercent = funnelFixture();
+  badPercent.rows[0][4] = 0.9;
+  assert.match(validateAppointmentsByFunnel(badPercent).error, /porcentajes/);
+});
+test("backend monthly aggregates and clipped month segments retain counts and percentages without recalculation", () => {
+  const full = funnelFixture("2026-10"),
+    before = JSON.stringify(full);
+  assert.ok(validateAppointmentsByFunnel(full).data);
+  assert.equal(JSON.stringify(full), before);
+  const filter = { startDate: "2026-10-22", endDate: "2026-11-05" };
+  const monthly = funnelFixture("2026-10-22 / 2026-10-31");
+  monthly.rows.push(...funnelFixture("2026-11-01 / 2026-11-05").rows);
+  const result = validateAppointmentsByFunnel(monthly, filter);
+  assert.ok(result.data);
+  assert.equal(result.data.rows.length, 6);
+  assert.deepEqual(result.data.rows, monthly.rows);
+  const groups = require("../src/lib/appointments-by-funnel.ts").presentFunnelGroups(
+    result.data.rows,
+  );
+  assert.ok(groups.every((group) => group.rows.length === 2));
+  assert.equal(
+    require("../src/lib/appointments-by-funnel.ts").displayFunnelPeriod(monthly.rows[0][1]),
+    "OCTUBRE",
+  );
+  assert.equal(
+    require("../src/lib/appointments-by-funnel.ts").displayFunnelPeriod(monthly.rows[3][1]),
+    "NOVIEMBRE",
+  );
+  const outside = funnelFixture("2026-10-01 / 2026-10-31");
+  assert.ok(validateAppointmentsByFunnel(outside, filter).error);
+});
+test("deployed month-and-year labels preserve distinct calendar years, monthly rows and percentages", () => {
+  const {
+    funnelMonthKey,
+    presentFunnelGroups,
+    displayFunnelPeriod,
+  } = require("../src/lib/appointments-by-funnel.ts");
+  assert.equal(funnelMonthKey("OCTUBRE 2026"), "2026-10");
+  assert.equal(funnelMonthKey("ENERO 2027"), "2027-01");
+  assert.equal(funnelMonthKey("DICIEMBRE 2025"), "2025-12");
+  const table = funnelFixture("OCTUBRE 2026");
+  table.rows.push(...funnelFixture("SEPTIEMBRE 2026").rows, ...funnelFixture("ENERO 2027").rows);
+  const before = JSON.stringify(table),
+    parsed = validateAppointmentsByFunnel(table);
+  assert.ok(parsed.data);
+  assert.equal(JSON.stringify(table), before);
+  assert.deepEqual(
+    presentFunnelGroups(parsed.data.rows)[0].rows.map((row) => row[1]),
+    ["ENERO 2027", "OCTUBRE 2026", "SEPTIEMBRE 2026"],
+  );
+  assert.equal(displayFunnelPeriod("OCTUBRE 2026"), "OCTUBRE");
+  const filter = { startDate: "2026-10-22", endDate: "2026-11-05" },
+    cross = funnelFixture("OCTUBRE 2026");
+  cross.rows.push(...funnelFixture("NOVIEMBRE 2026").rows);
+  const result = validateAppointmentsByFunnel(cross, filter);
+  assert.ok(result.data);
+  assert.ok(presentFunnelGroups(result.data.rows).every((group) => group.rows.length === 2));
+  const duplicate = funnelFixture("OCTUBRE 2026");
+  duplicate.rows.push(...funnelFixture("2026-10").rows);
+  assert.ok(validateAppointmentsByFunnel(duplicate).error);
+});
+test("monthly funnel totals must equal every exclusive appointment state, with valid zero months retained", () => {
+  const bad = funnelFixture("OCTUBRE 2026");
+  bad.rows[0][7] += 1;
+  assert.match(validateAppointmentsByFunnel(bad).error, /estados inconsistentes/);
+  const zero = funnelFixture("OCTUBRE 2026");
+  zero.rows.forEach((row) => row.splice(2, 9, ...Array(9).fill(0)));
+  assert.ok(validateAppointmentsByFunnel(zero).data);
+  const valid = funnelFixture("OCTUBRE 2026"),
+    before = JSON.stringify(valid);
+  assert.ok(validateAppointmentsByFunnel(valid).data);
+  assert.equal(JSON.stringify(valid), before);
+});

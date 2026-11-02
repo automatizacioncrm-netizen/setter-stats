@@ -1,3 +1,4 @@
+import { appointmentsByFunnelSchema } from "./appointments-by-funnel";
 import { rangePeriod, rangeLabel, validDate, validateRange } from "./vsl-date-range";
 import { surveyPeriodKey, validSurveyPeriod } from "./vsl-period";
 import { formatSurveyMonth } from "./survey-month";
@@ -169,6 +170,8 @@ const reportSchema = z.object({
   quality: table(15, [0]),
   surveys: monthlySurveySchema,
   surveyStatus: surveyStatusSchema,
+  appointmentsByFunnel: appointmentsByFunnelSchema.optional().catch(undefined),
+  appointmentsByFunnelError: z.string().optional(),
   diagnostics: z
     .object({
       available: z.boolean().optional(),

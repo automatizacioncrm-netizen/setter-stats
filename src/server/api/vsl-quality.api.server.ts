@@ -1,3 +1,4 @@
+import { validateAppointmentsByFunnel } from "../../lib/appointments-by-funnel";
 import { validateRange, type DateRange } from "../../lib/vsl-date-range";
 import { fetchVslJson } from "../adapters/vsl-quality.adapter.server";
 import { qualityReportSchema } from "../../lib/vsl-quality";
@@ -32,8 +33,22 @@ async function loadReport(range?: DateRange): Promise<Response> {
       );
     if (!range && result.data.filter)
       throw new Error("La API devolvió un filtro inesperado para Todo el histórico.");
+    const funnel = validateAppointmentsByFunnel(
+      raw && typeof raw === "object" && "appointmentsByFunnel" in raw
+        ? raw.appointmentsByFunnel
+        : undefined,
+      range,
+    );
     operational = true;
-    return Response.json({ ...result.data, queriedAt: new Date().toISOString() }, { headers });
+    return Response.json(
+      {
+        ...result.data,
+        appointmentsByFunnel: funnel.data,
+        appointmentsByFunnelError: funnel.error,
+        queriedAt: new Date().toISOString(),
+      },
+      { headers },
+    );
   } catch (error) {
     operational = false;
     return Response.json(
