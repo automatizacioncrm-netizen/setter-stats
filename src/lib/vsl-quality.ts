@@ -1,4 +1,6 @@
-import { formatSurveyMonth, normalizeSurveyMonth } from "./survey-month";
+import { rangePeriod, rangeLabel, validDate, validateRange } from "./vsl-date-range";
+import { surveyPeriodKey, validSurveyPeriod } from "./vsl-period";
+import { formatSurveyMonth } from "./survey-month";
 import { z } from "zod";
 export const qualityColumns = [
   "EMBUDO VSL/CLOSER",
@@ -117,13 +119,13 @@ export const monthlySurveySchema = table(5, [0], true).superRefine((data, ctx) =
   });
   const months = new Set<string>();
   data.rows.forEach((row, index) => {
-    if (typeof row[0] !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(normalizeSurveyMonth(row[0])))
+    if (typeof row[0] !== "string" || !validSurveyPeriod(row[0]))
       ctx.addIssue({
         code: "custom",
         path: ["rows", index, 0],
         message: "El periodo mensual debe ser YYYY-MM.",
       });
-    const key = normalizeSurveyMonth(row[0]);
+    const key = surveyPeriodKey(row[0]);
     if (key && months.has(key))
       ctx.addIssue({
         code: "custom",
@@ -138,7 +140,7 @@ export const surveyAgendaStates = ["CONFIRMADO", "ASISTIÓ", "CANCELADO", "NO AS
 export const surveyStatusSchema = table(14, [0, 1, 9]).superRefine((data, ctx) => {
   const seen = new Set<string>();
   data.rows.forEach((row, index) => {
-    if (typeof row[0] !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(normalizeSurveyMonth(row[0])))
+    if (typeof row[0] !== "string" || !validSurveyPeriod(row[0]))
       ctx.addIssue({
         code: "custom",
         path: ["rows", index, 0],
@@ -150,7 +152,7 @@ export const surveyStatusSchema = table(14, [0, 1, 9]).superRefine((data, ctx) =
         path: ["rows", index, 1],
         message: "Estado incompatible: se requieren los cuatro estados de agenda definidos.",
       });
-    const key = normalizeSurveyMonth(row[0]) + "/" + String(row[1]);
+    const key = surveyPeriodKey(row[0]) + "/" + String(row[1]);
     if (seen.has(key))
       ctx.addIssue({
         code: "custom",
@@ -160,7 +162,7 @@ export const surveyStatusSchema = table(14, [0, 1, 9]).superRefine((data, ctx) =
     seen.add(key);
   });
 });
-export const qualityReportSchema = z.object({
+const reportSchema = z.object({
   success: z.literal(true),
   generatedAt: z.string().datetime({ offset: true }),
   timeZone: z.literal("America/Lima"),
@@ -175,10 +177,44 @@ export const qualityReportSchema = z.object({
     })
     .optional(),
   queriedAt: z.string().datetime({ offset: true }).optional(),
+  filter: z
+    .object({
+      startDate: z.string().refine(validDate),
+      endDate: z.string().refine(validDate),
+      inclusive: z.literal(true),
+    })
+    .optional(),
+});
+export const qualityReportSchema = reportSchema.superRefine((data, ctx) => {
+  if (!data.filter) return;
+  if (validateRange(data.filter))
+    ctx.addIssue({ code: "custom", path: ["filter"], message: validateRange(data.filter) });
+  const key = data.filter.startDate + " / " + data.filter.endDate;
+  for (const block of ["quality", "surveys", "surveyStatus"] as const) {
+    const table = data[block];
+    if (
+      (block !== "surveyStatus" && table.rows.length > 1) ||
+      (block === "surveyStatus" && table.rows.length > 4)
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: [block, "rows"],
+        message:
+          "El reporte filtrado debe devolver un único período; no se usan filas históricas agregadas.",
+      });
+    for (const row of table.rows)
+      if (surveyPeriodKey(row[0]) !== key)
+        ctx.addIssue({
+          code: "custom",
+          path: [block, "rows"],
+          message: "El período recibido no corresponde al intervalo solicitado.",
+        });
+  }
 });
 export type QualityReport = z.infer<typeof qualityReportSchema>;
 export function displayMonth(value: string): string {
-  return formatSurveyMonth(value);
+  const range = rangePeriod(value);
+  return range ? rangeLabel(range) : formatSurveyMonth(value);
 }
 export function displayReportCell(
   value: string | number | null,
@@ -186,6 +222,7 @@ export function displayReportCell(
   survey: boolean,
 ): string {
   if (value === null || value === "") return "—";
+  if (index === 0 && rangePeriod(value)) return rangeLabel(rangePeriod(value));
   if (index === 0 && survey) return displayMonth(String(value));
   const indices = survey ? surveyPercentIndices : qualityPercentIndices;
   if (indices.includes(index) && typeof value === "number")

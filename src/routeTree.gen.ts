@@ -19,6 +19,7 @@ import { Route as ApiReportsDailyMeetingsRouteImport } from './routes/api.report
 import { Route as ApiReportsVslCalidadRouteImport } from './routes/api.reports.vsl-calidad'
 import { Route as ApiReportsVslCalidadDetailRouteImport } from './routes/api.reports.vsl-calidad-detail'
 import { Route as ApiReportsVslCalidadStatusRouteImport } from './routes/api.reports.vsl-calidad-status'
+import { Route as ApiReportsVslCalidadSyncRouteImport } from './routes/api.reports.vsl-calidad-sync'
 import { Route as ApiReportsVslCitasRouteImport } from './routes/api.reports.vsl-citas'
 import { Route as ApiReportsVslClosersRouteImport } from './routes/api.reports.vsl-closers'
 import { Route as ApiReportsVslCitasReconcileRouteImport } from './routes/api.reports.vsl-citas.reconcile'
@@ -76,6 +77,12 @@ const ApiReportsVslCalidadStatusRoute =
     path: '/api/reports/vsl-calidad-status',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiReportsVslCalidadSyncRoute =
+  ApiReportsVslCalidadSyncRouteImport.update({
+    id: '/api/reports/vsl-calidad-sync',
+    path: '/api/reports/vsl-calidad-sync',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiReportsVslCitasRoute = ApiReportsVslCitasRouteImport.update({
   id: '/api/reports/vsl-citas',
   path: '/api/reports/vsl-citas',
@@ -110,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/api/reports/vsl-calidad': typeof ApiReportsVslCalidadRoute
   '/api/reports/vsl-calidad-detail': typeof ApiReportsVslCalidadDetailRoute
   '/api/reports/vsl-calidad-status': typeof ApiReportsVslCalidadStatusRoute
+  '/api/reports/vsl-calidad-sync': typeof ApiReportsVslCalidadSyncRoute
   '/api/reports/vsl-citas': typeof ApiReportsVslCitasRouteWithChildren
   '/api/reports/vsl-closers': typeof ApiReportsVslClosersRouteWithChildren
   '/api/reports/vsl-citas/reconcile': typeof ApiReportsVslCitasReconcileRoute
@@ -126,6 +134,7 @@ export interface FileRoutesByTo {
   '/api/reports/vsl-calidad': typeof ApiReportsVslCalidadRoute
   '/api/reports/vsl-calidad-detail': typeof ApiReportsVslCalidadDetailRoute
   '/api/reports/vsl-calidad-status': typeof ApiReportsVslCalidadStatusRoute
+  '/api/reports/vsl-calidad-sync': typeof ApiReportsVslCalidadSyncRoute
   '/api/reports/vsl-citas': typeof ApiReportsVslCitasRouteWithChildren
   '/api/reports/vsl-closers': typeof ApiReportsVslClosersRouteWithChildren
   '/api/reports/vsl-citas/reconcile': typeof ApiReportsVslCitasReconcileRoute
@@ -143,6 +152,7 @@ export interface FileRoutesById {
   '/api/reports/vsl-calidad': typeof ApiReportsVslCalidadRoute
   '/api/reports/vsl-calidad-detail': typeof ApiReportsVslCalidadDetailRoute
   '/api/reports/vsl-calidad-status': typeof ApiReportsVslCalidadStatusRoute
+  '/api/reports/vsl-calidad-sync': typeof ApiReportsVslCalidadSyncRoute
   '/api/reports/vsl-citas': typeof ApiReportsVslCitasRouteWithChildren
   '/api/reports/vsl-closers': typeof ApiReportsVslClosersRouteWithChildren
   '/api/reports/vsl-citas/reconcile': typeof ApiReportsVslCitasReconcileRoute
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/api/reports/vsl-calidad'
     | '/api/reports/vsl-calidad-detail'
     | '/api/reports/vsl-calidad-status'
+    | '/api/reports/vsl-calidad-sync'
     | '/api/reports/vsl-citas'
     | '/api/reports/vsl-closers'
     | '/api/reports/vsl-citas/reconcile'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/api/reports/vsl-calidad'
     | '/api/reports/vsl-calidad-detail'
     | '/api/reports/vsl-calidad-status'
+    | '/api/reports/vsl-calidad-sync'
     | '/api/reports/vsl-citas'
     | '/api/reports/vsl-closers'
     | '/api/reports/vsl-citas/reconcile'
@@ -193,6 +205,7 @@ export interface FileRouteTypes {
     | '/api/reports/vsl-calidad'
     | '/api/reports/vsl-calidad-detail'
     | '/api/reports/vsl-calidad-status'
+    | '/api/reports/vsl-calidad-sync'
     | '/api/reports/vsl-citas'
     | '/api/reports/vsl-closers'
     | '/api/reports/vsl-citas/reconcile'
@@ -210,6 +223,7 @@ export interface RootRouteChildren {
   ApiReportsVslCalidadRoute: typeof ApiReportsVslCalidadRoute
   ApiReportsVslCalidadDetailRoute: typeof ApiReportsVslCalidadDetailRoute
   ApiReportsVslCalidadStatusRoute: typeof ApiReportsVslCalidadStatusRoute
+  ApiReportsVslCalidadSyncRoute: typeof ApiReportsVslCalidadSyncRoute
   ApiReportsVslCitasRoute: typeof ApiReportsVslCitasRouteWithChildren
   ApiReportsVslClosersRoute: typeof ApiReportsVslClosersRouteWithChildren
 }
@@ -286,6 +300,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReportsVslCalidadStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/reports/vsl-calidad-sync': {
+      id: '/api/reports/vsl-calidad-sync'
+      path: '/api/reports/vsl-calidad-sync'
+      fullPath: '/api/reports/vsl-calidad-sync'
+      preLoaderRoute: typeof ApiReportsVslCalidadSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/reports/vsl-citas': {
       id: '/api/reports/vsl-citas'
       path: '/api/reports/vsl-citas'
@@ -350,6 +371,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiReportsVslCalidadRoute: ApiReportsVslCalidadRoute,
   ApiReportsVslCalidadDetailRoute: ApiReportsVslCalidadDetailRoute,
   ApiReportsVslCalidadStatusRoute: ApiReportsVslCalidadStatusRoute,
+  ApiReportsVslCalidadSyncRoute: ApiReportsVslCalidadSyncRoute,
   ApiReportsVslCitasRoute: ApiReportsVslCitasRouteWithChildren,
   ApiReportsVslClosersRoute: ApiReportsVslClosersRouteWithChildren,
 }

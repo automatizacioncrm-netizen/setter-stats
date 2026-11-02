@@ -1,14 +1,15 @@
+import { validateRange, type DateRange } from "../../lib/vsl-date-range";
 import { fetchVslJson } from "../adapters/vsl-quality.adapter.server";
 import { qualityReportSchema } from "../../lib/vsl-quality";
 let operational = false;
-let inFlight: Promise<Response> | undefined;
+const inFlight = new Map<string, Promise<Response>>();
 export function qualityStatus() {
   return Response.json({ available: operational }, { headers: { "Cache-Control": "no-store" } });
 }
-async function loadReport(): Promise<Response> {
+async function loadReport(range?: DateRange): Promise<Response> {
   const headers = { "Cache-Control": "no-store" };
   try {
-    const raw = await fetchVslJson({ action: "report" });
+    const raw = await fetchVslJson({ action: "report", ...(range ?? {}) });
     if (raw && typeof raw === "object" && !("surveyStatus" in raw))
       throw new Error(
         "La API no incluye surveyStatus. Actualiza o ejecuta la versión del reporte de Google Apps Script que genera el desglose por estado.",
@@ -21,6 +22,16 @@ async function loadReport(): Promise<Response> {
             .map((issue) => issue.path.join(".") + ": " + issue.message)
             .join("; "),
       );
+    if (
+      range &&
+      (result.data.filter?.startDate !== range.startDate ||
+        result.data.filter?.endDate !== range.endDate)
+    )
+      throw new Error(
+        "La API no confirmó el filtro solicitado. No se muestran agregados históricos como datos del intervalo.",
+      );
+    if (!range && result.data.filter)
+      throw new Error("La API devolvió un filtro inesperado para Todo el histórico.");
     operational = true;
     return Response.json({ ...result.data, queriedAt: new Date().toISOString() }, { headers });
   } catch (error) {
@@ -31,10 +42,20 @@ async function loadReport(): Promise<Response> {
     );
   }
 }
-export async function qualityApi() {
-  if (!inFlight)
-    inFlight = loadReport().finally(() => {
-      inFlight = undefined;
-    });
-  return (await inFlight).clone();
+export async function qualityApi(request?: Request) {
+  const params = request ? new URL(request.url).searchParams : undefined;
+  let range: DateRange | undefined;
+  if (params?.has("startDate") || params?.has("endDate")) {
+    range = { startDate: params.get("startDate") ?? "", endDate: params.get("endDate") ?? "" };
+    const error = validateRange(range);
+    if (error)
+      return Response.json({ error }, { status: 400, headers: { "Cache-Control": "no-store" } });
+  }
+  const key = range ? range.startDate + "/" + range.endDate : "all";
+  let work = inFlight.get(key);
+  if (!work) {
+    work = loadReport(range).finally(() => inFlight.delete(key));
+    inFlight.set(key, work);
+  }
+  return (await work).clone();
 }

@@ -1,3 +1,14 @@
+import { useEffect, useState } from "react";
+import { VslDateFilter } from "./VslDateFilter";
+import {
+  rangeForPreset,
+  rangeLabel,
+  customRange,
+  type DatePreset,
+  type DateRange,
+} from "@/lib/vsl-date-range";
+import { useVslSync } from "@/hooks/use-vsl-sync";
+import { syncLabel } from "@/lib/vsl-sync";
 import { MonthlySurveyTable } from "./MonthlySurveyTable";
 import { isDetailCount, type SurveySelection } from "@/lib/survey-detail";
 import { normalizeSurveyMonth } from "@/lib/survey-month";
@@ -26,7 +37,7 @@ export function ReportTable({
   const rows = survey
     ? groupSurveyRows(table.rows)
     : table.rows.map((row) => ({ row, monthLabel: "", monthRowSpan: 1, endOfMonth: false }));
-  const visibleColumn = (index: number) => (survey ? index !== 18 : index !== 13 && index !== 14);
+  const visibleColumn = (index: number) => (survey ? index !== 18 : true);
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-background shadow-card">
       <h2 className="bg-zinc-700 p-4 text-center text-base font-bold text-white">{title}</h2>
@@ -131,12 +142,48 @@ export function ReportTable({
   );
 }
 export function VslQualityReport() {
+  const [preset, setPreset] = useState<DatePreset>("all"),
+    [customStart, setCustomStart] = useState(""),
+    [customEnd, setCustomEnd] = useState(""),
+    [filterError, setFilterError] = useState("");
+  const [applied, setApplied] = useState<{ preset: DatePreset; range?: DateRange | undefined }>({
+      preset: "all",
+    }),
+    [revision, setRevision] = useState(0);
+  const [lastValid, setLastValid] = useState<QualityReport | null>(null);
+  const sync = useVslSync(() => {
+    setApplied((current) => ({ ...current, range: rangeForPreset(current.preset, current.range) }));
+    setRevision((value) => value + 1);
+  });
+  const selectPreset = (value: DatePreset) => {
+    setPreset(value);
+    setFilterError("");
+    if (value !== "custom") setApplied({ preset: value, range: rangeForPreset(value) });
+  };
+  const applyCustom = () => {
+    try {
+      setApplied({ preset: "custom", range: customRange(customStart, customEnd) });
+      setFilterError("");
+    } catch (error) {
+      setFilterError(error instanceof Error ? error.message : "Rango inválido.");
+    }
+  };
   const query = useQuery({
-    queryKey: ["vsl-quality-report", "survey-status-kpis-v3"],
-    queryFn: async () => {
-      const r = await fetch("/api/reports/vsl-calidad", { signal: AbortSignal.timeout(45000) });
-      const body = await r.json();
-      if (!r.ok) throw new Error(body.error || "No se pudo cargar el reporte.");
+    queryKey: [
+      "vsl-quality-report",
+      "date-filter-v4",
+      applied.range?.startDate ?? "all",
+      applied.range?.endDate ?? "all",
+      revision,
+    ],
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams(applied.range ?? {});
+      const response = await fetch("/api/reports/vsl-calidad" + (params.size ? "?" + params : ""), {
+        signal: AbortSignal.any([signal, AbortSignal.timeout(45000)]),
+        cache: "no-store",
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "No se pudo cargar el reporte.");
       return qualityReportSchema.parse(body);
     },
     retry: false,
@@ -145,6 +192,11 @@ export function VslQualityReport() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
+  useEffect(() => {
+    if (query.data) setLastValid(query.data);
+  }, [query.data]);
+  const data = query.data ?? lastValid;
+  const warning = sync.state?.warning;
   return (
     <main className="min-h-screen space-y-6 bg-background p-4 sm:p-8">
       <Link to="/reports" className="text-sm text-brand">
@@ -153,51 +205,108 @@ export function VslQualityReport() {
       <header className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">VSL | CALIDAD DE LEADS Y ENCUESTAS</h1>
         <button
-          disabled={query.isFetching}
-          onClick={() => {
-            if (!query.isFetching) void query.refetch({ cancelRefetch: false });
-          }}
+          disabled={sync.busy || sync.uncertain}
+          onClick={() => void sync.start()}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
         >
-          {query.isFetching ? "Cargando…" : "Actualizar datos"}
+          {sync.busy ? "Actualización en curso…" : "Actualizar datos"}
         </button>
       </header>
-      {query.isPending && <p role="status">Cargando ambas tablas…</p>}
+      <VslDateFilter
+        preset={preset}
+        start={customStart}
+        end={customEnd}
+        onPreset={selectPreset}
+        onStart={setCustomStart}
+        onEnd={setCustomEnd}
+        onApply={applyCustom}
+        onClear={() => selectPreset("all")}
+        error={filterError}
+        activeRange={applied.range}
+      />
+      {(sync.state || sync.submitting) && (
+        <section
+          aria-label="Progreso de sincronización"
+          className="space-y-2 rounded-lg border border-border p-4"
+        >
+          <p role="status">{syncLabel(sync.state)}</p>
+          {!!sync.state?.completedStages.length && (
+            <p className="text-sm">Etapas confirmadas: {sync.state.completedStages.join(" · ")}</p>
+          )}
+          {sync.state?.status === "ERROR" && (
+            <p role="alert" className="text-destructive">
+              {sync.state.error || "Apps Script informó un error de sincronización."}
+            </p>
+          )}
+          {warning && (
+            <p role="alert" className="text-sm text-amber-700">
+              {Array.isArray(warning) ? warning.join(" · ") : warning}
+            </p>
+          )}
+        </section>
+      )}
+      {sync.error && (
+        <div role="alert" className="space-y-2 rounded-lg border border-destructive p-4">
+          <p className="text-destructive">{sync.error}</p>
+          <button
+            disabled={sync.submitting || sync.tracking}
+            onClick={() => void sync.resume()}
+            className="rounded border px-3 py-2 text-sm"
+          >
+            Consultar estado
+          </button>
+        </div>
+      )}
+      {query.isFetching && (
+        <p role="status">Consultando ambas tablas para {rangeLabel(applied.range)}…</p>
+      )}
       {query.isError && (
-        <p role="alert" className="rounded-lg border border-destructive p-4 text-destructive">
-          {query.error.message}
+        <div
+          role="alert"
+          className="space-y-2 rounded-lg border border-destructive p-4 text-destructive"
+        >
+          <p>{query.error.message}</p>
+          <button
+            disabled={query.isFetching}
+            onClick={() => void query.refetch({ cancelRefetch: false })}
+            className="rounded border px-3 py-2 text-sm"
+          >
+            Reintentar consulta
+          </button>
+        </div>
+      )}
+      {!query.data && data && (
+        <p className="text-sm text-amber-700">
+          Se conservan los últimos datos válidos de: {rangeLabel(data.filter)}. Aún no corresponden
+          al nuevo filtro solicitado.
         </p>
       )}
-      {query.data && (
+      {data && (
         <>
           <p className="text-sm text-muted-foreground">
             Última actualización del servidor:{" "}
-            {new Date(query.data.generatedAt).toLocaleString("es-PE", {
-              timeZone: query.data.timeZone,
-            })}{" "}
+            {new Date(data.generatedAt).toLocaleString("es-PE", { timeZone: data.timeZone })}{" "}
             (America/Lima)
           </p>
-          {query.data.queriedAt && (
+          {data.queriedAt && (
             <p className="text-sm text-muted-foreground">
               Fecha de consulta:{" "}
-              {new Date(query.data.queriedAt).toLocaleString("es-PE", { timeZone: "America/Lima" })}{" "}
+              {new Date(data.queriedAt).toLocaleString("es-PE", { timeZone: "America/Lima" })}{" "}
               (America/Lima)
             </p>
           )}
-          {(query.data.quality.truncated ||
-            query.data.surveys.truncated ||
-            query.data.surveyStatus.truncated) && (
+          {(data.quality.truncated || data.surveys.truncated || data.surveyStatus.truncated) && (
             <p role="status">El servidor indica que el reporte está truncado.</p>
           )}
           <ReportTable
             title="TABLA 1: ANÁLISIS DE CALIDAD DE LEADS DEL EMBUDO VSL | CLOSER"
-            table={query.data.quality}
+            table={data.quality}
             frozen={1}
           />
-          <MonthlySurveyTable table={query.data.surveys} statusTable={query.data.surveyStatus} />
-          {(query.data.diagnostics?.warnings ?? []).map((w, i) => (
-            <p key={i} className="text-sm text-muted-foreground">
-              {w}
+          <MonthlySurveyTable table={data.surveys} statusTable={data.surveyStatus} />
+          {(data.diagnostics?.warnings ?? []).map((warning, index) => (
+            <p key={index} className="text-sm text-muted-foreground">
+              {warning}
             </p>
           ))}
         </>
