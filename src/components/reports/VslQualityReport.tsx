@@ -38,7 +38,7 @@ export function ReportTable({
   const rows = survey
     ? groupSurveyRows(table.rows)
     : table.rows.map((row) => ({ row, monthLabel: "", monthRowSpan: 1, endOfMonth: false }));
-  const visibleColumn = (index: number) => (survey ? index !== 18 : true);
+  const visibleColumn = (index: number) => (survey ? index !== 18 : index !== 13 && index !== 14);
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-background shadow-card">
       <h2 className="bg-zinc-700 p-4 text-center text-base font-bold text-white">{title}</h2>
