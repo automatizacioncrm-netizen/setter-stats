@@ -1,3 +1,4 @@
+import { LoadingModal } from "./LoadingModal";
 import { useEffect, useState } from "react";
 import { VslDateFilter } from "./VslDateFilter";
 import {
@@ -158,11 +159,15 @@ export function VslQualityReport() {
   const selectPreset = (value: DatePreset) => {
     setPreset(value);
     setFilterError("");
-    if (value !== "custom") setApplied({ preset: value, range: rangeForPreset(value) });
+    if (value !== "custom") {
+      setApplied({ preset: value, range: rangeForPreset(value) });
+      setRevision((current) => current + 1);
+    }
   };
   const applyCustom = () => {
     try {
       setApplied({ preset: "custom", range: customRange(customStart, customEnd) });
+      setRevision((current) => current + 1);
       setFilterError("");
     } catch (error) {
       setFilterError(error instanceof Error ? error.message : "Rango inválido.");
@@ -257,9 +262,11 @@ export function VslQualityReport() {
           </button>
         </div>
       )}
-      {query.isFetching && (
-        <p role="status">Consultando ambas tablas para {rangeLabel(applied.range)}…</p>
-      )}
+      <LoadingModal
+        open={query.isFetching}
+        title="Cargando datos…"
+        description={`Consultando ambas tablas para ${rangeLabel(applied.range)}. Espera un momento.`}
+      />
       {query.isError && (
         <div
           role="alert"
