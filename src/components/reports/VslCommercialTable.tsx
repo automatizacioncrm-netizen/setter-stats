@@ -1,14 +1,8 @@
-import { limaDay } from "@/lib/vsl-date-range";
-import {
-  initialCommercialPeriod,
-  historicalCommercialMonths,
-  selectedCommercialMonths,
-} from "@/lib/vsl-commercial-period";
-import { useState } from "react";
+import { type DateRange } from "@/lib/vsl-date-range";
+import { commercialGlobalPeriod } from "@/lib/vsl-commercial-period";
 import { useQueries } from "@tanstack/react-query";
 import {
   commercialSchema,
-  ALLOWED_CLOSERS,
   visibleCommercialRows,
   commercialCash,
   commercialConversion,
@@ -27,21 +21,17 @@ const MONTHS = [
   "NOVIEMBRE",
   "DICIEMBRE",
 ];
-export function VslCommercialTable({ refreshKey = "" }: { refreshKey?: string }) {
-  const [today, setToday] = useState(() => limaDay());
-  const [draft, setDraft] = useState(() => initialCommercialPeriod(today));
-  const [range, setRange] = useState(() => initialCommercialPeriod(today));
-  const [automatic, setAutomatic] = useState(true);
-  const [revision, setRevision] = useState(0);
-  const [error, setError] = useState("");
-  const [closer, setCloser] = useState("all");
-  const [product, setProduct] = useState("all");
-  const months = automatic
-    ? historicalCommercialMonths(today)
-    : selectedCommercialMonths(range, today);
+export function VslCommercialTable({
+  range,
+  refreshKey = "",
+}: {
+  range?: DateRange | undefined;
+  refreshKey?: string;
+}) {
+  const { months, error } = commercialGlobalPeriod(range);
   const queries = useQueries({
     queries: months.map((month) => ({
-      queryKey: ["vsl-commercial", month, "sales-only-v2", refreshKey, revision],
+      queryKey: ["vsl-commercial", month, "global-period-v3", refreshKey],
       queryFn: async ({ signal }: { signal: AbortSignal }) => {
         const response = await fetch(
           "/api/reports/vsl-commercial?" + new URLSearchParams({ month }),
@@ -67,161 +57,32 @@ export function VslCommercialTable({ refreshKey = "" }: { refreshKey?: string })
       className="min-w-0 overflow-hidden rounded-xl border border-border bg-white shadow-card"
     >
       <header className="bg-zinc-700 p-4 text-white">
-        <p
-          className="text-right text-sm font-bold text-green-300"
-          title="Etiqueta visual; no certifica los resultados"
-        >
-          APROBADO
-        </p>
         <h2 className="text-center text-base font-bold">
           TABLA 4: REPORTE COMERCIAL DEL EMBUDO VSL (LIG, ORGÁNICO, GIRA, OEI, TRÁFICO PAGADO) POR
           MES Y CASH COLLECTED
         </h2>
       </header>
-      <div className="space-y-3 p-4">
-        <p className="text-sm text-muted-foreground">
-          Filtros exclusivos de la Tabla 4. Cash collected de primera cuota, con monedas separadas.
-        </p>
-        <form
-          className="flex flex-wrap items-end gap-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            try {
-              selectedCommercialMonths(draft, limaDay());
-            } catch (error) {
-              setError(error instanceof Error ? error.message : "Período inválido.");
-              return;
-            }
-            setToday(limaDay());
-            setAutomatic(false);
-            setError("");
-            setRange({ ...draft });
-            setCloser("all");
-          }}
-        >
-          <label className="min-w-0 max-w-full text-sm">
-            Año
-            <input
-              aria-label="Año comercial"
-              className="mt-1 block w-24 rounded border border-border px-3 py-2"
-              type="number"
-              min="2000"
-              max={Number(today.slice(0, 4))}
-              required
-              value={draft.year}
-              onChange={(e) => setDraft({ ...draft, year: e.target.value })}
-            />
-          </label>
-          {(["start", "end"] as const).map((field) => (
-            <label key={field} className="min-w-0 max-w-full text-sm">
-              {field === "start" ? "Desde" : "Hasta"}
-              <select
-                className="mt-1 block rounded border border-border px-3 py-2"
-                value={draft[field]}
-                onChange={(e) => setDraft({ ...draft, [field]: e.target.value })}
-              >
-                {MONTHS.map((name, i) => (
-                  <option
-                    key={name}
-                    value={i + 1}
-                    disabled={
-                      Number(draft.year) > Number(today.slice(0, 4)) ||
-                      (draft.year === today.slice(0, 4) && i + 1 > Number(today.slice(5, 7)))
-                    }
-                  >
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
-          <button
-            disabled={busy}
-            className="rounded border border-border px-3 py-2 text-sm disabled:opacity-50"
-          >
-            Aplicar período
-          </button>
-          <label className="min-w-0 max-w-full text-sm">
-            Closer
-            <select
-              className="mt-1 block max-w-full rounded border border-border px-3 py-2"
-              value={closer}
-              onChange={(e) => setCloser(e.target.value)}
-            >
-              <option value="all">Todos</option>
-              {ALLOWED_CLOSERS.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="min-w-0 max-w-full text-sm">
-            Producto
-            <select
-              className="mt-1 block rounded border border-border px-3 py-2"
-              value={product}
-              onChange={(e) => setProduct(e.target.value)}
-            >
-              <option value="all">Ambos</option>
-              <option value="equipo">Equipo Millonario</option>
-              <option value="circulo">Círculo Millonario</option>
-            </select>
-          </label>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              const day = limaDay();
-              setToday(day);
-              if (automatic) setDraft(initialCommercialPeriod(day));
-              setRevision((value) => value + 1);
-            }}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-          >
-            {busy ? "Cargando…" : "Actualizar tabla 4"}
-          </button>
-        </form>
-        <p className="text-xs text-muted-foreground">
-          {automatic
-            ? `Histórico desde 01/07/2026 hasta ${today} (America/Lima).`
-            : "Período manual aplicado."}
-        </p>
-        {months.includes(today.slice(0, 7)) && (
-          <p className="text-xs text-muted-foreground">
-            El mes actual contiene los agregados mensuales disponibles. Para garantizar un corte
-            exacto al día de hoy, la API debe admitir una fecha final; esta respuesta no permite
-            identificar registros futuros.
-          </p>
-        )}
-        {queries.some((query) => query.dataUpdatedAt > 0) && (
-          <p className="text-xs text-muted-foreground">
-            Última consulta:{" "}
-            {new Date(Math.max(...queries.map((query) => query.dataUpdatedAt))).toLocaleString(
-              "es-PE",
-              { timeZone: "America/Lima" },
-            )}{" "}
-            (America/Lima)
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        {busy && (
-          <p role="status" className="text-sm text-muted-foreground">
-            Consultando los períodos seleccionados…
-          </p>
-        )}
-        {queries.map((query, i) =>
-          query.isError ? (
-            <p key={months[i]} role="alert" className="text-sm text-destructive">
-              {months[i]}: {query.error.message}
+      {(error || busy || queries.some((query) => query.isError)) && (
+        <div className="space-y-3 p-4">
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
             </p>
-          ) : null,
-        )}
-      </div>
+          )}
+          {busy && (
+            <p role="status" className="text-sm text-muted-foreground">
+              Consultando los períodos seleccionados…
+            </p>
+          )}
+          {queries.map((query, i) =>
+            query.isError ? (
+              <p key={months[i]} role="alert" className="text-sm text-destructive">
+                {months[i]}: {query.error.message}
+              </p>
+            ) : null,
+          )}
+        </div>
+      )}
       <div className="max-h-[70vh] overflow-auto">
         <table className="w-full min-w-[1800px] border-collapse text-sm">
           <thead className="sticky top-0 z-20 bg-zinc-700 text-white">
@@ -260,13 +121,13 @@ export function VslCommercialTable({ refreshKey = "" }: { refreshKey?: string })
           <tbody>
             {queries.map((query, i) => {
               if (!query.data || query.isError) return null;
-              const rows = visibleCommercialRows(query.data, closer);
+              const rows = visibleCommercialRows(query.data);
               const month = months[i]!;
               const label = `${MONTHS[Number(month.slice(5)) - 1]} ${month.slice(0, 4)}`;
               if (!rows.length) return null;
               return rows.map((row, index) => {
-                const equipo = product === "circulo" ? undefined : row.equipo;
-                const circulo = product === "equipo" ? undefined : row.circulo;
+                const equipo = row.equipo;
+                const circulo = row.circulo;
                 return (
                   <tr
                     key={month + row.id}

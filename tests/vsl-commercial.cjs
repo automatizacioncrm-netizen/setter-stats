@@ -169,7 +169,7 @@ test("Table 4 renders eleven columns, parallel products and one merged month per
   const client = new QueryClient();
   for (const month of ["2026-07", "2026-08", "2026-09", "2026-10"])
     client.setQueryData(
-      ["vsl-commercial", month, "sales-only-v2", "", 0],
+      ["vsl-commercial", month, "global-period-v3", ""],
       commercialSchema.parse({
         ...report([
           metric({ ventas: month === "2026-07" ? 0 : 1 }),
@@ -204,14 +204,35 @@ test("Table 4 renders eleven columns, parallel products and one merged month per
   assert.ok(!body.includes("JULIO 2026"));
   assert.ok(body.indexOf("OCTUBRE 2026") < body.indexOf("SEPTIEMBRE 2026"));
   assert.ok(body.indexOf("SEPTIEMBRE 2026") < body.indexOf("AGOSTO 2026"));
-  const selector = html.match(/<select[^>]*>[\s\S]*?<\/select>/g)[2];
-  assert.deepEqual(
-    [...selector.matchAll(/<option[^>]*>(.*?)<\/option>/g)].map((match) => match[1]),
-    ["Todos", ...ALLOWED_CLOSERS],
-  );
+  assert.ok(!html.includes("<select"));
+  assert.ok(!html.includes("Actualizar tabla 4"));
+  assert.ok(!html.includes("Filtros exclusivos"));
   assert.ok(!html.includes("GIRA / OTROS"));
   assert.ok(!html.includes("SOLO EXCLUIDO"));
   assert.ok(!html.includes("999,999"));
+  const selectedHtml = renderToStaticMarkup(
+    React.createElement(
+      QueryClientProvider,
+      { client },
+      React.createElement(VslCommercialTable, {
+        range: { startDate: "2026-10-01", endDate: "2026-10-31" },
+      }),
+    ),
+  );
+  assert.equal((selectedHtml.match(/<td /g) || []).length, 11);
+  assert.ok(selectedHtml.includes("OCTUBRE 2026"));
+  assert.ok(!selectedHtml.includes("SEPTIEMBRE 2026"));
+  const dailyHtml = renderToStaticMarkup(
+    React.createElement(
+      QueryClientProvider,
+      { client },
+      React.createElement(VslCommercialTable, {
+        range: { startDate: "2026-10-10", endDate: "2026-10-10" },
+      }),
+    ),
+  );
+  assert.equal((dailyHtml.match(/<td /g) || []).length, 0);
+  assert.ok(dailyHtml.includes("no dispone de datos diarios"));
   client.clear();
 });
 
@@ -390,4 +411,36 @@ test("commercial history uses Lima dates, spans years, includes current month an
     { year: "2026", start: "10", end: "7" },
   ])
     assert.throws(() => selectedCommercialMonths(period, "2026-11-03"));
+});
+
+test("global commercial period selects exactly complete months and refuses unsupported daily aggregates", () => {
+  const { commercialGlobalPeriod } = require("../src/lib/vsl-commercial-period.ts");
+  assert.deepEqual(commercialGlobalPeriod(undefined, "2026-11-03").months, [
+    "2026-11",
+    "2026-10",
+    "2026-09",
+    "2026-08",
+    "2026-07",
+  ]);
+  assert.deepEqual(
+    commercialGlobalPeriod({ startDate: "2026-09-01", endDate: "2026-09-30" }, "2026-11-03"),
+    { months: ["2026-09"] },
+  );
+  assert.deepEqual(
+    commercialGlobalPeriod({ startDate: "2026-08-01", endDate: "2026-10-31" }, "2026-11-03").months,
+    ["2026-10", "2026-09", "2026-08"],
+  );
+  for (const range of [
+    { startDate: "2026-11-03", endDate: "2026-11-03" },
+    { startDate: "2026-10-10", endDate: "2026-10-20" },
+    { startDate: "2026-10-01", endDate: "2026-11-03" },
+  ]) {
+    const result = commercialGlobalPeriod(range, "2026-11-03");
+    assert.deepEqual(result.months, []);
+    assert.match(result.error, /no dispone de datos diarios/);
+  }
+  assert.deepEqual(
+    commercialGlobalPeriod({ startDate: "2026-12-01", endDate: "2026-12-31" }, "2026-11-03").months,
+    [],
+  );
 });

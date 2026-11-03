@@ -16,7 +16,7 @@ import { MonthlySurveyTable } from "./MonthlySurveyTable";
 import { isDetailCount, type SurveySelection } from "@/lib/survey-detail";
 import { normalizeSurveyMonth } from "@/lib/survey-month";
 import { groupSurveyRows } from "@/lib/survey-month";
-import { useQuery } from "@tanstack/react-query";
+import { useIsFetching, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
   qualityReportSchema,
@@ -206,6 +206,7 @@ export function VslQualityReport() {
   }, [query.data]);
   const data = query.data ?? lastValid;
   const warning = sync.state?.warning;
+  const commercialFetching = useIsFetching({ queryKey: ["vsl-commercial"] }) > 0;
   return (
     <main className="vsl-corporate-report min-h-screen space-y-6 p-4 sm:p-8">
       <Link to="/reports" className="text-sm text-white/90 hover:text-white">
@@ -267,9 +268,9 @@ export function VslQualityReport() {
         </div>
       )}
       <LoadingModal
-        open={query.isFetching}
+        open={query.isFetching || commercialFetching}
         title="Cargando datos…"
-        description={`Consultando las tres tablas para ${rangeLabel(applied.range)}. Espera un momento.`}
+        description={`Consultando las cuatro tablas para ${rangeLabel(applied.range)}. Espera un momento.`}
       />
       {query.isError && (
         <div
@@ -321,9 +322,7 @@ export function VslQualityReport() {
             table={data.appointmentsByFunnel}
             error={data.appointmentsByFunnelError}
           />
-          <VslCommercialTable
-            refreshKey={sync.state?.status === "COMPLETED" ? (sync.state.finishedAt ?? "") : ""}
-          />
+          <VslCommercialTable range={applied.range} refreshKey={String(revision)} />
           {(data.diagnostics?.warnings ?? []).map((warning, index) => (
             <p key={index} className="text-sm text-slate-200">
               {warning}
