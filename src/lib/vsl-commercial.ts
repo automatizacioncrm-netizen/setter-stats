@@ -102,18 +102,19 @@ export function commercialConversion(metric?: CommercialMetric) {
     maximumFractionDigits: 2,
   }).format(metric.ventas / metric.asistencias);
 }
+// Fixed conversion explicitly requested by the report owner; not a live exchange rate.
+export const COMMERCIAL_USD_TO_PEN = 3.4;
 export function commercialCash(metrics: (CommercialMetric | undefined)[]) {
   const actual = metrics.filter((m): m is CommercialMetric => !!m);
   if (!actual.length) return "—";
-  const usd = actual.reduce((sum, m) => sum + m.cashUSD, 0);
-  const pen = actual.reduce((sum, m) => sum + m.cashPEN, 0);
-  const amount = (n: number) =>
+  const total = actual.reduce(
+    (sum, metric) => sum + metric.cashPEN + metric.cashUSD * COMMERCIAL_USD_TO_PEN,
+    0,
+  );
+  return (
+    "S/ " +
     new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
-      n,
-    );
-  return pen && usd
-    ? `$ ${amount(usd)} · S/ ${amount(pen)} (sin total consolidado)`
-    : pen
-      ? `S/ ${amount(pen)}`
-      : `$ ${amount(usd)}`;
+      total,
+    )
+  );
 }

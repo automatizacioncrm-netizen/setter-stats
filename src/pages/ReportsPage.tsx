@@ -1,6 +1,15 @@
+import { useQuery } from "@tanstack/react-query";
+import { consultantsQueryKey, fetchConsultants } from "@/lib/consultants-query";
 import { ReportCard } from "@/components/reports/ReportCard";
 
 export function ReportsPage() {
+  const consultants = useQuery({
+    queryKey: consultantsQueryKey,
+    queryFn: fetchConsultants,
+    enabled: false,
+    retry: false,
+    gcTime: 1800000,
+  });
   return (
     <div className="min-h-screen w-full bg-background px-4 py-8">
       <div className="mx-auto w-full max-w-3xl">
@@ -30,7 +39,8 @@ export function ReportsPage() {
           <ReportCard
             title="CONSULTOR | CITAS Y CALENDARIOS"
             description="Seguimiento de agendamientos y sesiones efectivas por consultor"
-            available={false}
+            available={!!consultants.data && !consultants.isError}
+            error={consultants.isError ? consultants.error.message : undefined}
             pendingLabel="Por verificar"
             accessible
             to="/reports/vsl-citas"

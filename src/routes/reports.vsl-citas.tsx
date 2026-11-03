@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AppointmentsDashboard } from "@/components/reports/AppointmentsDashboard";
+import { ConsultantsDashboard } from "@/components/reports/ConsultantsDashboard";
 export const Route = createFileRoute("/reports/vsl-citas")({
   head: () => ({ meta: [{ title: "CONSULTOR | CITAS Y CALENDARIOS" }] }),
-  component: AppointmentsDashboard,
+  component: ConsultantsDashboard,
 });

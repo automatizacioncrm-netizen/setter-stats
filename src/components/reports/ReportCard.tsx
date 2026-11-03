@@ -8,6 +8,7 @@ interface ReportCardProps {
   to?: "/reports/vsl-closers" | "/reports/vsl-citas" | "/reports/vsl-calidad";
   accessible?: boolean;
   pendingLabel?: string;
+  error?: string | undefined;
 }
 
 export function ReportCard({
@@ -17,6 +18,7 @@ export function ReportCard({
   to,
   accessible,
   pendingLabel,
+  error,
 }: ReportCardProps) {
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-5 shadow-card sm:flex-row sm:items-center sm:justify-between">
@@ -33,6 +35,11 @@ export function ReportCard({
           </span>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        {error && (
+          <p role="alert" className="mt-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
       </div>
 
       {(available || accessible) && to ? (
