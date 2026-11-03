@@ -306,25 +306,6 @@ export function VslCommercialTable({ refreshKey = "" }: { refreshKey?: string })
           </tbody>
         </table>
       </div>
-      <div className="space-y-2 p-4 text-xs text-muted-foreground">
-        {queries.map((query, i) =>
-          query.data ? (
-            <details key={months[i]}>
-              <summary>
-                Diagnóstico {months[i]} ·{" "}
-                {query.data.generatedAt
-                  ? new Date(query.data.generatedAt).toLocaleString("es-PE", {
-                      timeZone: query.data.timeZone,
-                    })
-                  : "Sin fecha del servidor"}
-              </summary>
-              <pre className="whitespace-pre-wrap break-words">
-                {JSON.stringify(query.data.diagnostics ?? {}, null, 2)}
-              </pre>
-            </details>
-          ) : null,
-        )}
-      </div>
     </section>
   );
 }
