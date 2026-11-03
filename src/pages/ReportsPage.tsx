@@ -1,17 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
 import { ReportCard } from "@/components/reports/ReportCard";
 
 export function ReportsPage() {
-  const status = useQuery({
-    queryKey: ["vsl-quality-status"],
-    queryFn: async () => {
-      const r = await fetch("/api/reports/vsl-calidad-status");
-      if (!r.ok) return false;
-      return (await r.json()).available === true;
-    },
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
   return (
     <div className="min-h-screen w-full bg-background px-4 py-8">
       <div className="mx-auto w-full max-w-3xl">
@@ -32,18 +21,19 @@ export function ReportsPage() {
             to="/reports/vsl-closers"
           />
           <ReportCard
-            title="VSL | CITAS Y CALENDARIOS"
-            description="Seguimiento de agendamientos y sesiones efectivas por closer"
-            available
-            to="/reports/vsl-citas"
-          />
-          <ReportCard
             title="VSL | CALIDAD DE LEADS Y ENCUESTAS"
             description="Análisis de calidad de leads y encuestas de tráfico pagado"
-            available={status.data === true}
-            pendingLabel="Por verificar"
+            available
             accessible
             to="/reports/vsl-calidad"
+          />
+          <ReportCard
+            title="CONSULTOR | CITAS Y CALENDARIOS"
+            description="Seguimiento de agendamientos y sesiones efectivas por consultor"
+            available={false}
+            pendingLabel="Por verificar"
+            accessible
+            to="/reports/vsl-citas"
           />
         </div>
       </div>

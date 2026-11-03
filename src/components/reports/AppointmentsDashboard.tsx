@@ -104,7 +104,7 @@ export function AppointmentsDashboard() {
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-              VSL | CITAS Y CALENDARIOS
+              CONSULTOR | CITAS Y CALENDARIOS
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Seguimiento de agendamientos y sesiones efectivas
@@ -181,7 +181,10 @@ export function AppointmentsDashboard() {
               value={filters.leadType}
               onChange={(e) => {
                 const value = e.target.value;
-                setFilters({ ...filters, leadType: value === "pagado" || value === "organico" ? value : "" });
+                setFilters({
+                  ...filters,
+                  leadType: value === "pagado" || value === "organico" ? value : "",
+                });
               }}
             >
               <option value="">Todos</option>
@@ -233,11 +236,7 @@ export function AppointmentsDashboard() {
             )}
             <section aria-label="Indicadores de citas" className="grid gap-3 sm:grid-cols-3">
               <KpiCard label="TOTAL AGENDAMIENTOS" value={report.total} />
-              <KpiCard
-                label="ASISTIDOS"
-                value={report.effective}
-                accent="var(--status-asistio)"
-              />
+              <KpiCard label="ASISTIDOS" value={report.effective} accent="var(--status-asistio)" />
               <KpiCard
                 label="% ASISTENCIA"
                 value={`${report.attendance.toLocaleString("es-PE", { maximumFractionDigits: 2 })}%`}
@@ -296,9 +295,7 @@ export function AppointmentsDashboard() {
               </div>
             </section>
             <section className={panel}>
-              <h2 className="mb-4 text-sm font-semibold">
-                ASISTENCIA POR CLOSER Y CALENDARIO
-              </h2>
+              <h2 className="mb-4 text-sm font-semibold">ASISTENCIA POR CLOSER Y CALENDARIO</h2>
               <Table className="min-w-[900px]">
                 <TableHeader>
                   <TableRow>
@@ -325,9 +322,7 @@ export function AppointmentsDashboard() {
                       </TableRow>
                       {CALENDARS.map((calendar, i) => (
                         <TableRow key={calendar.id}>
-                          <TableCell className="pl-8 text-xs">
-                            {calendar.label}
-                          </TableCell>
+                          <TableCell className="pl-8 text-xs">{calendar.label}</TableCell>
                           <TableCell className="text-right tabular-nums">{row.counts[i]}</TableCell>
                           <TableCell className="text-right tabular-nums">
                             {(row.categories[i]?.attendanceRate ?? 0).toFixed(2)}%
@@ -349,11 +344,15 @@ export function AppointmentsDashboard() {
                       <TableRow className="font-semibold">
                         <TableCell>Total {row.closer}</TableCell>
                         <TableCell className="text-right tabular-nums">{row.total}</TableCell>
-                        <TableCell className="text-right tabular-nums">{row.attendanceRate.toFixed(2)}%</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {row.attendanceRate.toFixed(2)}%
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">{row.confirmed}</TableCell>
                         <TableCell className="text-right tabular-nums">{row.noshow}</TableCell>
                         <TableCell className="text-right tabular-nums">{row.cancelled}</TableCell>
-                        <TableCell className="text-right tabular-nums">{row.totalAppointments}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {row.totalAppointments}
+                        </TableCell>
                       </TableRow>
                     </Fragment>
                   ))}
@@ -362,7 +361,9 @@ export function AppointmentsDashboard() {
                   <TableRow>
                     <TableCell>TOTAL GENERAL</TableCell>
                     <TableCell className="text-right tabular-nums">{report.effective}</TableCell>
-                    <TableCell className="text-right tabular-nums">{report.attendance.toFixed(2)}%</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {report.attendance.toFixed(2)}%
+                    </TableCell>
                     <TableCell className="text-right tabular-nums">{report.confirmed}</TableCell>
                     <TableCell className="text-right tabular-nums">{report.noshow}</TableCell>
                     <TableCell className="text-right tabular-nums">{report.cancelled}</TableCell>
