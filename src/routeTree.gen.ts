@@ -22,6 +22,7 @@ import { Route as ApiReportsVslCalidadStatusRouteImport } from './routes/api.rep
 import { Route as ApiReportsVslCalidadSyncRouteImport } from './routes/api.reports.vsl-calidad-sync'
 import { Route as ApiReportsVslCitasRouteImport } from './routes/api.reports.vsl-citas'
 import { Route as ApiReportsVslClosersRouteImport } from './routes/api.reports.vsl-closers'
+import { Route as ApiReportsVslCommercialRouteImport } from './routes/api.reports.vsl-commercial'
 import { Route as ApiReportsVslCitasReconcileRouteImport } from './routes/api.reports.vsl-citas.reconcile'
 import { Route as ApiReportsVslClosersReconcileRouteImport } from './routes/api.reports.vsl-closers.reconcile'
 
@@ -93,6 +94,11 @@ const ApiReportsVslClosersRoute = ApiReportsVslClosersRouteImport.update({
   path: '/api/reports/vsl-closers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiReportsVslCommercialRoute = ApiReportsVslCommercialRouteImport.update({
+  id: '/api/reports/vsl-commercial',
+  path: '/api/reports/vsl-commercial',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiReportsVslCitasReconcileRoute =
   ApiReportsVslCitasReconcileRouteImport.update({
     id: '/reconcile',
@@ -120,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/api/reports/vsl-calidad-sync': typeof ApiReportsVslCalidadSyncRoute
   '/api/reports/vsl-citas': typeof ApiReportsVslCitasRouteWithChildren
   '/api/reports/vsl-closers': typeof ApiReportsVslClosersRouteWithChildren
+  '/api/reports/vsl-commercial': typeof ApiReportsVslCommercialRoute
   '/api/reports/vsl-citas/reconcile': typeof ApiReportsVslCitasReconcileRoute
   '/api/reports/vsl-closers/reconcile': typeof ApiReportsVslClosersReconcileRoute
 }
@@ -137,6 +144,7 @@ export interface FileRoutesByTo {
   '/api/reports/vsl-calidad-sync': typeof ApiReportsVslCalidadSyncRoute
   '/api/reports/vsl-citas': typeof ApiReportsVslCitasRouteWithChildren
   '/api/reports/vsl-closers': typeof ApiReportsVslClosersRouteWithChildren
+  '/api/reports/vsl-commercial': typeof ApiReportsVslCommercialRoute
   '/api/reports/vsl-citas/reconcile': typeof ApiReportsVslCitasReconcileRoute
   '/api/reports/vsl-closers/reconcile': typeof ApiReportsVslClosersReconcileRoute
 }
@@ -155,6 +163,7 @@ export interface FileRoutesById {
   '/api/reports/vsl-calidad-sync': typeof ApiReportsVslCalidadSyncRoute
   '/api/reports/vsl-citas': typeof ApiReportsVslCitasRouteWithChildren
   '/api/reports/vsl-closers': typeof ApiReportsVslClosersRouteWithChildren
+  '/api/reports/vsl-commercial': typeof ApiReportsVslCommercialRoute
   '/api/reports/vsl-citas/reconcile': typeof ApiReportsVslCitasReconcileRoute
   '/api/reports/vsl-closers/reconcile': typeof ApiReportsVslClosersReconcileRoute
 }
@@ -174,6 +183,7 @@ export interface FileRouteTypes {
     | '/api/reports/vsl-calidad-sync'
     | '/api/reports/vsl-citas'
     | '/api/reports/vsl-closers'
+    | '/api/reports/vsl-commercial'
     | '/api/reports/vsl-citas/reconcile'
     | '/api/reports/vsl-closers/reconcile'
   fileRoutesByTo: FileRoutesByTo
@@ -191,6 +201,7 @@ export interface FileRouteTypes {
     | '/api/reports/vsl-calidad-sync'
     | '/api/reports/vsl-citas'
     | '/api/reports/vsl-closers'
+    | '/api/reports/vsl-commercial'
     | '/api/reports/vsl-citas/reconcile'
     | '/api/reports/vsl-closers/reconcile'
   id:
@@ -208,6 +219,7 @@ export interface FileRouteTypes {
     | '/api/reports/vsl-calidad-sync'
     | '/api/reports/vsl-citas'
     | '/api/reports/vsl-closers'
+    | '/api/reports/vsl-commercial'
     | '/api/reports/vsl-citas/reconcile'
     | '/api/reports/vsl-closers/reconcile'
   fileRoutesById: FileRoutesById
@@ -226,6 +238,7 @@ export interface RootRouteChildren {
   ApiReportsVslCalidadSyncRoute: typeof ApiReportsVslCalidadSyncRoute
   ApiReportsVslCitasRoute: typeof ApiReportsVslCitasRouteWithChildren
   ApiReportsVslClosersRoute: typeof ApiReportsVslClosersRouteWithChildren
+  ApiReportsVslCommercialRoute: typeof ApiReportsVslCommercialRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -321,6 +334,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReportsVslClosersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/reports/vsl-commercial': {
+      id: '/api/reports/vsl-commercial'
+      path: '/api/reports/vsl-commercial'
+      fullPath: '/api/reports/vsl-commercial'
+      preLoaderRoute: typeof ApiReportsVslCommercialRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/reports/vsl-citas/reconcile': {
       id: '/api/reports/vsl-citas/reconcile'
       path: '/reconcile'
@@ -374,6 +394,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiReportsVslCalidadSyncRoute: ApiReportsVslCalidadSyncRoute,
   ApiReportsVslCitasRoute: ApiReportsVslCitasRouteWithChildren,
   ApiReportsVslClosersRoute: ApiReportsVslClosersRouteWithChildren,
+  ApiReportsVslCommercialRoute: ApiReportsVslCommercialRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

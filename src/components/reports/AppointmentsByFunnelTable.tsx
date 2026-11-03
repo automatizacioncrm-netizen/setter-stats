@@ -1,10 +1,12 @@
 import {
   displayFunnelCell,
+  formatCancellationPercent,
   displayFunnelPeriod,
   presentFunnelGroups,
   funnelGroups,
   type AppointmentsByFunnel,
 } from "@/lib/appointments-by-funnel";
+const visibleColumns = [1, 2, 3, 4, 7, "cancelledPercent"] as const;
 export function AppointmentsByFunnelTable({
   table,
   error,
@@ -58,21 +60,30 @@ export function AppointmentsByFunnelTable({
                 <div className="max-h-[65vh] overflow-auto">
                   <table
                     className="w-full table-fixed border-collapse text-sm"
-                    style={{ minWidth: (table.columns.length - 1) * 160 + 32 }}
+                    style={{ minWidth: visibleColumns.length * 160 + 32 }}
                   >
                     <colgroup>
-                      {table.columns.slice(1).map((_, index) => (
+                      {visibleColumns.map((_, index) => (
                         <col key={index} style={{ width: index === 0 ? 192 : 160 }} />
                       ))}
                     </colgroup>
                     <thead className="sticky top-0 z-20 bg-white text-black">
                       <tr>
-                        {table.columns.slice(1).map((column, index) => (
+                        {visibleColumns.map((column, index) => (
                           <th
                             key={index}
+                            style={
+                              column === 7 || column === "cancelledPercent"
+                                ? { backgroundColor: "#FEE4E2", color: "#912018" }
+                                : undefined
+                            }
                             className={`border border-zinc-300 p-3 font-bold ${index === 0 ? "sticky left-0 z-30 bg-white text-left" : "text-center"}`}
                           >
-                            {column}
+                            {column === "cancelledPercent"
+                              ? "% CANCELADOS"
+                              : column === 7
+                                ? "CANCELADOS"
+                                : table.columns[column]}
                           </th>
                         ))}
                       </tr>
@@ -80,14 +91,21 @@ export function AppointmentsByFunnelTable({
                     <tbody>
                       {group.rows.map((row, index) => (
                         <tr key={index} className="border-b border-border">
-                          {row.slice(1).map((value, column) => (
+                          {visibleColumns.map((source, column) => (
                             <td
                               key={column}
-                              className={`border border-border p-2 tabular-nums ${column === 0 ? "sticky left-0 z-10 bg-background text-left font-semibold" : "text-right"} ${column === 3 || column === 5 ? "bg-brand-soft font-semibold text-brand" : ""}`}
+                              style={
+                                source === 7 || source === "cancelledPercent"
+                                  ? { backgroundColor: "#FDECEC", color: "#B42318" }
+                                  : undefined
+                              }
+                              className={`border border-border p-2 tabular-nums ${column === 0 ? "sticky left-0 z-10 bg-background text-left font-semibold" : "text-right"} ${source === 4 ? "bg-brand-soft font-semibold text-brand" : ""}`}
                             >
                               {column === 0
-                                ? displayFunnelPeriod(String(value))
-                                : displayFunnelCell(value, column + 1)}
+                                ? displayFunnelPeriod(row[1])
+                                : source === "cancelledPercent"
+                                  ? formatCancellationPercent(row[7], row[2])
+                                  : displayFunnelCell(row[source], source)}
                             </td>
                           ))}
                         </tr>

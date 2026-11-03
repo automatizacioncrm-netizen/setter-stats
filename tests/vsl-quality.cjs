@@ -717,16 +717,26 @@ test("funnel render handles real labels, eleven columns, percentages, empty/miss
     renderToStaticMarkup(React.createElement(AppointmentsByFunnelTable, { table, error }));
   const data = funnelFixture(),
     html = render(data);
-  assert.equal((html.match(/<th /g) || []).length, 30);
+  assert.equal((html.match(/<th /g) || []).length, 18);
   assert.equal((html.match(/<table /g) || []).length, 3);
-  assert.equal((html.match(/<td /g) || []).length, 30);
+  assert.equal((html.match(/<td /g) || []).length, 18);
   for (const body of html.match(/<tbody>[\s\S]*?<\/tbody>/g) || []) {
     assert.ok(!body.includes("ORGÁNICO"));
     assert.ok(!body.includes("VSL PAGO"));
     assert.ok(!body.includes("LIG"));
   }
+  assert.ok(html.includes("CANCELADOS"));
+  assert.ok(!html.includes("CANCELADOS REALES"));
+  assert.ok(html.includes("#FDECEC"));
   assert.ok(html.includes("69%"));
-  assert.ok(html.includes("31%"));
+  for (const heading of [
+    "NO ASISTIDOS / RESTANTES",
+    "% NO ASISTIDOS / RESTANTES",
+    "NO SHOW",
+    "CONFIRMADOS",
+    "OTROS",
+  ])
+    assert.ok(!html.includes(heading));
   assert.ok(html.includes("SEPTIEMBRE"));
   assert.ok(html.includes("ORGÁNICO"));
   assert.ok(html.includes("VSL PAGO"));
@@ -970,4 +980,48 @@ test("monthly funnel totals must equal every exclusive appointment state, with v
     before = JSON.stringify(valid);
   assert.ok(validateAppointmentsByFunnel(valid).data);
   assert.equal(JSON.stringify(valid), before);
+});
+
+test("cancellation presentation handles zero, one and multiple cancellations without rounding inputs", () => {
+  const { formatCancellationPercent } = require("../src/lib/appointments-by-funnel.ts");
+  assert.equal(formatCancellationPercent(0, 0), "0%");
+  assert.equal(formatCancellationPercent(1, 3), "33.33%");
+  assert.equal(formatCancellationPercent(7, 49), "14.29%");
+});
+test("bottleneck details start collapsed, preserve text and toggle independently", () => {
+  const React = require("react");
+  const originalState = React.useState,
+    originalId = React.useId;
+  const states = new Map();
+  let cell = "first";
+  React.useId = () => cell;
+  React.useState = (initial) => [
+    states.get(cell) ?? initial,
+    (update) => {
+      const key = cell;
+      states.set(key, typeof update === "function" ? update(states.get(key) ?? initial) : update);
+    },
+  ];
+  try {
+    const { BottleneckDetail } = require("../src/components/reports/BottleneckDetail.tsx");
+    const text = "Equipo (12) | Procesos (8)\nTiempo (3)";
+    let tree = BottleneckDetail({ value: text });
+    assert.equal(tree.props.children[0].props["aria-expanded"], false);
+    assert.equal(tree.props.children[1].props.children.props.children.props.children, text);
+    tree.props.children[0].props.onClick();
+    assert.equal(BottleneckDetail({ value: text }).props.children[0].props["aria-expanded"], true);
+    cell = "second";
+    assert.equal(
+      BottleneckDetail({ value: "Otro (2)" }).props.children[0].props["aria-expanded"],
+      false,
+    );
+    cell = "first";
+    tree = BottleneckDetail({ value: text });
+    tree.props.children[0].props.onClick();
+    assert.equal(BottleneckDetail({ value: text }).props.children[0].props["aria-expanded"], false);
+    assert.equal(BottleneckDetail({ value: " " }).props.children, "—");
+  } finally {
+    React.useState = originalState;
+    React.useId = originalId;
+  }
 });

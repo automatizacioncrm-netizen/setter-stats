@@ -1,3 +1,4 @@
+import { BottleneckDetail } from "./BottleneckDetail";
 import { displayReportCell, displayMonth, type QualityReport } from "@/lib/vsl-quality";
 import { joinSurveyMonths } from "@/lib/join-survey-months";
 export function MonthlySurveyTable({
@@ -63,13 +64,20 @@ export function MonthlySurveyTable({
                       </span>
                     )}
                   </td>
-                  {statusTable.columns.slice(2).map((_, offset) => (
+                  {statusTable.columns.slice(2).map((header, offset) => (
                     <td key={offset} className="border border-border p-2 text-right tabular-nums">
-                      {values?.[offset + 2] === null ||
-                      values?.[offset + 2] === undefined ||
-                      values?.[offset + 2] === ""
-                        ? "—"
-                        : String(values[offset + 2])}
+                      {/cuellos.*botella/i.test(header) ? (
+                        <BottleneckDetail
+                          key={JSON.stringify([group.month, state, values])}
+                          value={values?.[offset + 2]}
+                        />
+                      ) : values?.[offset + 2] === null ||
+                        values?.[offset + 2] === undefined ||
+                        values?.[offset + 2] === "" ? (
+                        "—"
+                      ) : (
+                        String(values[offset + 2])
+                      )}
                     </td>
                   ))}
                   {index === 0 &&

@@ -249,3 +249,9 @@ function validateMonthlyFunnels(
   }
   return undefined;
 }
+
+export function formatCancellationPercent(cancelled: number, total: number) {
+  return new Intl.NumberFormat("es-PE", { style: "percent", maximumFractionDigits: 2 }).format(
+    total === 0 ? 0 : cancelled / total,
+  );
+}

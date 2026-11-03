@@ -1,3 +1,4 @@
+import { VslCommercialTable } from "./VslCommercialTable";
 import { AppointmentsByFunnelTable } from "./AppointmentsByFunnelTable";
 import { LoadingModal } from "./LoadingModal";
 import { useEffect, useState } from "react";
@@ -319,6 +320,9 @@ export function VslQualityReport() {
           <AppointmentsByFunnelTable
             table={data.appointmentsByFunnel}
             error={data.appointmentsByFunnelError}
+          />
+          <VslCommercialTable
+            refreshKey={sync.state?.status === "COMPLETED" ? (sync.state.finishedAt ?? "") : ""}
           />
           {(data.diagnostics?.warnings ?? []).map((warning, index) => (
             <p key={index} className="text-sm text-slate-200">
