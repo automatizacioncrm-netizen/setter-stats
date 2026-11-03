@@ -40,7 +40,8 @@ export function ReportTable({
   const rows = survey
     ? groupSurveyRows(table.rows)
     : table.rows.map((row) => ({ row, monthLabel: "", monthRowSpan: 1, endOfMonth: false }));
-  const visibleColumn = (index: number) => (survey ? index !== 18 : index !== 13 && index !== 14);
+  const visibleColumn = (index: number) =>
+    survey ? index !== 18 : ![11, 12, 13, 14].includes(index);
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-background shadow-card">
       <h2 className="bg-zinc-700 p-4 text-center text-base font-bold text-white">{title}</h2>
@@ -208,12 +209,14 @@ export function VslQualityReport() {
   const warning = sync.state?.warning;
   const commercialFetching = useIsFetching({ queryKey: ["vsl-commercial"] }) > 0;
   return (
-    <main className="vsl-corporate-report min-h-screen space-y-6 p-4 sm:p-8">
-      <Link to="/reports" className="text-sm text-white/90 hover:text-white">
+    <main className="vsl-corporate-report vsl-light-report min-h-screen space-y-6 p-4 sm:p-8">
+      <Link to="/reports" className="text-sm text-brand hover:underline">
         ← Reportes comerciales
       </Link>
       <header className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold text-white">VSL | CALIDAD DE LEADS Y ENCUESTAS</h1>
+        <h1 className="text-xl font-semibold text-foreground">
+          VSL | CALIDAD DE LEADS Y ENCUESTAS
+        </h1>
         <button
           disabled={sync.busy || sync.uncertain}
           onClick={() => void sync.start()}
@@ -288,27 +291,27 @@ export function VslQualityReport() {
         </div>
       )}
       {!query.data && data && (
-        <p className="text-sm text-amber-200">
+        <p className="text-sm text-amber-700">
           Se conservan los últimos datos válidos de: {rangeLabel(data.filter)}. Aún no corresponden
           al nuevo filtro solicitado.
         </p>
       )}
       {data && (
         <>
-          <p className="text-sm text-slate-200">
+          <p className="text-sm text-muted-foreground">
             Última actualización del servidor:{" "}
             {new Date(data.generatedAt).toLocaleString("es-PE", { timeZone: data.timeZone })}{" "}
             (America/Lima)
           </p>
           {data.queriedAt && (
-            <p className="text-sm text-slate-200">
+            <p className="text-sm text-muted-foreground">
               Fecha de consulta:{" "}
               {new Date(data.queriedAt).toLocaleString("es-PE", { timeZone: "America/Lima" })}{" "}
               (America/Lima)
             </p>
           )}
           {(data.quality.truncated || data.surveys.truncated || data.surveyStatus.truncated) && (
-            <p role="status" className="text-slate-200">
+            <p role="status" className="text-muted-foreground">
               El servidor indica que el reporte está truncado.
             </p>
           )}
@@ -324,7 +327,7 @@ export function VslQualityReport() {
           />
           <VslCommercialTable range={applied.range} refreshKey={String(revision)} />
           {(data.diagnostics?.warnings ?? []).map((warning, index) => (
-            <p key={index} className="text-sm text-slate-200">
+            <p key={index} className="text-sm text-muted-foreground">
               {warning}
             </p>
           ))}

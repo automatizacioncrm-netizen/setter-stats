@@ -167,7 +167,6 @@
   position: relative;
   isolation: isolate;
   background-color: #000000;
-  background-image: url("/banner%20acelerador.png");
   background-position: center top;
   background-repeat: repeat-y;
   background-size: 100% auto;
@@ -194,9 +193,14 @@
     z-index: -1;
     pointer-events: none;
     background-color: #000000;
-    background-image: url("/banner%20acelerador.png");
     background-position: center top;
     background-repeat: repeat-y;
     background-size: 100% auto;
   }
+}
+
+/* White background only for the quality report, including the mobile layer. */
+.vsl-light-report,
+.vsl-light-report::before {
+  background-color: #ffffff;
 }

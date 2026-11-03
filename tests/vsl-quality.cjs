@@ -255,9 +255,11 @@ test("integrated surveys render all questions and four merged KPI cells per mont
     React.createElement(ReportTable, { title: "Calidad", table: f.quality, frozen: 1 }),
   );
   assert.ok(quality.includes("DEL 22 AL 27 DE OCT"));
-  assert.equal((quality.match(/<td /g) || []).length, 13);
+  assert.equal((quality.match(/<td /g) || []).length, 11);
   assert.ok(!quality.includes("CITAS CON MATCH"));
   assert.ok(!quality.includes("CITAS SIN MATCH"));
+  assert.ok(!quality.includes("TOTAL DE SETEOS"));
+  assert.ok(!quality.includes("NO ASISTIERON"));
   const empty = renderToStaticMarkup(
     React.createElement(MonthlySurveyTable, {
       table: { ...f.surveys, rows: [] },
