@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite dev",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/additional-pipelines.cjs tests/report.cjs tests/loading-dashboard.cjs tests/appointments.cjs tests/consolidated-report.cjs tests/reconciliation.cjs tests/lig-report.cjs tests/frontend-report-semantics.cjs tests/appointment-detail.cjs tests/setter-performance.cjs tests/report-filter-ux.cjs tests/executive-metrics.cjs tests/performance-contract.cjs tests/apps-script-v2.cjs tests/landing-vsl-cohort.cjs tests/daily-meetings.cjs tests/monthly-product-conversion.cjs tests/vsl-quality.cjs tests/vsl-commercial.cjs",
+    "test": "node --test tests/additional-pipelines.cjs tests/report.cjs tests/loading-dashboard.cjs tests/appointments.cjs tests/consolidated-report.cjs tests/reconciliation.cjs tests/lig-report.cjs tests/frontend-report-semantics.cjs tests/appointment-detail.cjs tests/setter-performance.cjs tests/report-filter-ux.cjs tests/executive-metrics.cjs tests/performance-contract.cjs tests/apps-script-v2.cjs tests/landing-vsl-cohort.cjs tests/daily-meetings.cjs tests/monthly-product-conversion.cjs tests/vsl-quality.cjs tests/vsl-commercial.cjs tests/consultants-report.cjs",
     "test:no-aplica": "node --test tests/vsl-no-aplica.cjs tests/apps-script-v2.cjs tests/performance-contract.cjs tests/loading-dashboard.cjs",
     "build": "vite build",
     "build:dev": "vite build --mode development",
