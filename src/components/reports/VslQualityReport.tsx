@@ -206,12 +206,12 @@ export function VslQualityReport() {
   const data = query.data ?? lastValid;
   const warning = sync.state?.warning;
   return (
-    <main className="min-h-screen space-y-6 bg-background p-4 sm:p-8">
-      <Link to="/reports" className="text-sm text-brand">
+    <main className="vsl-corporate-report min-h-screen space-y-6 p-4 sm:p-8">
+      <Link to="/reports" className="text-sm text-white/90 hover:text-white">
         ← Reportes comerciales
       </Link>
       <header className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">VSL | CALIDAD DE LEADS Y ENCUESTAS</h1>
+        <h1 className="text-xl font-semibold text-white">VSL | CALIDAD DE LEADS Y ENCUESTAS</h1>
         <button
           disabled={sync.busy || sync.uncertain}
           onClick={() => void sync.start()}
@@ -235,7 +235,7 @@ export function VslQualityReport() {
       {(sync.state || sync.submitting) && (
         <section
           aria-label="Progreso de sincronización"
-          className="space-y-2 rounded-lg border border-border p-4"
+          className="space-y-2 rounded-lg border border-border bg-white p-4"
         >
           <p role="status">{syncLabel(sync.state)}</p>
           {!!sync.state?.completedStages.length && (
@@ -254,7 +254,7 @@ export function VslQualityReport() {
         </section>
       )}
       {sync.error && (
-        <div role="alert" className="space-y-2 rounded-lg border border-destructive p-4">
+        <div role="alert" className="space-y-2 rounded-lg border border-destructive bg-white p-4">
           <p className="text-destructive">{sync.error}</p>
           <button
             disabled={sync.submitting || sync.tracking}
@@ -273,7 +273,7 @@ export function VslQualityReport() {
       {query.isError && (
         <div
           role="alert"
-          className="space-y-2 rounded-lg border border-destructive p-4 text-destructive"
+          className="space-y-2 rounded-lg border border-destructive bg-white p-4 text-destructive"
         >
           <p>{query.error.message}</p>
           <button
@@ -286,27 +286,29 @@ export function VslQualityReport() {
         </div>
       )}
       {!query.data && data && (
-        <p className="text-sm text-amber-700">
+        <p className="text-sm text-amber-200">
           Se conservan los últimos datos válidos de: {rangeLabel(data.filter)}. Aún no corresponden
           al nuevo filtro solicitado.
         </p>
       )}
       {data && (
         <>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-slate-200">
             Última actualización del servidor:{" "}
             {new Date(data.generatedAt).toLocaleString("es-PE", { timeZone: data.timeZone })}{" "}
             (America/Lima)
           </p>
           {data.queriedAt && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-slate-200">
               Fecha de consulta:{" "}
               {new Date(data.queriedAt).toLocaleString("es-PE", { timeZone: "America/Lima" })}{" "}
               (America/Lima)
             </p>
           )}
           {(data.quality.truncated || data.surveys.truncated || data.surveyStatus.truncated) && (
-            <p role="status">El servidor indica que el reporte está truncado.</p>
+            <p role="status" className="text-slate-200">
+              El servidor indica que el reporte está truncado.
+            </p>
           )}
           <ReportTable
             title="TABLA 1: ANÁLISIS DE CALIDAD DE LEADS DEL EMBUDO VSL | CLOSER"
@@ -319,7 +321,7 @@ export function VslQualityReport() {
             error={data.appointmentsByFunnelError}
           />
           {(data.diagnostics?.warnings ?? []).map((warning, index) => (
-            <p key={index} className="text-sm text-muted-foreground">
+            <p key={index} className="text-sm text-slate-200">
               {warning}
             </p>
           ))}

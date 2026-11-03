@@ -346,7 +346,7 @@ export function VslClosersDashboard() {
 
   return (
     <div
-      className="min-h-screen w-full bg-background px-4 py-6"
+      className="vsl-corporate-report min-h-screen w-full px-4 py-6"
       aria-busy={syncing || initialLoading || isFiltering}
     >
       <LoadingModal
@@ -363,17 +363,17 @@ export function VslClosersDashboard() {
           <div className="min-w-0">
             <Link
               to="/reports"
-              className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-medium text-white/90 hover:underline"
             >
               <ArrowLeft className="h-3.5 w-3.5" /> Volver a reportes
             </Link>
-            <h1 className="mt-2 text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+            <h1 className="mt-2 text-lg font-semibold tracking-tight text-white sm:text-xl">
               REPORTE COMERCIAL — VSL | CLOSERS + OEI
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-slate-200">
               Agenda y desempeño comercial por embudo y Setter
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs text-slate-200">
               Última actualización: {data ? formatUpdatedAt(data.updatedAt) : "—"}
               {backgroundRefreshing && (
                 <span role="status" className="ml-2">
@@ -387,7 +387,7 @@ export function VslClosersDashboard() {
         </header>
 
         {syncMessage && (
-          <p role="status" className="text-sm">
+          <p role="status" className="text-sm text-slate-200">
             {syncMessage}
           </p>
         )}
@@ -485,7 +485,7 @@ export function VslClosersDashboard() {
           </div>
         ) : (
           <>
-            <h2 className="text-lg font-semibold">
+            <h2 className="text-lg font-semibold text-white">
               {filters.pipeline === "all" || !filters.pipeline
                 ? "1. Resumen Comercial de Todos los embudos"
                 : `1. Resumen Comercial de embudo ${

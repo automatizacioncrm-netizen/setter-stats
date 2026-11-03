@@ -161,3 +161,42 @@
     color: var(--color-foreground);
   }
 }
+
+/* Corporate background is scoped to the VSL quality report. */
+.vsl-corporate-report {
+  position: relative;
+  isolation: isolate;
+  background-color: #000000;
+  background-image: url("/banner%20acelerador.png");
+  background-position: center top;
+  background-repeat: repeat-y;
+  background-size: 100% auto;
+  background-attachment: fixed;
+}
+
+.vsl-corporate-report section.bg-background,
+.vsl-corporate-report td.bg-background {
+  background-color: #ffffff;
+}
+
+/* A fixed decorative layer avoids mobile background-attachment issues.
+   Isolation keeps it behind this report without competing with dialogs. */
+@media (max-width: 1024px), (hover: none) {
+  .vsl-corporate-report {
+    background-image: none;
+    background-attachment: scroll;
+  }
+
+  .vsl-corporate-report::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-color: #000000;
+    background-image: url("/banner%20acelerador.png");
+    background-position: center top;
+    background-repeat: repeat-y;
+    background-size: 100% auto;
+  }
+}
