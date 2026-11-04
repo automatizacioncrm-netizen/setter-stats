@@ -47,22 +47,28 @@ export function ReportTable({
       <h2 className="bg-zinc-700 p-4 text-center text-base font-bold text-white">{title}</h2>
       <div className="max-h-[65vh] overflow-auto">
         <table
-          className={`w-full border-collapse text-sm ${survey ? "table-fixed" : ""}`}
+          className="w-full table-fixed border-collapse text-sm"
           style={
             survey
               ? { minWidth: table.columns.filter((_, i) => visibleColumn(i)).length * 160 }
-              : undefined
+              : {
+                  minWidth:
+                    160 + (table.columns.filter((_, i) => visibleColumn(i)).length - 1) * 112,
+                }
           }
         >
-          {survey && (
-            <colgroup>
-              {table.columns.map((_, i) =>
-                visibleColumn(i) ? (
-                  <col key={i} style={i < 2 ? { width: 160 } : undefined} />
-                ) : null,
-              )}
-            </colgroup>
-          )}
+          <colgroup>
+            {table.columns.map((_, i) =>
+              visibleColumn(i) ? (
+                <col
+                  key={i}
+                  style={
+                    survey ? (i < 2 ? { width: 160 } : undefined) : { width: i === 0 ? 160 : 112 }
+                  }
+                />
+              ) : null,
+            )}
+          </colgroup>
           <thead className="sticky top-0 z-20 bg-white text-black">
             <tr>
               {table.columns.map((c, i) =>
@@ -70,7 +76,7 @@ export function ReportTable({
                   <th
                     key={i}
                     style={survey && i < 2 ? { left: i * 160 } : undefined}
-                    className={`min-w-40 border border-zinc-300 p-3 text-center font-bold ${survey && i < 2 ? "sticky z-30 bg-white" : i === 0 ? "sticky left-0 z-30 bg-white" : ""}`}
+                    className={`${survey ? "min-w-40 p-3" : "px-1.5 py-2 leading-snug break-words"} border border-zinc-300 text-center font-bold ${survey && i < 2 ? "sticky z-30 bg-white" : i === 0 ? "sticky left-0 z-30 bg-white" : ""}`}
                   >
                     {c}
                   </th>
@@ -98,7 +104,7 @@ export function ReportTable({
                       key={i}
                       rowSpan={survey && i === 0 ? monthRowSpan : undefined}
                       style={survey && i < 2 ? { left: i * 160 } : undefined}
-                      className={`${survey && i === 0 ? "align-middle !text-center border-b-2 border-b-zinc-400" : ""} border border-border p-2 tabular-nums ${i < frozen ? "text-left" : "text-right"} ${survey && i < 2 ? "sticky z-10 bg-background" : ""} ${i === 0 ? "sticky left-0 z-10 bg-background font-semibold" : ""} ${(frozen === 2 ? surveyPercentIndices : qualityPercentIndices).includes(i) ? "bg-brand-soft font-semibold text-brand" : ""}`}
+                      className={`${survey && i === 0 ? "align-middle !text-center border-b-2 border-b-zinc-400" : ""} border border-border ${survey ? "p-2" : "px-1.5 py-2"} tabular-nums ${i < frozen ? "text-left" : "text-right"} ${survey && i < 2 ? "sticky z-10 bg-background" : ""} ${i === 0 ? "sticky left-0 z-10 bg-background font-semibold" : ""} ${(frozen === 2 ? surveyPercentIndices : qualityPercentIndices).includes(i) ? "bg-brand-soft font-semibold text-brand" : ""}`}
                     >
                       {survey && isDetailCount(v, i) && onDetail ? (
                         <button
