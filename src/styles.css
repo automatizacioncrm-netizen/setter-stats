@@ -204,3 +204,10 @@
 .vsl-light-report::before {
   background-color: #ffffff;
 }
+
+/* Center table values within their cells in the VSL quality report. */
+.vsl-light-report table th,
+.vsl-light-report table td {
+  text-align: center;
+  vertical-align: middle;
+}
