@@ -24,20 +24,20 @@ export function ReportsPage() {
 
         <div className="mt-6 space-y-3">
           <ReportCard
-            title="VSL + OEI + DATA ANTIGUA"
+            title="Embudo VSL (Closer | Setter | Ventas)"
             description="3 embudos · Seguimiento de agenda y desempeño por Setter"
             available
             to="/reports/vsl-closers"
           />
           <ReportCard
-            title="VSL | CALIDAD DE LEADS Y ENCUESTAS"
+            title="Reporte de Gerencia"
             description="Análisis de calidad de leads y encuestas de tráfico pagado"
             available
             accessible
             to="/reports/vsl-calidad"
           />
           <ReportCard
-            title="CONSULTOR | CITAS Y CALENDARIOS"
+            title="Reporte Horas de Consultor | Sesiones Agendadas"
             description="Seguimiento de agendamientos y sesiones efectivas por consultor"
             available={!!consultants.data && !consultants.isError}
             error={consultants.isError ? consultants.error.message : undefined}
