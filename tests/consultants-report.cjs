@@ -131,8 +131,12 @@ test("consultant tables render precisely the two independent source arrays and t
   assert.ok(html.includes("NOVIEMBRE"));
   assert.ok(html.includes("1.5"));
   assert.ok(html.includes("Empresa"));
-  assert.ok(html.includes(">Septiembre</th>"));
+  assert.ok(html.includes(">Septiembre</span>"));
   assert.ok(!html.includes("Setiembre"));
+  assert.equal((html.match(/aria-sort="none"/g) || []).length, 18);
+  assert.ok(html.includes("Ordenar RRHH de mayor a menor"));
+  assert.ok(html.includes("text-center align-middle"));
+  assert.ok(html.includes("max-w-[960px]"));
   assert.equal(JSON.stringify(original), before);
 });
 
@@ -171,4 +175,43 @@ test("Septiembre key validates the definitive contract and preserves fractional 
   delete invalid.porEmpresario[0].Septiembre;
   invalid.porEmpresario[0].Setiembre = 2;
   assert.equal(consultantsSchema.safeParse(invalid).success, false);
+});
+
+test("consultant sorting uses numeric decimal values, toggles descending first and leaves sources intact", () => {
+  const { sortConsultantRows, nextConsultantSort } = require("../src/lib/consultants-report.ts");
+  const rows = [
+      ["A", 2.67],
+      ["B", 10],
+      ["C", 0],
+      ["D", 2.67],
+    ],
+    before = JSON.stringify(rows);
+  const first = nextConsultantSort(null, 1);
+  assert.deepEqual(first, { column: 1, direction: "desc" });
+  assert.deepEqual(
+    sortConsultantRows(rows, first).map((row) => row[0]),
+    ["B", "A", "D", "C"],
+  );
+  const second = nextConsultantSort(first, 1);
+  assert.equal(second.direction, "asc");
+  assert.deepEqual(
+    sortConsultantRows(rows, second).map((row) => row[0]),
+    ["C", "A", "D", "B"],
+  );
+  assert.deepEqual(nextConsultantSort(second, 0), { column: 0, direction: "desc" });
+  assert.deepEqual(
+    sortConsultantRows(rows, { column: 0, direction: "desc" }).map((row) => row[0]),
+    ["D", "C", "B", "A"],
+  );
+  assert.deepEqual(sortConsultantRows(rows, null), rows);
+  assert.equal(JSON.stringify(rows), before);
+  const months = [
+    ["ENERO", 5],
+    ["SEPTIEMBRE", 2],
+    ["NOVIEMBRE", 0],
+  ];
+  assert.deepEqual(
+    sortConsultantRows(months, { column: 0, direction: "desc" }, true).map((row) => row[0]),
+    ["NOVIEMBRE", "SEPTIEMBRE", "ENERO"],
+  );
 });
