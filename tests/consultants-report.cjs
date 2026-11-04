@@ -131,5 +131,44 @@ test("consultant tables render precisely the two independent source arrays and t
   assert.ok(html.includes("NOVIEMBRE"));
   assert.ok(html.includes("1.5"));
   assert.ok(html.includes("Empresa"));
+  assert.ok(html.includes(">Septiembre</th>"));
+  assert.ok(!html.includes("Setiembre"));
   assert.equal(JSON.stringify(original), before);
+});
+
+test("Septiembre key validates the definitive contract and preserves fractional hours", () => {
+  const raw = {
+    success: true,
+    porArea: [
+      { MES: "OCTUBRE", RRHH: 76, MKTG: 16, FINANZAS: 23, "COMERCIAL/EMPRESARIAL": 124.16 },
+    ],
+    porEmpresario: [
+      {
+        NOMBRE: "CM001 - AYALA",
+        Enero: 0,
+        Febrero: 1,
+        Marzo: 1,
+        Abril: 0,
+        Mayo: 2.67,
+        Junio: 1.67,
+        Julio: 0,
+        Agosto: 4,
+        Septiembre: 0,
+        Octubre: 0,
+        Noviembre: 0,
+        TOTAL: 11.33,
+      },
+    ],
+  };
+  const parsed = consultantsSchema.parse(raw);
+  assert.deepEqual(parsed, raw);
+  assert.equal(consultantMonths[8], "Septiembre");
+  assert.equal(parsed.porEmpresario[0][consultantMonths[8]], 0);
+  assert.equal(parsed.porEmpresario[0].Mayo, 2.67);
+  assert.equal(parsed.porEmpresario[0].Junio, 1.67);
+  assert.equal(parsed.porEmpresario[0].TOTAL, 11.33);
+  const invalid = structuredClone(raw);
+  delete invalid.porEmpresario[0].Septiembre;
+  invalid.porEmpresario[0].Setiembre = 2;
+  assert.equal(consultantsSchema.safeParse(invalid).success, false);
 });
