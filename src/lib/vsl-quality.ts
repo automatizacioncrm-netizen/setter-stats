@@ -163,11 +163,66 @@ export const surveyStatusSchema = table(14, [0, 1, 9]).superRefine((data, ctx) =
     seen.add(key);
   });
 });
+export const funnelLeadColumns = [
+  "EMBUDO VSL/CLOSER",
+  "LEADS CAPTADOS",
+  "TOTAL DE AGENDAMIENTOS",
+  "ASISTENCIA A CITAS",
+  "% ASISTENCIA A CITAS",
+  "LEADS NO CALIFICADOS",
+  "% LEADS NO CALIFICADOS",
+];
+export const funnelLeadSchema = table(7, [0]).superRefine((data, ctx) => {
+  if (
+    data.columns.some(
+      (header, index) =>
+        normalizedHeader(header) !== normalizedHeader(funnelLeadColumns[index] ?? ""),
+    )
+  )
+    ctx.addIssue({
+      code: "custom",
+      path: ["columns"],
+      message: "Encabezados de calidad de embudo incompatibles.",
+    });
+  data.rows.forEach((row, index) => {
+    if (typeof row[0] !== "string" || !row[0].trim())
+      ctx.addIssue({ code: "custom", path: ["rows", index, 0], message: "Falta el período." });
+    for (const col of [1, 2, 3, 5])
+      if (typeof row[col] !== "number" || !Number.isSafeInteger(row[col]) || row[col] < 0)
+        ctx.addIssue({
+          code: "custom",
+          path: ["rows", index, col],
+          message: "El conteo debe ser un entero no negativo.",
+        });
+    for (const [num, den, ratio] of [
+      [3, 2, 4],
+      [5, 1, 6],
+    ]) {
+      const n = row[num!],
+        d = row[den!],
+        r = row[ratio!];
+      if (
+        typeof n !== "number" ||
+        typeof d !== "number" ||
+        typeof r !== "number" ||
+        !Number.isFinite(r) ||
+        Math.abs(r - (d ? n / d : 0)) > 1e-8
+      )
+        ctx.addIssue({
+          code: "custom",
+          path: ["rows", index, ratio!],
+          message: "El porcentaje no corresponde a sus conteos; no se recalcula en el frontend.",
+        });
+    }
+  });
+});
 const reportSchema = z.object({
   success: z.literal(true),
   generatedAt: z.string().datetime({ offset: true }),
   timeZone: z.literal("America/Lima"),
   quality: table(15, [0]),
+  qualityOrganico: funnelLeadSchema.optional(),
+  qualityLIG: funnelLeadSchema.optional(),
   surveys: monthlySurveySchema,
   surveyStatus: surveyStatusSchema,
   appointmentsByFunnel: appointmentsByFunnelSchema.optional().catch(undefined),
@@ -193,8 +248,15 @@ export const qualityReportSchema = reportSchema.superRefine((data, ctx) => {
   if (validateRange(data.filter))
     ctx.addIssue({ code: "custom", path: ["filter"], message: validateRange(data.filter) });
   const key = data.filter.startDate + " / " + data.filter.endDate;
-  for (const block of ["quality", "surveys", "surveyStatus"] as const) {
+  for (const block of [
+    "quality",
+    "surveys",
+    "surveyStatus",
+    "qualityOrganico",
+    "qualityLIG",
+  ] as const) {
     const table = data[block];
+    if (!table) continue;
     if (
       (block !== "surveyStatus" && table.rows.length > 1) ||
       (block === "surveyStatus" && table.rows.length > 4)

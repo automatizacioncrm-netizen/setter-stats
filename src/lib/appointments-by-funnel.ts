@@ -53,7 +53,7 @@ export const appointmentsByFunnelSchema = z
         count,
       ]),
     ),
-    sourceSheet: z.literal("VSL_APPOINTMENTS"),
+    sourceSheet: z.enum(["VSL_APPOINTMENTS", "APPOINTMENTS_MASTER"]),
     truncated: z.boolean(),
     skippedWithoutDate: count.optional(),
     percentColumns: z
@@ -237,8 +237,8 @@ function validateMonthlyFunnels(
     const total = row[2],
       attended = row[3],
       remaining = row[5];
-    if (total !== attended + row[7] + row[8] + row[9] + row[10])
-      return "La Tabla 3 tiene estados inconsistentes: TOTAL debe ser ASISTIDOS + CANCELADOS REALES + NO SHOW + CONFIRMADOS + OTROS. No se corrigen ni redistribuyen cifras en el frontend.";
+    if (total !== attended + row[8] + row[9] + row[10])
+      return "La Tabla 3 tiene estados inconsistentes: TOTAL debe ser ASISTIDOS + NO SHOW + CONFIRMADOS + OTROS; CANCELADOS REALES es informativo y no forma parte del total. No se corrigen ni redistribuyen cifras en el frontend.";
     if (
       attended > total ||
       remaining !== total - attended ||

@@ -106,7 +106,7 @@ export function VslDateFilter({
         </button>
       </div>
       <p className="text-sm text-muted-foreground">
-        Período aplicado a las cuatro tablas: <strong>{rangeLabel(activeRange)}</strong>
+        Período aplicado a las tablas: <strong>{rangeLabel(activeRange)}</strong>
       </p>
       {error && (
         <p role="alert" className="text-sm text-destructive">

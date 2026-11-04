@@ -1,3 +1,5 @@
+import { FunnelLeadQualityTable } from "./FunnelLeadQualityTable";
+import { fetchVslReportJson } from "@/lib/vsl-report-request";
 import { VslCommercialTable } from "./VslCommercialTable";
 import { AppointmentsByFunnelTable } from "./AppointmentsByFunnelTable";
 import { LoadingModal } from "./LoadingModal";
@@ -194,12 +196,10 @@ export function VslQualityReport() {
     ],
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams(applied.range ?? {});
-      const response = await fetch("/api/reports/vsl-calidad" + (params.size ? "?" + params : ""), {
-        signal: AbortSignal.any([signal, AbortSignal.timeout(45000)]),
-        cache: "no-store",
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error || "No se pudo cargar el reporte.");
+      const body = await fetchVslReportJson(
+        "/api/reports/vsl-calidad" + (params.size ? "?" + params : ""),
+        signal,
+      );
       return qualityReportSchema.parse(body);
     },
     retry: false,
@@ -279,7 +279,7 @@ export function VslQualityReport() {
       <LoadingModal
         open={query.isFetching || commercialFetching}
         title="Cargando datos…"
-        description={`Consultando las cuatro tablas para ${rangeLabel(applied.range)}. Espera un momento.`}
+        description={`Consultando los reportes para ${rangeLabel(applied.range)}. Espera un momento.`}
       />
       {query.isError && (
         <div
@@ -325,6 +325,14 @@ export function VslQualityReport() {
             title="TABLA 1: ANÁLISIS DE CALIDAD DE LEADS DEL EMBUDO VSL | CLOSER"
             table={data.quality}
             frozen={1}
+          />
+          <FunnelLeadQualityTable
+            title="ANÁLISIS DE CALIDAD DE LEADS DEL EMBUDO ORGÁNICO"
+            table={data.qualityOrganico}
+          />
+          <FunnelLeadQualityTable
+            title="ANÁLISIS DE CALIDAD DE LEADS DEL EMBUDO LIG"
+            table={data.qualityLIG}
           />
           <MonthlySurveyTable table={data.surveys} statusTable={data.surveyStatus} />
           <AppointmentsByFunnelTable

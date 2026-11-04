@@ -11,7 +11,10 @@ import vercelConfig from "./vercel.json";
 // Keep Nitro's prebuilt output and Vercel's project configuration in sync.
 const nitroConfig = {
   preset: "vercel",
-  vercel: { config: { ...("crons" in vercelConfig ? { crons: vercelConfig.crons } : {}) } },
+  vercel: {
+    functions: { maxDuration: 90 },
+    config: { ...("crons" in vercelConfig ? { crons: vercelConfig.crons } : {}) },
+  },
 };
 
 export default defineConfig({

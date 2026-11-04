@@ -25,7 +25,7 @@ export function SurveyDetailModal({
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams({ month: selection.month, status: selection.status });
       const response = await fetch(`/api/reports/vsl-calidad-detail?${params}`, {
-        signal: AbortSignal.any([signal, AbortSignal.timeout(45000)]),
+        signal: AbortSignal.any([signal, AbortSignal.timeout(75000)]),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "No se pudo cargar el detalle.");

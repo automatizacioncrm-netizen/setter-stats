@@ -1,6 +1,6 @@
 import { validateAppointmentsByFunnel } from "../../lib/appointments-by-funnel";
 import { validateRange, type DateRange } from "../../lib/vsl-date-range";
-import { fetchVslJson } from "../adapters/vsl-quality.adapter.server";
+import { fetchVslJson, VslTransportError } from "../adapters/vsl-quality.adapter.server";
 import { qualityReportSchema } from "../../lib/vsl-quality";
 let operational = false;
 const inFlight = new Map<string, Promise<Response>>();
@@ -52,8 +52,14 @@ async function loadReport(range?: DateRange): Promise<Response> {
   } catch (error) {
     operational = false;
     return Response.json(
-      { error: error instanceof Error ? error.message : "No se pudo cargar el reporte." },
-      { status: 502, headers },
+      {
+        error: error instanceof Error ? error.message : "No se pudo cargar el reporte.",
+        code: error instanceof VslTransportError ? error.code : "CONTRACT",
+      },
+      {
+        status: error instanceof VslTransportError && error.code === "TIMEOUT" ? 504 : 502,
+        headers,
+      },
     );
   }
 }

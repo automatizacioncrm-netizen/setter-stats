@@ -35,7 +35,7 @@ export function VslCommercialTable({
       queryFn: async ({ signal }: { signal: AbortSignal }) => {
         const response = await fetch(
           "/api/reports/vsl-commercial?" + new URLSearchParams({ month }),
-          { signal: AbortSignal.any([signal, AbortSignal.timeout(45000)]), cache: "no-store" },
+          { signal: AbortSignal.any([signal, AbortSignal.timeout(75000)]), cache: "no-store" },
         );
         const body = await response.json();
         if (!response.ok) throw new Error(body.error || "No se pudo consultar el mes.");

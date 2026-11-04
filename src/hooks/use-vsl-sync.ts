@@ -4,8 +4,8 @@ async function readSync(method: "GET" | "POST", signal?: AbortSignal) {
   const response = await fetch("/api/reports/vsl-calidad-sync", {
     method,
     signal: signal
-      ? AbortSignal.any([signal, AbortSignal.timeout(45000)])
-      : AbortSignal.timeout(45000),
+      ? AbortSignal.any([signal, AbortSignal.timeout(75000)])
+      : AbortSignal.timeout(75000),
     cache: "no-store",
   });
   const body = await response.json();

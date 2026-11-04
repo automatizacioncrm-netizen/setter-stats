@@ -657,7 +657,7 @@ function funnelFixture(period = "2026-09-01 / 2026-09-30") {
       "ORGÁNICO EQUIPO + ORGÁNICO CÍRCULO",
       "VSL PAGO CÍRCULO + VSL PAGO EQUIPO",
       "LIG CÍRCULO + LIG EQUIPO",
-    ].map((funnel) => [funnel, period, 13, 9, 9 / 13, 4, 4 / 13, 1, 1, 2, 0]),
+    ].map((funnel) => [funnel, period, 13, 9, 9 / 13, 4, 4 / 13, 1, 1, 2, 1]),
     sourceSheet: "VSL_APPOINTMENTS",
     truncated: false,
     skippedWithoutDate: 0,
@@ -971,9 +971,9 @@ test("deployed month-and-year labels preserve distinct calendar years, monthly r
   duplicate.rows.push(...funnelFixture("2026-10").rows);
   assert.ok(validateAppointmentsByFunnel(duplicate).error);
 });
-test("monthly funnel totals must equal every exclusive appointment state, with valid zero months retained", () => {
+test("monthly funnel totals exclude informative cancellations and retain valid zero months", () => {
   const bad = funnelFixture("OCTUBRE 2026");
-  bad.rows[0][7] += 1;
+  bad.rows[0][10] += 1;
   assert.match(validateAppointmentsByFunnel(bad).error, /estados inconsistentes/);
   const zero = funnelFixture("OCTUBRE 2026");
   zero.rows.forEach((row) => row.splice(2, 9, ...Array(9).fill(0)));
@@ -982,6 +982,13 @@ test("monthly funnel totals must equal every exclusive appointment state, with v
     before = JSON.stringify(valid);
   assert.ok(validateAppointmentsByFunnel(valid).data);
   assert.equal(JSON.stringify(valid), before);
+  valid.rows[0][7] = 99;
+  assert.ok(validateAppointmentsByFunnel(valid).data);
+  zero.rows[0][7] = 7;
+  assert.ok(validateAppointmentsByFunnel(zero).data);
+  const obsolete = funnelFixture("OCTUBRE 2026");
+  obsolete.rows[0][2] += obsolete.rows[0][7];
+  assert.match(validateAppointmentsByFunnel(obsolete).error, /estados inconsistentes/);
 });
 
 test("cancellation presentation handles zero, one and multiple cancellations without rounding inputs", () => {
