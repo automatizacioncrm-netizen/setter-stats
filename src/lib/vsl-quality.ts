@@ -172,57 +172,72 @@ export const funnelLeadColumns = [
   "LEADS NO CALIFICADOS",
   "% LEADS NO CALIFICADOS",
 ];
-export const funnelLeadSchema = table(7, [0]).superRefine((data, ctx) => {
-  if (
-    data.columns.some(
-      (header, index) =>
-        normalizedHeader(header) !== normalizedHeader(funnelLeadColumns[index] ?? ""),
-    )
-  )
-    ctx.addIssue({
-      code: "custom",
-      path: ["columns"],
-      message: "Encabezados de calidad de embudo incompatibles.",
-    });
-  data.rows.forEach((row, index) => {
-    if (typeof row[0] !== "string" || !row[0].trim())
-      ctx.addIssue({ code: "custom", path: ["rows", index, 0], message: "Falta el período." });
-    for (const col of [1, 2, 3, 5])
-      if (typeof row[col] !== "number" || !Number.isSafeInteger(row[col]) || row[col] < 0)
-        ctx.addIssue({
-          code: "custom",
-          path: ["rows", index, col],
-          message: "El conteo debe ser un entero no negativo.",
-        });
-    for (const [num, den, ratio] of [
-      [3, 2, 4],
-      [5, 1, 6],
-    ]) {
-      const n = row[num!],
-        d = row[den!],
-        r = row[ratio!];
-      if (
-        typeof n !== "number" ||
-        typeof d !== "number" ||
-        typeof r !== "number" ||
-        !Number.isFinite(r) ||
-        Math.abs(r - (d ? n / d : 0)) > 1e-8
+function createFunnelLeadSchema(validateRatios: boolean) {
+  return table(7, [0]).superRefine((data, ctx) => {
+    if (
+      data.columns.some(
+        (header, index) =>
+          normalizedHeader(header) !== normalizedHeader(funnelLeadColumns[index] ?? ""),
       )
-        ctx.addIssue({
-          code: "custom",
-          path: ["rows", index, ratio!],
-          message: "El porcentaje no corresponde a sus conteos; no se recalcula en el frontend.",
-        });
-    }
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["columns"],
+        message: "Encabezados de calidad de embudo incompatibles.",
+      });
+    data.rows.forEach((row, index) => {
+      if (typeof row[0] !== "string" || !row[0].trim())
+        ctx.addIssue({ code: "custom", path: ["rows", index, 0], message: "Falta el período." });
+      for (const col of [1, 2, 3, 5])
+        if (typeof row[col] !== "number" || !Number.isSafeInteger(row[col]) || row[col] < 0)
+          ctx.addIssue({
+            code: "custom",
+            path: ["rows", index, col],
+            message: "El conteo debe ser un entero no negativo.",
+          });
+      for (const col of validateRatios ? [] : [4, 6]) {
+        const value = row[col];
+        if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1)
+          ctx.addIssue({
+            code: "custom",
+            path: ["rows", index, col],
+            message: "El porcentaje debe ser una proporción entre 0 y 1.",
+          });
+      }
+      if (!validateRatios) return;
+      for (const [num, den, ratio] of [
+        [3, 2, 4],
+        [5, 1, 6],
+      ]) {
+        const n = row[num!],
+          d = row[den!],
+          r = row[ratio!];
+        if (
+          typeof n !== "number" ||
+          typeof d !== "number" ||
+          typeof r !== "number" ||
+          !Number.isFinite(r) ||
+          Math.abs(r - (d ? n / d : 0)) > 1e-8
+        )
+          ctx.addIssue({
+            code: "custom",
+            path: ["rows", index, ratio!],
+            message: "El porcentaje no corresponde a sus conteos; no se recalcula en el frontend.",
+          });
+      }
+    });
   });
-});
+}
+export const funnelLeadSchema = createFunnelLeadSchema(true);
+// LIG percentages and counts are authoritative server metrics, including rounded ratios.
+export const ligLeadSchema = createFunnelLeadSchema(false);
 const reportSchema = z.object({
   success: z.literal(true),
   generatedAt: z.string().datetime({ offset: true }),
   timeZone: z.literal("America/Lima"),
   quality: table(15, [0]),
   qualityOrganico: funnelLeadSchema.optional(),
-  qualityLIG: funnelLeadSchema.optional(),
+  qualityLIG: ligLeadSchema.optional(),
   surveys: monthlySurveySchema,
   surveyStatus: surveyStatusSchema,
   appointmentsByFunnel: appointmentsByFunnelSchema.optional().catch(undefined),

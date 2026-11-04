@@ -34,7 +34,7 @@ export async function fetchVslJson(
   const configuredValues = [...url.searchParams.values()];
   for (const key of [...url.searchParams.keys()])
     if (/^(token|refreshToken)$/i.test(key)) url.searchParams.delete(key);
-  if (params.action === "report") {
+  if (params["action"] === "report") {
     url.searchParams.delete("startDate");
     url.searchParams.delete("endDate");
   }
@@ -116,7 +116,7 @@ export async function fetchVslJson(
         "[vsl-http]",
         JSON.stringify({
           url: safeUrl(url.href),
-          action: params.action ?? null,
+          action: params["action"] ?? null,
           method: options.method ?? "GET",
           attempt: attempt + 1,
           durationMs: Date.now() - started,
@@ -147,7 +147,7 @@ export async function fetchVslJson(
         "[vsl-http]",
         JSON.stringify({
           url: safeUrl(url.href),
-          action: params.action ?? null,
+          action: params["action"] ?? null,
           method: options.method ?? "GET",
           attempt: attempt + 1,
           durationMs: Date.now() - started,

@@ -1,12 +1,20 @@
+import { presentMonthlyLeadRows } from "@/lib/monthly-lead-quality";
 import type { QualityReport } from "@/lib/vsl-quality";
 import { displayReportCell } from "@/lib/vsl-quality";
 export function FunnelLeadQualityTable({
   title,
   table,
+  authoritative = false,
 }: {
   title: string;
+  authoritative?: boolean;
   table: QualityReport["qualityOrganico"];
 }) {
+  const monthly = table
+    ? authoritative
+      ? { rows: table.rows, error: undefined }
+      : presentMonthlyLeadRows(table.rows, "funnel")
+    : undefined;
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-background shadow-card">
       <h2 className="bg-zinc-700 p-4 text-center text-base font-bold text-white">{title}</h2>
@@ -16,6 +24,11 @@ export function FunnelLeadQualityTable({
         </p>
       ) : (
         <>
+          {monthly?.error && (
+            <p role="alert" className="p-4 text-sm text-destructive">
+              {monthly.error}
+            </p>
+          )}
           <div className="max-h-[65vh] overflow-auto">
             <table className="w-full table-fixed border-collapse text-sm" style={{ minWidth: 832 }}>
               <colgroup>
@@ -39,7 +52,7 @@ export function FunnelLeadQualityTable({
                 </tr>
               </thead>
               <tbody>
-                {table.rows.map((row, index) => (
+                {monthly?.rows.map((row, index) => (
                   <tr key={index} className="border-t-2 border-zinc-400">
                     {row.map((value, i) => (
                       <td

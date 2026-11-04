@@ -1,3 +1,4 @@
+import { presentMonthlyLeadRows } from "@/lib/monthly-lead-quality";
 import { FunnelLeadQualityTable } from "./FunnelLeadQualityTable";
 import { fetchVslReportJson } from "@/lib/vsl-report-request";
 import { VslCommercialTable } from "./VslCommercialTable";
@@ -39,14 +40,25 @@ export function ReportTable({
   onDetail?: (selection: SurveySelection, trigger: HTMLElement) => void;
 }) {
   const survey = frozen === 2;
+  const monthly = survey ? undefined : presentMonthlyLeadRows(table.rows, "vsl");
   const rows = survey
     ? groupSurveyRows(table.rows)
-    : table.rows.map((row) => ({ row, monthLabel: "", monthRowSpan: 1, endOfMonth: false }));
+    : (monthly?.rows ?? []).map((row) => ({
+        row,
+        monthLabel: "",
+        monthRowSpan: 1,
+        endOfMonth: false,
+      }));
   const visibleColumn = (index: number) =>
     survey ? index !== 18 : ![11, 12, 13, 14].includes(index);
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-background shadow-card">
       <h2 className="bg-zinc-700 p-4 text-center text-base font-bold text-white">{title}</h2>
+      {monthly?.error && (
+        <p role="alert" className="p-4 text-sm text-destructive">
+          {monthly.error}
+        </p>
+      )}
       <div className="max-h-[65vh] overflow-auto">
         <table
           className="w-full table-fixed border-collapse text-sm"
@@ -95,7 +107,7 @@ export function ReportTable({
                     ? endOfMonth
                       ? "border-b-2 border-zinc-400"
                       : ""
-                    : ri === 0 || row[0] !== table.rows[ri - 1]?.[0]
+                    : ri === 0 || row[0] !== monthly?.rows[ri - 1]?.[0]
                       ? "border-t-2 border-zinc-400"
                       : ""
                 }
@@ -189,7 +201,7 @@ export function VslQualityReport() {
   const query = useQuery({
     queryKey: [
       "vsl-quality-report",
-      "calendar-month-funnels-v6",
+      "server-lig-metrics-v7",
       applied.range?.startDate ?? "all",
       applied.range?.endDate ?? "all",
       revision,
@@ -205,6 +217,7 @@ export function VslQualityReport() {
     retry: false,
     staleTime: Infinity,
     gcTime: 300000,
+    refetchOnMount: "always",
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
@@ -333,6 +346,7 @@ export function VslQualityReport() {
           <FunnelLeadQualityTable
             title="ANÁLISIS DE CALIDAD DE LEADS DEL EMBUDO LIG"
             table={data.qualityLIG}
+            authoritative
           />
           <MonthlySurveyTable table={data.surveys} statusTable={data.surveyStatus} />
           <AppointmentsByFunnelTable

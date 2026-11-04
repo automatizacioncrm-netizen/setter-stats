@@ -254,7 +254,8 @@ test("integrated surveys render all questions and four merged KPI cells per mont
   const quality = renderToStaticMarkup(
     React.createElement(ReportTable, { title: "Calidad", table: f.quality, frozen: 1 }),
   );
-  assert.ok(quality.includes("DEL 22 AL 27 DE OCT"));
+  assert.ok(quality.includes("OCTUBRE"));
+  assert.ok(!quality.includes("DEL 22 AL 27 DE OCT"));
   assert.equal((quality.match(/<td /g) || []).length, 11);
   assert.ok(!quality.includes("CITAS CON MATCH"));
   assert.ok(!quality.includes("CITAS SIN MATCH"));
@@ -1033,4 +1034,331 @@ test("bottleneck details start collapsed, preserve text and toggle independently
     React.useState = originalState;
     React.useId = originalId;
   }
+});
+
+test("VSL transport distinguishes timeout, cancellation, network, HTTP, JSON, content type and upstream failures", async () => {
+  const {
+    fetchVslJson,
+    VSL_REQUEST_TIMEOUT_MS,
+  } = require("../src/server/adapters/vsl-quality.adapter.server.ts");
+  assert.equal(VSL_REQUEST_TIMEOUT_MS, 60000);
+  const oldFetch = global.fetch,
+    oldEnv = process.env.APPS_SCRIPT_URL_VSL,
+    oldInfo = console.info,
+    oldWarn = console.warn;
+  process.env.APPS_SCRIPT_URL_VSL =
+    "https://script.google.com/macros/s/test/exec?token=secret-value";
+  const logs = [];
+  console.info = (...args) => logs.push(args.join(" "));
+  console.warn = console.info;
+  try {
+    const cases = [
+      {
+        make: () => {
+          throw new DOMException("expired", "TimeoutError");
+        },
+        code: "TIMEOUT",
+        calls: 1,
+      },
+      {
+        make: () => {
+          throw new DOMException("cancelled", "AbortError");
+        },
+        code: "CANCELLED",
+        calls: 1,
+      },
+      {
+        make: () => {
+          throw new TypeError("fetch failed");
+        },
+        code: "NETWORK",
+        calls: 2,
+      },
+      { make: () => new Response("blocked", { status: 403 }), code: "HTTP", calls: 1 },
+      {
+        make: () =>
+          new Response("<html>login</html>", { headers: { "content-type": "text/html" } }),
+        code: "CONTENT_TYPE",
+        calls: 1,
+      },
+      {
+        make: () => new Response("bad", { headers: { "content-type": "application/json" } }),
+        code: "INVALID_JSON",
+        calls: 1,
+      },
+      {
+        make: () =>
+          Response.json({ success: false, error: "secret-value https://example.com/private" }),
+        code: "UPSTREAM_FAILURE",
+        calls: 1,
+      },
+    ];
+    for (const item of cases) {
+      let calls = 0;
+      global.fetch = async () => {
+        calls++;
+        return item.make();
+      };
+      await assert.rejects(fetchVslJson({ action: "report" }), (error) => error.code === item.code);
+      assert.equal(calls, item.calls);
+    }
+    let attempts = 0;
+    global.fetch = async () =>
+      ++attempts === 1 ? new Response("retry", { status: 503 }) : Response.json({ success: true });
+    assert.deepEqual(await fetchVslJson({ action: "report" }), { success: true });
+    assert.equal(attempts, 2);
+    assert.ok(logs.some((line) => line.includes("durationMs")));
+    assert.ok(logs.some((line) => line.includes("TIMEOUT")));
+    assert.ok(!logs.join(" ").includes("secret-value"));
+    assert.ok(!logs.join(" ").includes("https://example.com/private"));
+  } finally {
+    global.fetch = oldFetch;
+    console.info = oldInfo;
+    console.warn = oldWarn;
+    if (oldEnv === undefined) delete process.env.APPS_SCRIPT_URL_VSL;
+    else process.env.APPS_SCRIPT_URL_VSL = oldEnv;
+  }
+});
+test("Orgánico and LIG contracts preserve seven real columns, ratios, periods and independent data", () => {
+  const { funnelLeadSchema, funnelLeadColumns } = require("../src/lib/vsl-quality.ts");
+  const organic = {
+    columns: [...funnelLeadColumns],
+    rows: [["1 AL 20 OCT", 10, 4, 2, 0.5, 1, 0.1]],
+    sourceSheet: "VSL_CALIDAD_LEADS_ORGANICO",
+    truncated: false,
+  };
+  const lig = {
+    ...organic,
+    sourceSheet: "VSL_CALIDAD_LEADS_LIG",
+    rows: [["1 AL 20 OCT", 20, 8, 6, 0.75, 4, 0.2]],
+  };
+  const raw = { ...fixture(), qualityOrganico: organic, qualityLIG: lig },
+    before = JSON.stringify(raw),
+    parsed = qualityReportSchema.parse(raw);
+  assert.deepEqual(parsed.qualityOrganico, organic);
+  assert.deepEqual(parsed.qualityLIG, lig);
+  assert.equal(JSON.stringify(raw), before);
+  assert.equal(
+    funnelLeadSchema.safeParse({ ...organic, rows: [["OCTUBRE", 10, 4, 2, 0.9, 1, 0.1]] }).success,
+    false,
+  );
+  const React = require("react"),
+    { renderToStaticMarkup } = require("react-dom/server"),
+    { FunnelLeadQualityTable } = require("../src/components/reports/FunnelLeadQualityTable.tsx");
+  const html = renderToStaticMarkup(
+    React.createElement(FunnelLeadQualityTable, { title: "Orgánico", table: organic }),
+  );
+  assert.equal((html.match(/<th /g) || []).length, 7);
+  assert.ok(html.includes("50%"));
+  assert.ok(html.includes("10%"));
+  assert.ok(html.includes("OCTUBRE"));
+  assert.ok(!html.includes("1 AL 20 OCT"));
+  assert.ok(
+    renderToStaticMarkup(React.createElement(FunnelLeadQualityTable, { title: "LIG" })).includes(
+      "La API no entrega",
+    ),
+  );
+});
+test("browser report requests distinguish invalid proxy JSON, HTTP errors and cancellation", async () => {
+  const { fetchVslReportJson } = require("../src/lib/vsl-report-request.ts");
+  const oldFetch = global.fetch;
+  try {
+    global.fetch = async () => Response.json({ success: true });
+    assert.deepEqual(
+      await fetchVslReportJson("/api/reports/vsl-calidad", new AbortController().signal),
+      { success: true },
+    );
+    global.fetch = async () => new Response("<html>gateway</html>", { status: 504 });
+    await assert.rejects(
+      fetchVslReportJson("/api/reports/vsl-calidad", new AbortController().signal),
+      /HTTP 504.*JSON/,
+    );
+    global.fetch = async () => Response.json({ error: "Error de contrato" }, { status: 502 });
+    await assert.rejects(
+      fetchVslReportJson("/api/reports/vsl-calidad", new AbortController().signal),
+      /Error de contrato/,
+    );
+    global.fetch = async () => {
+      throw new TypeError("failed to fetch");
+    };
+    await assert.rejects(
+      fetchVslReportJson("/api/reports/vsl-calidad", new AbortController().signal),
+      /Error de red/,
+    );
+    const controller = new AbortController();
+    controller.abort();
+    await assert.rejects(
+      fetchVslReportJson("/api/reports/vsl-calidad", controller.signal),
+      (error) => error.name === "AbortError",
+    );
+  } finally {
+    global.fetch = oldFetch;
+  }
+});
+
+test("monthly lead fallback sums only disjoint cuts and recomputes VSL ratios from counts", () => {
+  const { monthlyLeadRows } = require("../src/lib/monthly-lead-quality.ts");
+  const raw = [
+    [
+      "DEL 21 AL 27 DE OCT",
+      64,
+      20,
+      20 / 64,
+      44,
+      44 / 64,
+      47,
+      11,
+      11 / 47,
+      11,
+      11 / 64,
+      32,
+      13,
+      47,
+      0,
+    ],
+    [
+      "1 AL 20 OCT",
+      142,
+      45,
+      45 / 142,
+      97,
+      97 / 142,
+      108,
+      32,
+      32 / 108,
+      49,
+      49 / 142,
+      109,
+      15,
+      107,
+      1,
+    ],
+    ["JULIO", ...Array(14).fill(0)],
+  ];
+  const before = JSON.stringify(raw),
+    rows = monthlyLeadRows(raw, "vsl"),
+    oct = rows[0];
+  assert.deepEqual(oct, [
+    "OCTUBRE",
+    206,
+    65,
+    65 / 206,
+    141,
+    141 / 206,
+    155,
+    43,
+    43 / 155,
+    60,
+    60 / 206,
+    141,
+    28,
+    154,
+    1,
+  ]);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[1][0], "JULIO");
+  assert.ok(rows[1].slice(1).every((value) => value === 0));
+  assert.equal(JSON.stringify(raw), before);
+  assert.notEqual(oct[3], (20 / 64 + 45 / 142) / 2);
+  assert.deepEqual(monthlyLeadRows(rows, "vsl"), rows);
+});
+test("monthly lead fallback handles Orgánico, LIG, zero counts and authoritative consolidated API rows", () => {
+  const { monthlyLeadRows } = require("../src/lib/monthly-lead-quality.ts");
+  const organic = [
+    ["DEL 21 AL 27 DE OCT", 32, 8, 6, 0.75, 10, 10 / 32],
+    ["1 AL 20 OCT", 62, 26, 20, 20 / 26, 5, 5 / 62],
+  ];
+  const lig = [
+    ["DEL 21 AL 27 DE OCT", 2, 25, 10, 0.4, 0, 0],
+    ["1 AL 20 OCT", 3, 40, 21, 21 / 40, 0, 0],
+  ];
+  assert.deepEqual(monthlyLeadRows(organic, "funnel"), [
+    ["OCTUBRE", 94, 34, 26, 26 / 34, 15, 15 / 94],
+  ]);
+  assert.deepEqual(monthlyLeadRows(lig, "funnel"), [["OCTUBRE", 5, 65, 31, 31 / 65, 0, 0]]);
+  const monthly = ["2026-10", 100, 40, 33, 0.825, 2, 0.02];
+  assert.deepEqual(monthlyLeadRows([...organic, monthly], "funnel"), [
+    ["OCTUBRE", ...monthly.slice(1)],
+  ]);
+  const zeros = [
+    ["1 AL 20 OCT", 0, 0, 0, 0, 0, 0],
+    ["DEL 21 AL 27 DE OCT", 0, 0, 0, 0, 0, 0],
+  ];
+  assert.deepEqual(monthlyLeadRows(zeros, "funnel"), [["OCTUBRE", 0, 0, 0, 0, 0, 0]]);
+});
+test("monthly lead periods retain all API months, calendar years, and never sum overlapping or opaque ranges", () => {
+  const { monthlyLeadRows, presentMonthlyLeadRows } = require("../src/lib/monthly-lead-quality.ts");
+  const row = (period) => [period, 0, 0, 0, 0, 0, 0];
+  const rows = monthlyLeadRows(
+    ["2026-07", "NOVIEMBRE 2027", "2026-11", "2026-09", "2026-08", "OCTUBRE 2026"].map(row),
+    "funnel",
+  );
+  assert.deepEqual(
+    rows.map((row) => row[0]),
+    ["NOVIEMBRE 2027", "NOVIEMBRE 2026", "OCTUBRE", "SEPTIEMBRE", "AGOSTO", "JULIO"],
+  );
+  assert.throws(
+    () => monthlyLeadRows([row("1 AL 20 OCT"), row("DEL 20 AL 27 DE OCT")], "funnel"),
+    /superponen/,
+  );
+  assert.throws(
+    () => monthlyLeadRows([row("OCTUBRE"), row("2026-10")], "funnel"),
+    /más de un agregado/,
+  );
+  assert.deepEqual(monthlyLeadRows([row("2026-10-20 / 2026-11-03")], "funnel"), [
+    row("2026-10-20 / 2026-11-03"),
+  ]);
+  assert.equal(
+    presentMonthlyLeadRows([row("1 AL 20 OCT"), row("1 AL 20 OCT")], "funnel").rows.length,
+    0,
+  );
+});
+
+test("LIG renders authoritative API rows and rounded percentages without client aggregation", () => {
+  const { ligLeadSchema, funnelLeadColumns } = require("../src/lib/vsl-quality.ts");
+  const table = {
+    columns: [...funnelLeadColumns],
+    rows: [
+      ["OCTUBRE", 112, 65, 31, 0.48, 9, 0.08],
+      ["SEPTIEMBRE", 68, 30, 14, 0.47, 5, 0.07],
+      ["AGOSTO", 0, 0, 0, 0, 0, 0],
+    ],
+    sourceSheet: "VSL_CALIDAD_LEADS_LIG",
+    truncated: false,
+  };
+  const before = JSON.stringify(table);
+  assert.deepEqual(
+    qualityReportSchema.parse({ ...fixture(), qualityLIG: table }).qualityLIG,
+    table,
+  );
+  const React = require("react"),
+    { renderToStaticMarkup } = require("react-dom/server");
+  const {
+    FunnelLeadQualityTable,
+  } = require("../src/components/reports/FunnelLeadQualityTable.tsx");
+  const html = renderToStaticMarkup(
+    React.createElement(FunnelLeadQualityTable, { title: "LIG", table, authoritative: true }),
+  );
+  for (const text of ["112", "68", "48%", "47%", "8%", "7%", "AGOSTO"])
+    assert.ok(html.includes(text));
+  assert.equal((html.match(/<tr /g) || []).length, 3);
+  const cuts = {
+    ...table,
+    rows: [
+      ["1 AL 20 OCT", 100, 40, 10, 0.25, 8, 0.08],
+      ["DEL 21 AL 27 DE OCT", 12, 25, 21, 0.84, 1, 0.08],
+    ],
+  };
+  const cutHtml = renderToStaticMarkup(
+    React.createElement(FunnelLeadQualityTable, { title: "LIG", table: cuts, authoritative: true }),
+  );
+  assert.ok(cutHtml.includes("1 AL 20 OCT"));
+  assert.ok(cutHtml.includes("DEL 21 AL 27 DE OCT"));
+  assert.equal(JSON.stringify(table), before);
+  for (const value of [-0.1, 1.1, null, "48%"])
+    assert.equal(
+      ligLeadSchema.safeParse({ ...table, rows: [["OCTUBRE", 112, 65, 31, value, 9, 0.08]] })
+        .success,
+      false,
+    );
 });
