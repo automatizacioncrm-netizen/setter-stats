@@ -1,12 +1,34 @@
 import {
-  displayFunnelCell,
+  funnelValue,
+  visibleFunnelColumns,
   formatCancellationPercent,
   displayFunnelPeriod,
   presentFunnelGroups,
   funnelGroups,
   type AppointmentsByFunnel,
 } from "@/lib/appointments-by-funnel";
-const visibleColumns = [1, 2, 3, 4, 7, "cancelledPercent"] as const;
+const visibleColumns = visibleFunnelColumns;
+const percentNames = ["% SETEADOS", "% ASISTIDOS", "% NO ASISTIDOS"];
+function displayValue(
+  table: AppointmentsByFunnel,
+  row: AppointmentsByFunnel["rows"][number],
+  name: string,
+) {
+  const value = funnelValue(table.columns, row, name);
+  if (name === "% CANCELADOS")
+    return formatCancellationPercent(
+      Number(funnelValue(table.columns, row, "CANCELADOS REALES")),
+      Number(funnelValue(table.columns, row, "TOTAL AGENDAMIENTOS")),
+    );
+  if (value === undefined) return "—";
+  if (name === "PERIODO / MES")
+    return String(value).indexOf(" / ") >= 0 ? String(value) : displayFunnelPeriod(String(value));
+  if (percentNames.indexOf(name) >= 0)
+    return typeof value === "number"
+      ? value.toLocaleString("es-PE", { style: "percent", maximumFractionDigits: 2 })
+      : "—";
+  return typeof value === "number" ? value.toLocaleString("es-PE") : value;
+}
 export function AppointmentsByFunnelTable({
   table,
   error,
@@ -14,8 +36,10 @@ export function AppointmentsByFunnelTable({
   table: AppointmentsByFunnel | undefined;
   error: string | undefined;
 }) {
-  const groups = table ? presentFunnelGroups(table.rows) : [];
-  const unknown = table?.rows.some((row) => !funnelGroups.some((name) => name === row[0]));
+  const groups = table ? presentFunnelGroups(table.rows, table.columns) : [];
+  const unknown = table?.rows.some(
+    (row) => !funnelGroups.some((name) => name === funnelValue(table.columns, row, "EMBUDO")),
+  );
   return (
     <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-background shadow-card">
       <h2 className="bg-zinc-700 p-4 text-center text-base font-bold text-white">
@@ -73,17 +97,13 @@ export function AppointmentsByFunnelTable({
                           <th
                             key={index}
                             style={
-                              column === 7 || column === "cancelledPercent"
+                              column === "CANCELADOS REALES" || column === "% CANCELADOS"
                                 ? { backgroundColor: "#FEE4E2", color: "#912018" }
                                 : undefined
                             }
                             className={`border border-zinc-300 p-3 font-bold ${index === 0 ? "sticky left-0 z-30 bg-white text-left" : "text-center"}`}
                           >
-                            {column === "cancelledPercent"
-                              ? "% CANCELADOS"
-                              : column === 7
-                                ? "CANCELADOS"
-                                : table.columns[column]}
+                            {column === "CANCELADOS REALES" ? "CANCELADOS" : column}
                           </th>
                         ))}
                       </tr>
@@ -95,17 +115,13 @@ export function AppointmentsByFunnelTable({
                             <td
                               key={column}
                               style={
-                                source === 7 || source === "cancelledPercent"
+                                source === "CANCELADOS REALES" || source === "% CANCELADOS"
                                   ? { backgroundColor: "#FDECEC", color: "#B42318" }
                                   : undefined
                               }
-                              className={`border border-border p-2 tabular-nums ${column === 0 ? "sticky left-0 z-10 bg-background text-left font-semibold" : "text-right"} ${source === 4 ? "bg-brand-soft font-semibold text-brand" : ""}`}
+                              className={`border border-border p-2 tabular-nums ${column === 0 ? "sticky left-0 z-10 bg-background text-left font-semibold" : "text-right"} ${source === "% ASISTIDOS" ? "bg-brand-soft font-semibold text-brand" : ""}`}
                             >
-                              {column === 0
-                                ? displayFunnelPeriod(row[1])
-                                : source === "cancelledPercent"
-                                  ? formatCancellationPercent(row[7], row[2])
-                                  : displayFunnelCell(row[source], source)}
+                              {displayValue(table, row, source)}
                             </td>
                           ))}
                         </tr>

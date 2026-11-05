@@ -25,49 +25,66 @@ const normalized = (value: string) =>
     .toUpperCase()
     .replace(/\s+/g, " ")
     .trim();
+export const newFunnelAppointmentColumns = [
+  "LEADS CAPTADOS",
+  "LEAD SETEADOS",
+  "% SETEADOS",
+  "NO ASISTIDOS",
+  "% NO ASISTIDOS",
+];
+const percentageNames = [
+  "% ASISTIDOS",
+  "% NO ASISTIDOS / RESTANTES",
+  "% SETEADOS",
+  "% NO ASISTIDOS",
+];
+export const funnelValue = (
+  columns: readonly string[],
+  row: readonly (string | number)[],
+  name: string,
+) => row[columns.indexOf(name)];
 export const appointmentsByFunnelSchema = z
   .object({
-    columns: z
-      .array(z.string())
-      .length(11)
-      .refine(
-        (columns) =>
-          columns.every(
-            (column, index) =>
-              normalized(column) === normalized(funnelAppointmentColumns[index] ?? ""),
-          ),
-        "Los encabezados de agendamientos no corresponden a las once métricas esperadas.",
-      ),
-    rows: z.array(
-      z.tuple([
-        z.string().min(1),
-        z.string().min(1),
-        count,
-        count,
-        ratio,
-        count,
-        ratio,
-        count,
-        count,
-        count,
-        count,
-      ]),
-    ),
+    columns: z.array(z.string()).superRefine((columns, ctx) => {
+      for (const name of funnelAppointmentColumns)
+        if (columns.indexOf(name) < 0)
+          ctx.addIssue({ code: "custom", message: "Falta columna: " + name });
+      if (new Set(columns).size !== columns.length)
+        ctx.addIssue({ code: "custom", message: "Encabezados duplicados." });
+    }),
+    rows: z.array(z.array(z.union([z.string(), z.number().finite()]))),
     sourceSheet: z.enum(["VSL_APPOINTMENTS", "APPOINTMENTS_MASTER"]),
     truncated: z.boolean(),
     skippedWithoutDate: count.optional(),
-    percentColumns: z
-      .array(z.number().int())
-      .refine(
-        (columns) => columns.length === 2 && columns[0] === 4 && columns[1] === 6,
-        "Las columnas porcentuales deben ser 4 y 6.",
-      )
-      .optional(),
+    percentColumns: z.array(z.number().int().nonnegative()).optional(),
   })
   .superRefine((data, ctx) => {
     const keys = new Set<string>();
     data.rows.forEach((row, index) => {
-      const key = normalized(row[0]) + "/" + surveyPeriodKey(row[1]);
+      if (row.length !== data.columns.length)
+        ctx.addIssue({
+          code: "custom",
+          path: ["rows", index],
+          message: "La fila debe tener tantos valores como encabezados.",
+        });
+      data.columns.forEach((name, col) => {
+        const value = row[col];
+        const schema =
+          name === "EMBUDO" || name === "PERIODO / MES"
+            ? z.string().min(1)
+            : percentageNames.indexOf(name) >= 0
+              ? ratio
+              : count;
+        if (!schema.safeParse(value).success)
+          ctx.addIssue({
+            code: "custom",
+            path: ["rows", index, col],
+            message: "Valor incompatible con " + name,
+          });
+      });
+      const group = funnelValue(data.columns, row, "EMBUDO"),
+        period = funnelValue(data.columns, row, "PERIODO / MES");
+      const key = String(group) + "/" + surveyPeriodKey(period);
       if (keys.has(key))
         ctx.addIssue({
           code: "custom",
@@ -76,6 +93,14 @@ export const appointmentsByFunnelSchema = z
         });
       keys.add(key);
     });
+    if (data.percentColumns)
+      for (const index of data.percentColumns)
+        if (percentageNames.indexOf(data.columns[index] ?? "") < 0)
+          ctx.addIssue({
+            code: "custom",
+            path: ["percentColumns"],
+            message: "Índice porcentual incompatible con el encabezado.",
+          });
   });
 export type AppointmentsByFunnel = z.infer<typeof appointmentsByFunnelSchema>;
 export type FunnelAppointmentRow = AppointmentsByFunnel["rows"][number];
@@ -195,12 +220,19 @@ export const funnelGroups = [
   "VSL PAGO CÍRCULO + VSL PAGO EQUIPO",
   "LIG CÍRCULO + LIG EQUIPO",
 ] as const;
-export function presentFunnelGroups(rows: readonly FunnelAppointmentRow[]) {
+export function presentFunnelGroups(
+  rows: readonly FunnelAppointmentRow[],
+  columns: readonly string[] = funnelAppointmentColumns,
+) {
   return funnelGroups.map((name) => ({
     name,
     rows: rows
-      .filter((row) => row[0] === name)
-      .sort((a, b) => funnelPeriodOrder(b[1]).localeCompare(funnelPeriodOrder(a[1]))),
+      .filter((row) => funnelValue(columns, row, "EMBUDO") === name)
+      .sort((a, b) =>
+        funnelPeriodOrder(String(funnelValue(columns, b, "PERIODO / MES"))).localeCompare(
+          funnelPeriodOrder(String(funnelValue(columns, a, "PERIODO / MES"))),
+        ),
+      ),
   }));
 }
 
@@ -210,10 +242,22 @@ function validateMonthlyFunnels(
 ): string | undefined {
   const seen = new Set<string>();
   for (const row of data.rows) {
-    const raw = row[1],
+    const raw = String(funnelValue(data.columns, row, "PERIODO / MES")),
       range = rangePeriod(raw);
     if (!range && /(?:DEL\s+)?\d{1,2}\s+AL\s+\d{1,2}/i.test(raw))
       return "La Tabla 3 necesita agregación mensual desde VSL_APPOINTMENTS por Appointment ID único. La API todavía devuelve cortes históricos parciales; no se suman porque no cubren necesariamente todo el mes ni garantizan ausencia de duplicados.";
+    if (
+      filter &&
+      range &&
+      range.startDate === filter.startDate &&
+      range.endDate === filter.endDate &&
+      data.columns.indexOf("LEADS CAPTADOS") >= 0
+    ) {
+      const key = String(funnelValue(data.columns, row, "EMBUDO")) + "/" + raw;
+      if (seen.has(key)) return "Fila duplicada por embudo y período.";
+      seen.add(key);
+      continue;
+    }
     if (range && range.startDate.slice(0, 7) !== range.endDate.slice(0, 7))
       return "La API devuelve un único agregado para un rango que cruza meses. La Tabla 3 requiere una fila por embudo y mes, recortada al filtro; no se puede repartir ese total sin los registros originales.";
     const month = funnelMonthKey(raw);
@@ -230,22 +274,25 @@ function validateMonthlyFunnels(
         return "La Tabla 3 no corresponde al intervalo solicitado dentro de cada mes. No se incluyen citas fuera del filtro.";
     } else if (range && (range.startDate !== full.startDate || range.endDate !== full.endDate))
       return "El histórico de la Tabla 3 contiene un intervalo parcial. Se necesita un agregado del mes completo desde el backend; no se inventan citas para completar el mes.";
-    const key = normalized(row[0]) + "/" + month;
+    const key = String(funnelValue(data.columns, row, "EMBUDO")) + "/" + month;
     if (seen.has(key))
       return "La Tabla 3 recibió más de una fila por embudo y mes. Debe consolidarse en el backend por Appointment ID único; no se suman intervalos potencialmente superpuestos.";
     seen.add(key);
-    const total = row[2],
-      attended = row[3],
-      remaining = row[5];
-    if (total !== attended + row[8] + row[9] + row[10])
-      return "La Tabla 3 tiene estados inconsistentes: TOTAL debe ser ASISTIDOS + NO SHOW + CONFIRMADOS + OTROS; CANCELADOS REALES es informativo y no forma parte del total. No se corrigen ni redistribuyen cifras en el frontend.";
+    const number = (name: string) => Number(funnelValue(data.columns, row, name));
+    const total = number("TOTAL AGENDAMIENTOS"),
+      attended = number("ASISTIDOS"),
+      remaining = number("NO ASISTIDOS / RESTANTES");
+    // The extended contract's values are authoritative and may contain rounded ratios.
+    if (data.columns.indexOf("LEADS CAPTADOS") >= 0) continue;
+    if (total !== attended + number("NO SHOW") + number("CONFIRMADOS") + number("OTROS"))
+      return "La Tabla 3 tiene estados inconsistentes: TOTAL debe ser ASISTIDOS + NO SHOW + CONFIRMADOS + OTROS; CANCELADOS REALES es informativo y no forma parte del total.";
     if (
       attended > total ||
       remaining !== total - attended ||
-      Math.abs(row[4] - (total ? attended / total : 0)) > 1e-8 ||
-      Math.abs(row[6] - (total ? remaining / total : 0)) > 1e-8
+      Math.abs(number("% ASISTIDOS") - (total ? attended / total : 0)) > 1e-8 ||
+      Math.abs(number("% NO ASISTIDOS / RESTANTES") - (total ? remaining / total : 0)) > 1e-8
     )
-      return "Los porcentajes o restantes de la Tabla 3 no corresponden a sus totales. El backend debe recalcular las proporciones a partir del agregado mensual; no se suman ni promedian porcentajes.";
+      return "Los porcentajes o restantes de la Tabla 3 no corresponden a sus totales.";
   }
   return undefined;
 }
@@ -255,3 +302,17 @@ export function formatCancellationPercent(cancelled: number, total: number) {
     total === 0 ? 0 : cancelled / total,
   );
 }
+
+export const visibleFunnelColumns = [
+  "PERIODO / MES",
+  "LEADS CAPTADOS",
+  "LEAD SETEADOS",
+  "% SETEADOS",
+  "TOTAL AGENDAMIENTOS",
+  "ASISTIDOS",
+  "% ASISTIDOS",
+  "CANCELADOS REALES",
+  "% CANCELADOS",
+  "NO ASISTIDOS",
+  "% NO ASISTIDOS",
+] as const;

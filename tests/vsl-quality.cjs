@@ -720,9 +720,9 @@ test("funnel render handles real labels, eleven columns, percentages, empty/miss
     renderToStaticMarkup(React.createElement(AppointmentsByFunnelTable, { table, error }));
   const data = funnelFixture(),
     html = render(data);
-  assert.equal((html.match(/<th /g) || []).length, 18);
+  assert.equal((html.match(/<th /g) || []).length, 33);
   assert.equal((html.match(/<table /g) || []).length, 3);
-  assert.equal((html.match(/<td /g) || []).length, 18);
+  assert.equal((html.match(/<td /g) || []).length, 33);
   for (const body of html.match(/<tbody>[\s\S]*?<\/tbody>/g) || []) {
     assert.ok(!body.includes("ORGÁNICO"));
     assert.ok(!body.includes("VSL PAGO"));
@@ -731,7 +731,7 @@ test("funnel render handles real labels, eleven columns, percentages, empty/miss
   assert.ok(html.includes("CANCELADOS"));
   assert.ok(!html.includes("CANCELADOS REALES"));
   assert.ok(html.includes("#FDECEC"));
-  assert.ok(html.includes("69%"));
+  assert.ok(html.includes("69.23%"));
   for (const heading of [
     "NO ASISTIDOS / RESTANTES",
     "% NO ASISTIDOS / RESTANTES",
@@ -740,7 +740,7 @@ test("funnel render handles real labels, eleven columns, percentages, empty/miss
     "OTROS",
   ])
     assert.ok(!html.includes(heading));
-  assert.ok(html.includes("SEPTIEMBRE"));
+  assert.ok(html.includes("2026-09-01 / 2026-09-30"));
   assert.ok(html.includes("ORGÁNICO"));
   assert.ok(html.includes("VSL PAGO"));
   assert.ok(html.includes("LIG"));
@@ -1481,5 +1481,127 @@ test("filtered funnel tables use the active filter label for month, Today and cu
     delete raw.qualityOrganico;
     delete raw.qualityLIG;
     assert.equal(qualityReportSchema.safeParse(raw).success, true);
+  }
+});
+
+test("Table 3 extended columns use exact names, preserve zeros and distinct nonattendance metrics", () => {
+  const { newFunnelAppointmentColumns } = require("../src/lib/appointments-by-funnel.ts");
+  const {
+    AppointmentsByFunnelTable,
+  } = require("../src/components/reports/AppointmentsByFunnelTable.tsx");
+  const React = require("react"),
+    { renderToStaticMarkup } = require("react-dom/server");
+  const data = funnelFixture("2026-11-01 / 2026-11-30");
+  data.columns.push(...newFunnelAppointmentColumns);
+  data.percentColumns = [4, 6, 13, 15];
+  data.rows = data.rows.map((row) => [
+    row[0],
+    "2026-11-01 / 2026-11-30",
+    19,
+    1,
+    0.0526,
+    18,
+    0.9474,
+    3,
+    8,
+    10,
+    0,
+    293,
+    18,
+    0.0614,
+    8,
+    0.4211,
+  ]);
+  const before = JSON.stringify(data),
+    parsed = validateAppointmentsByFunnel(data, { startDate: "2026-11-01", endDate: "2026-11-30" });
+  assert.equal(parsed.error, undefined);
+  assert.deepEqual(parsed.data, data);
+  const { visibleFunnelColumns } = require("../src/lib/appointments-by-funnel.ts");
+  assert.deepEqual(
+    [...visibleFunnelColumns],
+    [
+      "PERIODO / MES",
+      "LEADS CAPTADOS",
+      "LEAD SETEADOS",
+      "% SETEADOS",
+      "TOTAL AGENDAMIENTOS",
+      "ASISTIDOS",
+      "% ASISTIDOS",
+      "CANCELADOS REALES",
+      "% CANCELADOS",
+      "NO ASISTIDOS",
+      "% NO ASISTIDOS",
+    ],
+  );
+  const render = (table) =>
+    renderToStaticMarkup(React.createElement(AppointmentsByFunnelTable, { table }));
+  const cells = (html) => [...html.matchAll(/<td[^>]*>(.*?)<\/td>/g)].map((m) => m[1]);
+  const expected = [
+    "2026-11-01 / 2026-11-30",
+    "293",
+    "18",
+    "6.14%",
+    "19",
+    "1",
+    "5.26%",
+    "3",
+    "15.79%",
+    "8",
+    "42.11%",
+  ];
+  assert.deepEqual(cells(render(parsed.data)), [...expected, ...expected, ...expected]);
+  const reordered = {
+    ...data,
+    columns: [...data.columns].reverse(),
+    rows: data.rows.map((row) => [...row].reverse()),
+    percentColumns: [11, 9, 2, 0],
+  };
+  assert.deepEqual(appointmentsByFunnelSchema.parse(reordered), reordered);
+  assert.deepEqual(cells(render(reordered)), [...expected, ...expected, ...expected]);
+  const zero = { ...data, rows: data.rows.map((row) => [row[0], row[1], ...Array(14).fill(0)]) };
+  assert.deepEqual(cells(render(zero)).slice(1, 11), [
+    "0",
+    "0",
+    "0%",
+    "0",
+    "0",
+    "0%",
+    "0",
+    "0%",
+    "0",
+    "0%",
+  ]);
+  assert.equal(cells(render(funnelFixture())).filter((cell) => cell === "—").length, 15);
+  assert.equal(JSON.stringify(data), before);
+});
+
+test("report proxy retains all extended funnel columns, rows and percentColumns in historical and range modes", async () => {
+  const { newFunnelAppointmentColumns } = require("../src/lib/appointments-by-funnel.ts");
+  const previousFetch = global.fetch,
+    previousEnv = process.env.APPS_SCRIPT_URL_VSL;
+  process.env.APPS_SCRIPT_URL_VSL = "https://script.google.com/macros/s/DEPLOYMENT/exec";
+  try {
+    for (const filtered of [false, true]) {
+      const raw = filtered ? filteredFixture("2026-11-01", "2026-11-30") : fixture();
+      const table = funnelFixture(filtered ? "2026-11-01 / 2026-11-30" : "OCTUBRE");
+      table.columns.push(...newFunnelAppointmentColumns);
+      table.rows = table.rows.map((row) => [...row, 108, 48, 0.4444, 3, 0.0714]);
+      table.percentColumns = [4, 6, 13, 15];
+      raw.appointmentsByFunnel = table;
+      global.fetch = async () => Response.json(raw);
+      const response = await qualityApi(
+        new Request(
+          "http://local/api/reports/vsl-calidad" +
+            (filtered ? "?startDate=2026-11-01&endDate=2026-11-30" : ""),
+        ),
+      );
+      const body = await response.json();
+      assert.equal(response.status, 200);
+      assert.deepEqual(body.appointmentsByFunnel, table);
+    }
+  } finally {
+    global.fetch = previousFetch;
+    if (previousEnv === undefined) delete process.env.APPS_SCRIPT_URL_VSL;
+    else process.env.APPS_SCRIPT_URL_VSL = previousEnv;
   }
 });
