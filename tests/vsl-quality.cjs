@@ -1550,6 +1550,11 @@ test("Table 3 extended columns use exact names, preserve zeros and distinct nona
     "42.11%",
   ];
   assert.deepEqual(cells(render(parsed.data)), [...expected, ...expected, ...expected]);
+  const distinctStates = {
+    ...data,
+    rows: data.rows.map((row) => row.map((value, index) => (index === 8 ? 6 : value))),
+  };
+  assert.deepEqual(cells(render(distinctStates)).slice(9, 11), ["8", "42.11%"]);
   const reordered = {
     ...data,
     columns: [...data.columns].reverse(),
