@@ -22,7 +22,9 @@ export function FunnelLeadQualityTable({
   if (filtered && !table) return null;
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-background shadow-card">
-      <h2 className="bg-zinc-700 p-4 text-center text-base font-bold text-white">{title}</h2>
+      <h2 className="bg-muted/60 p-4 text-center text-base font-bold text-muted-foreground">
+        {title}
+      </h2>
       {!table ? (
         <p role="status" className="p-4 text-sm text-muted-foreground">
           La API no entrega este reporte para el período solicitado.

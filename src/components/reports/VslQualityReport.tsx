@@ -53,7 +53,9 @@ export function ReportTable({
     survey ? index !== 18 : ![11, 12, 13, 14].includes(index);
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-background shadow-card">
-      <h2 className="bg-zinc-700 p-4 text-center text-base font-bold text-white">{title}</h2>
+      <h2 className="bg-muted/60 p-4 text-center text-base font-bold text-muted-foreground">
+        {title}
+      </h2>
       {monthly?.error && (
         <p role="alert" className="p-4 text-sm text-destructive">
           {monthly.error}
@@ -335,7 +337,7 @@ export function VslQualityReport() {
             </p>
           )}
           <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-background shadow-card">
-            <h2 className="bg-zinc-700 p-4 text-center text-base font-bold text-white">
+            <h2 className="bg-muted/60 p-4 text-center text-base font-bold text-muted-foreground">
               TABLA 1: ANÁLISIS DE CALIDAD DE LEADS DEL EMBUDO (ORGÁNICO, VSL Y LIG)
             </h2>
             <div className="space-y-6 p-4">
