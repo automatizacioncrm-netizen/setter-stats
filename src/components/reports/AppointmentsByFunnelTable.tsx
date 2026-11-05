@@ -84,11 +84,11 @@ export function AppointmentsByFunnelTable({
                 <div className="max-h-[65vh] overflow-auto">
                   <table
                     className="w-full table-fixed border-collapse text-sm"
-                    style={{ minWidth: visibleColumns.length * 160 + 32 }}
+                    style={{ minWidth: 1040 }}
                   >
                     <colgroup>
                       {visibleColumns.map((_, index) => (
-                        <col key={index} style={{ width: index === 0 ? 192 : 160 }} />
+                        <col key={index} style={{ width: index === 0 ? "18%" : "8.2%" }} />
                       ))}
                     </colgroup>
                     <thead className="sticky top-0 z-20 bg-white text-black">
@@ -101,7 +101,7 @@ export function AppointmentsByFunnelTable({
                                 ? { backgroundColor: "#FEE4E2", color: "#912018" }
                                 : undefined
                             }
-                            className={`border border-zinc-300 p-3 font-bold ${index === 0 ? "sticky left-0 z-30 bg-white text-left" : "text-center"}`}
+                            className={`border border-zinc-300 px-1.5 py-2 leading-snug font-bold ${index === 0 ? "sticky left-0 z-30 bg-white text-left" : "text-center"}`}
                           >
                             {column === "CANCELADOS REALES" ? "CANCELADOS" : column}
                           </th>
@@ -119,7 +119,7 @@ export function AppointmentsByFunnelTable({
                                   ? { backgroundColor: "#FDECEC", color: "#B42318" }
                                   : undefined
                               }
-                              className={`border border-border p-2 tabular-nums ${column === 0 ? "sticky left-0 z-10 bg-background text-left font-semibold" : "text-right"} ${source === "% ASISTIDOS" ? "bg-brand-soft font-semibold text-brand" : ""}`}
+                              className={`border border-border px-1.5 py-2 tabular-nums ${column === 0 ? "sticky left-0 z-10 bg-background text-left font-semibold" : "text-right"} ${source === "% ASISTIDOS" ? "bg-brand-soft font-semibold text-brand" : ""}`}
                             >
                               {displayValue(table, row, source)}
                             </td>
