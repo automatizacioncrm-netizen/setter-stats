@@ -236,7 +236,7 @@ const reportSchema = z.object({
   generatedAt: z.string().datetime({ offset: true }),
   timeZone: z.literal("America/Lima"),
   quality: table(15, [0]),
-  qualityOrganico: funnelLeadSchema.optional(),
+  qualityOrganico: ligLeadSchema.optional(),
   qualityLIG: ligLeadSchema.optional(),
   surveys: monthlySurveySchema,
   surveyStatus: surveyStatusSchema,
@@ -259,7 +259,15 @@ const reportSchema = z.object({
     .optional(),
 });
 export const qualityReportSchema = reportSchema.superRefine((data, ctx) => {
-  if (!data.filter) return;
+  if (!data.filter) {
+    if (data.qualityOrganico) {
+      const organic = funnelLeadSchema.safeParse(data.qualityOrganico);
+      if (!organic.success)
+        for (const issue of organic.error.issues)
+          ctx.addIssue({ ...issue, path: ["qualityOrganico", ...issue.path] });
+    }
+    return;
+  }
   if (validateRange(data.filter))
     ctx.addIssue({ code: "custom", path: ["filter"], message: validateRange(data.filter) });
   const key = data.filter.startDate + " / " + data.filter.endDate;

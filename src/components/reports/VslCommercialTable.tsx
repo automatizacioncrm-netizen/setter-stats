@@ -6,6 +6,7 @@ import {
   commercialSchema,
   visibleCommercialRows,
   commercialCash,
+  commercialCashDetail,
   commercialConversion,
 } from "@/lib/vsl-commercial";
 const MONTHS = [
@@ -32,7 +33,7 @@ export function VslCommercialTable({
   const { months, error } = commercialGlobalPeriod(range);
   const queries = useQueries({
     queries: months.map((month) => ({
-      queryKey: ["vsl-commercial", month, "global-period-v3", refreshKey],
+      queryKey: ["vsl-commercial", month, "api-cash-usd-v4", refreshKey],
       queryFn: async ({ signal }: { signal: AbortSignal }) => {
         const response = await fetch(
           "/api/reports/vsl-commercial?" + new URLSearchParams({ month }),
@@ -85,6 +86,17 @@ export function VslCommercialTable({
             )}
           </div>
         )}
+        {Array.from(
+          new Set(
+            queries.flatMap((query) =>
+              query.data?.exchangeRate?.description ? [query.data.exchangeRate.description] : [],
+            ),
+          ),
+        ).map((description) => (
+          <p key={description} className="px-4 py-2 text-xs text-muted-foreground">
+            Tipo de cambio: {description}
+          </p>
+        ))}
         <div className="max-h-[70vh] overflow-auto">
           <table className="w-full min-w-[1800px] border-collapse text-sm">
             <thead className="sticky top-0 z-20 bg-zinc-700 text-white">
@@ -153,13 +165,17 @@ export function VslCommercialTable({
                         ].map((value, k) => (
                           <td
                             key={`${j}-${k}`}
+                            title={k === 3 ? commercialCashDetail([metric]) : undefined}
                             className="border border-border p-3 text-right tabular-nums"
                           >
                             {value}
                           </td>
                         )),
                       )}
-                      <td className="border border-border p-3 text-right font-semibold tabular-nums">
+                      <td
+                        title={commercialCashDetail([equipo, circulo])}
+                        className="border border-border p-3 text-right font-semibold tabular-nums"
+                      >
                         {commercialCash([equipo, circulo])}
                       </td>
                     </tr>

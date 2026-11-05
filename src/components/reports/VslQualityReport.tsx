@@ -201,7 +201,7 @@ export function VslQualityReport() {
   const query = useQuery({
     queryKey: [
       "vsl-quality-report",
-      "server-lig-metrics-v7",
+      "server-range-funnels-v8",
       applied.range?.startDate ?? "all",
       applied.range?.endDate ?? "all",
       revision,
@@ -334,20 +334,31 @@ export function VslQualityReport() {
               El servidor indica que el reporte está truncado.
             </p>
           )}
-          <ReportTable
-            title="TABLA 1: ANÁLISIS DE CALIDAD DE LEADS DEL EMBUDO VSL | CLOSER"
-            table={data.quality}
-            frozen={1}
-          />
-          <FunnelLeadQualityTable
-            title="ANÁLISIS DE CALIDAD DE LEADS DEL EMBUDO ORGÁNICO"
-            table={data.qualityOrganico}
-          />
-          <FunnelLeadQualityTable
-            title="ANÁLISIS DE CALIDAD DE LEADS DEL EMBUDO LIG"
-            table={data.qualityLIG}
-            authoritative
-          />
+          <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-background shadow-card">
+            <h2 className="bg-zinc-700 p-4 text-center text-base font-bold text-white">
+              TABLA 1: ANÁLISIS DE CALIDAD DE LEADS DEL EMBUDO (ORGÁNICO, VSL Y LIG)
+            </h2>
+            <div className="space-y-6 p-4">
+              <ReportTable
+                title="TABLA 1.1: ANÁLISIS DE CALIDAD DE LEADS DEL EMBUDO VSL | CLOSER"
+                table={data.quality}
+                frozen={1}
+              />
+              <FunnelLeadQualityTable
+                title="TABLA 1.2: ANÁLISIS DE CALIDAD DE LEADS DEL EMBUDO ORGÁNICO"
+                table={data.qualityOrganico}
+                filtered={!!data.filter}
+                periodLabel={data.filter ? rangeLabel(data.filter) : undefined}
+              />
+              <FunnelLeadQualityTable
+                title="TABLA 1.3: ANÁLISIS DE CALIDAD DE LEADS DEL EMBUDO LIG"
+                table={data.qualityLIG}
+                filtered={!!data.filter}
+                periodLabel={data.filter ? rangeLabel(data.filter) : undefined}
+                authoritative
+              />
+            </div>
+          </section>
           <MonthlySurveyTable table={data.surveys} statusTable={data.surveyStatus} />
           <AppointmentsByFunnelTable
             table={data.appointmentsByFunnel}

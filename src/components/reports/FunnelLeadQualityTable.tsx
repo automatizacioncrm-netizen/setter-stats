@@ -5,16 +5,21 @@ export function FunnelLeadQualityTable({
   title,
   table,
   authoritative = false,
+  filtered = false,
+  periodLabel,
 }: {
   title: string;
   authoritative?: boolean;
+  filtered?: boolean;
+  periodLabel?: string | undefined;
   table: QualityReport["qualityOrganico"];
 }) {
   const monthly = table
-    ? authoritative
+    ? authoritative || filtered
       ? { rows: table.rows, error: undefined }
       : presentMonthlyLeadRows(table.rows, "funnel")
     : undefined;
+  if (filtered && !table) return null;
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-background shadow-card">
       <h2 className="bg-zinc-700 p-4 text-center text-base font-bold text-white">{title}</h2>
@@ -64,7 +69,9 @@ export function FunnelLeadQualityTable({
                         }
                       >
                         {i === 0
-                          ? displayReportCell(value, 0, false)
+                          ? filtered
+                            ? (periodLabel ?? value ?? "—")
+                            : displayReportCell(value, 0, false)
                           : typeof value === "number" && (i === 4 || i === 6)
                             ? new Intl.NumberFormat("es-PE", {
                                 style: "percent",

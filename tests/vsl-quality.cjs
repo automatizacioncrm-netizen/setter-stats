@@ -1362,3 +1362,124 @@ test("LIG renders authoritative API rows and rounded percentages without client 
       false,
     );
 });
+
+test("filtered organic and LIG preserve authoritative rounded API metrics and exact range labels", () => {
+  const { funnelLeadColumns } = require("../src/lib/vsl-quality.ts");
+  const raw = filteredFixture("2026-11-01", "2026-11-30");
+  raw.qualityOrganico = {
+    columns: [...funnelLeadColumns],
+    rows: [["2026-11-01 / 2026-11-30", 18, 5, 1, 0.2, 2, 0.1111]],
+    sourceSheet: "VSL DATA",
+    truncated: false,
+  };
+  raw.qualityLIG = {
+    columns: [...funnelLeadColumns],
+    rows: [["2026-11-01 / 2026-11-30", 98, 19, 1, 0.0526, 42, 0.4286]],
+    sourceSheet: "VSL DATA",
+    truncated: false,
+  };
+  const before = JSON.stringify(raw),
+    parsed = qualityReportSchema.parse(raw);
+  const React = require("react"),
+    { renderToStaticMarkup } = require("react-dom/server");
+  const {
+    FunnelLeadQualityTable,
+  } = require("../src/components/reports/FunnelLeadQualityTable.tsx");
+  for (const key of ["qualityOrganico", "qualityLIG"]) {
+    assert.deepEqual(parsed[key], raw[key]);
+    const html = renderToStaticMarkup(
+      React.createElement(FunnelLeadQualityTable, {
+        title: key,
+        table: parsed[key],
+        filtered: true,
+      }),
+    );
+    assert.ok(html.includes("2026-11-01 / 2026-11-30"));
+    assert.equal((html.match(/<tr /g) || []).length, 1);
+    assert.ok(html.includes(key === "qualityLIG" ? "43%" : "11%"));
+    const wrong = structuredClone(raw);
+    wrong[key].rows[0][0] = "2026-10-01 / 2026-10-31";
+    assert.equal(qualityReportSchema.safeParse(wrong).success, false);
+    const duplicate = structuredClone(raw);
+    duplicate[key].rows.push(duplicate[key].rows[0]);
+    assert.equal(qualityReportSchema.safeParse(duplicate).success, false);
+    const invalid = structuredClone(raw);
+    invalid[key].rows[0][6] = 1.2;
+    assert.equal(qualityReportSchema.safeParse(invalid).success, false);
+  }
+  assert.equal(JSON.stringify(raw), before);
+  for (const missing of [["qualityOrganico"], ["qualityLIG"], ["qualityOrganico", "qualityLIG"]]) {
+    const legacy = structuredClone(raw);
+    for (const key of missing) delete legacy[key];
+    const result = qualityReportSchema.parse(legacy);
+    for (const key of missing)
+      assert.equal(
+        renderToStaticMarkup(
+          React.createElement(FunnelLeadQualityTable, {
+            title: key,
+            table: result[key],
+            filtered: true,
+          }),
+        ),
+        "",
+      );
+  }
+});
+
+test("filtered funnel tables use the active filter label for month, Today and custom ranges", () => {
+  const { funnelLeadColumns } = require("../src/lib/vsl-quality.ts");
+  const { rangeLabel, rangeForPreset } = require("../src/lib/vsl-date-range.ts");
+  const React = require("react"),
+    { renderToStaticMarkup } = require("react-dom/server");
+  const {
+    FunnelLeadQualityTable,
+  } = require("../src/components/reports/FunnelLeadQualityTable.tsx");
+  const now = new Date("2026-11-05T12:00:00-05:00");
+  for (const [preset, custom] of [
+    ["month:11", undefined],
+    ["today", undefined],
+    ["custom", { startDate: "2026-11-01", endDate: "2026-11-05" }],
+  ]) {
+    const range = rangeForPreset(preset, custom, now),
+      label = rangeLabel(range),
+      period = range.startDate + " / " + range.endDate;
+    const raw = filteredFixture(range.startDate, range.endDate);
+    for (const key of ["qualityOrganico", "qualityLIG"])
+      raw[key] = {
+        columns: [...funnelLeadColumns],
+        rows: [[period, 18, 5, 1, 0.2, 2, 0.1111]],
+        sourceSheet: "VSL DATA",
+        truncated: false,
+      };
+    const parsed = qualityReportSchema.parse(raw);
+    for (const key of ["qualityOrganico", "qualityLIG"]) {
+      const html = renderToStaticMarkup(
+        React.createElement(FunnelLeadQualityTable, {
+          title: key,
+          table: parsed[key],
+          filtered: true,
+          periodLabel: label,
+        }),
+      );
+      assert.ok(html.includes(label));
+      assert.ok(!html.includes(period));
+      assert.ok(html.includes("20%"));
+      assert.ok(html.includes("11%"));
+      assert.equal((html.match(/<tr /g) || []).length, 1);
+      assert.equal(
+        renderToStaticMarkup(
+          React.createElement(FunnelLeadQualityTable, {
+            title: key,
+            table: undefined,
+            filtered: true,
+            periodLabel: label,
+          }),
+        ),
+        "",
+      );
+    }
+    delete raw.qualityOrganico;
+    delete raw.qualityLIG;
+    assert.equal(qualityReportSchema.safeParse(raw).success, true);
+  }
+});

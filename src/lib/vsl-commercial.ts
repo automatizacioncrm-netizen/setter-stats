@@ -34,6 +34,7 @@ const commonRowSchema = z.object({
   conversion: z.number().finite().nonnegative().nullable(),
   cashPEN: z.number().finite().nonnegative(),
   cashUSD: z.number().finite().nonnegative(),
+  cashCollectedUSD: z.number().finite().nonnegative().optional(),
 });
 const envelopeSchema = z.object({
   success: z.literal(true),
@@ -41,6 +42,14 @@ const envelopeSchema = z.object({
   timeZone: z.string().min(1),
   generatedAt: z.string().optional(),
   rows: z.array(commonRowSchema),
+  currency: z.literal("USD").optional(),
+  exchangeRate: z
+    .object({ penPerUsd: z.number().finite().positive(), description: z.string().min(1) })
+    .optional(),
+  totals: z
+    .object({ cashCollectedUSD: z.number().finite().nonnegative().optional() })
+    .passthrough()
+    .optional(),
   diagnostics: z.record(z.string(), z.unknown()).optional(),
 });
 export const commercialSchema = envelopeSchema
@@ -102,19 +111,36 @@ export function commercialConversion(metric?: CommercialMetric) {
     maximumFractionDigits: 2,
   }).format(metric.ventas / metric.asistencias);
 }
-// Fixed conversion explicitly requested by the report owner; not a live exchange rate.
-export const COMMERCIAL_USD_TO_PEN = 3.4;
+// Sum only the API's unified USD amounts; never convert the source currencies here.
 export function commercialCash(metrics: (CommercialMetric | undefined)[]) {
   const actual = metrics.filter((m): m is CommercialMetric => !!m);
-  if (!actual.length) return "—";
-  const total = actual.reduce(
-    (sum, metric) => sum + metric.cashPEN + metric.cashUSD * COMMERCIAL_USD_TO_PEN,
-    0,
-  );
-  return (
-    "S/ " +
-    new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
-      total,
+  if (!actual.length || actual.some((metric) => metric.cashCollectedUSD === undefined)) return "—";
+  return formatCommercialUSD(actual.reduce((sum, metric) => sum + metric.cashCollectedUSD!, 0));
+}
+export function formatCommercialUSD(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+export function commercialCashDetail(metrics: (CommercialMetric | undefined)[]) {
+  return metrics
+    .filter((metric): metric is CommercialMetric => !!metric)
+    .map(
+      (metric) =>
+        metric.product +
+        ": PEN " +
+        metric.cashPEN.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }) +
+        " · USD " +
+        metric.cashUSD.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }),
     )
-  );
+    .join("; ");
 }

@@ -28,12 +28,15 @@ const metric = (extra = {}) => ({
   conversion: 1 / 7,
   cashPEN: 0,
   cashUSD: 1520.59,
+  cashCollectedUSD: 1520.59,
   ...extra,
 });
 const report = (rows = [metric()]) => ({
   success: true,
   month: "2026-10",
   timeZone: "America/Lima",
+  currency: "USD",
+  exchangeRate: { penPerUsd: 3.4, description: "1 USD = 3.4 PEN" },
   rows,
 });
 test("pivot preserves products and values with six fixed closers and immutable source rows", () => {
@@ -48,18 +51,18 @@ test("pivot preserves products and values with six fixed closers and immutable s
   assert.equal(rows.length, 6);
   assert.equal(rows[0].equipo.cashUSD, 1520.59);
   assert.equal(rows[0].circulo.cashUSD, 3620);
-  assert.equal(commercialCash([rows[0].equipo, rows[0].circulo]), "S/ 17,478.01");
+  assert.equal(commercialCash([rows[0].equipo, rows[0].circulo]), "$3,041.18");
   assert.equal(JSON.stringify(raw), before);
 });
-test("ratios handle zero, sales without attendance and exact division; cash converts USD at the fixed requested rate", () => {
+test("ratios handle zero, sales without attendance and exact division; cash displays authoritative USD independently of source currencies", () => {
   assert.equal(commercialConversion(metric()), "14.29%");
   assert.equal(commercialConversion(metric({ ventas: 0, asistencias: 0 })), "0.00%");
   assert.equal(commercialConversion(metric({ asistencias: 0 })), "N/D");
   assert.equal(commercialConversion(undefined), "—");
-  assert.equal(commercialCash([metric({ cashPEN: 100 })]), "S/ 5,270.01");
-  assert.equal(commercialCash([metric({ cashPEN: 100, cashUSD: 0 })]), "S/ 100.00");
-  assert.equal(commercialCash([metric({ cashPEN: 2160.12, cashUSD: 1644 })]), "S/ 7,749.72");
-  assert.equal(commercialCash([metric({ cashPEN: 0, cashUSD: 0 })]), "S/ 0.00");
+  assert.equal(commercialCash([metric({ cashPEN: 100 })]), "$1,520.59");
+  assert.equal(commercialCash([metric({ cashPEN: 100, cashUSD: 0 })]), "$1,520.59");
+  assert.equal(commercialCash([metric({ cashPEN: 2160.12, cashUSD: 1644 })]), "$1,520.59");
+  assert.equal(commercialCash([metric({ cashPEN: 0, cashUSD: 0, cashCollectedUSD: 0 })]), "$0.00");
   assert.equal(commercialCash([undefined]), "—");
 });
 test("contract rejects duplicated allowed closer/product; excluded products are filtered and unconfirmed names remain separate", () => {
@@ -169,7 +172,7 @@ test("Table 4 renders eleven columns, parallel products and one merged month per
   const client = new QueryClient();
   for (const month of ["2026-07", "2026-08", "2026-09", "2026-10"])
     client.setQueryData(
-      ["vsl-commercial", month, "global-period-v3", ""],
+      ["vsl-commercial", month, "api-cash-usd-v4", ""],
       commercialSchema.parse({
         ...report([
           metric({ ventas: month === "2026-07" ? 0 : 1 }),
@@ -196,7 +199,10 @@ test("Table 4 renders eleven columns, parallel products and one merged month per
   assert.equal((html.match(/<td /g) || []).length, 43);
   assert.equal((html.match(/rowSpan="2"/g) || []).length, 4);
   assert.ok(html.includes("colSpan=" + '"4"'));
-  assert.ok(html.includes("S/ 17,478.01"));
+  assert.ok(html.includes("$3,041.18"));
+  assert.ok(html.includes("Tipo de cambio: "));
+  assert.ok(html.includes("1 USD = 3.4 PEN"));
+  assert.ok(html.includes("USD 1,520.59"));
   assert.ok(html.includes("TABLA 4:"));
   assert.ok(html.includes("overflow-auto"));
   assert.equal((html.match(/rowSpan="1"/g) || []).length, 2);
@@ -257,7 +263,7 @@ test("excluded products never enter sales, cash, conversion or closer options ac
     );
     assert.equal(pivot.length, 6);
     assert.equal(commercialConversion(pivot[0].equipo), "14.29%");
-    assert.equal(commercialCash([pivot[0].equipo, pivot[0].circulo]), "S/ 5,270.01");
+    assert.equal(commercialCash([pivot[0].equipo, pivot[0].circulo]), "$3,041.18");
     assert.equal(JSON.stringify(original), before);
     assert.ok(
       data.rows.every((row) => ["EQUIPO MILLONARIO", "CIRCULO MILLONARIO"].includes(row.product)),
@@ -324,7 +330,7 @@ test("closer whitelist matches only full normalized names, rejects technical IDs
       parsed.rows.reduce((sum, row) => sum + row.ventas, 0),
       1,
     );
-    assert.equal(commercialCash(rows.flatMap((row) => [row.equipo, row.circulo])), "S/ 5,170.01");
+    assert.equal(commercialCash(rows.flatMap((row) => [row.equipo, row.circulo])), "$1,520.59");
     assert.ok(rows.slice(1).every((row) => row.equipo === undefined && row.circulo === undefined));
     assert.equal(commercialCash([rows[1].equipo, rows[1].circulo]), "—");
     assert.equal(JSON.stringify(raw), before);
@@ -440,4 +446,41 @@ test("global commercial period selects exactly complete months and refuses unsup
     commercialGlobalPeriod({ startDate: "2026-12-01", endDate: "2026-12-31" }, "2026-11-03").months,
     [],
   );
+});
+
+test("unified cash preserves API USD rows, totals and exchange metadata without client conversion", () => {
+  const { formatCommercialUSD, commercialCashDetail } = require("../src/lib/vsl-commercial.ts");
+  const raw = {
+    ...report([
+      metric({ closer: "Fiorela Bernales", cashPEN: 3400, cashUSD: 1497, cashCollectedUSD: 2497 }),
+    ]),
+    currency: "USD",
+    exchangeRate: { penPerUsd: 3.4, description: "1 USD = 3.4 PEN" },
+    totals: { cashCollectedUSD: 2497, cashPEN: 3400, cashUSD: 1497 },
+  };
+  const before = JSON.stringify(raw),
+    parsed = commercialSchema.parse(raw);
+  assert.equal(commercialCash(parsed.rows), "$2,497.00");
+  assert.equal(formatCommercialUSD(parsed.totals.cashCollectedUSD), "$2,497.00");
+  assert.deepEqual(parsed.exchangeRate, raw.exchangeRate);
+  assert.deepEqual(parsed.totals, raw.totals);
+  assert.equal(parsed.currency, "USD");
+  assert.ok(commercialCashDetail(parsed.rows).includes("PEN 3,400.00"));
+  assert.ok(commercialCashDetail(parsed.rows).includes("USD 1,497.00"));
+  assert.equal(JSON.stringify(raw), before);
+  assert.equal(
+    commercialCash([{ ...parsed.rows[0], cashPEN: 999999, cashUSD: 999999 }]),
+    "$2,497.00",
+  );
+  assert.equal(commercialCash([{ ...parsed.rows[0], cashCollectedUSD: undefined }]), "—");
+  for (const cashCollectedUSD of [-1, "2497", NaN, Infinity]) {
+    assert.equal(
+      commercialSchema.safeParse({ ...raw, rows: [{ ...raw.rows[0], cashCollectedUSD }] }).success,
+      false,
+    );
+    assert.equal(
+      commercialSchema.safeParse({ ...raw, totals: { cashCollectedUSD } }).success,
+      false,
+    );
+  }
 });
