@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReportsIndexRouteImport } from './routes/reports.index'
+import { Route as ReportsSettersRouteImport } from './routes/reports.setters'
 import { Route as ReportsVslCalidadRouteImport } from './routes/reports.vsl-calidad'
 import { Route as ReportsVslCitasRouteImport } from './routes/reports.vsl-citas'
 import { Route as ReportsVslClosersRouteImport } from './routes/reports.vsl-closers'
@@ -18,6 +19,7 @@ import { Route as ApiCronVslReconcileRouteImport } from './routes/api.cron.vsl-r
 import { Route as ApiReportsCommercialTrendsRouteImport } from './routes/api.reports.commercial-trends'
 import { Route as ApiReportsConsultoresRouteImport } from './routes/api.reports.consultores'
 import { Route as ApiReportsDailyMeetingsRouteImport } from './routes/api.reports.daily-meetings'
+import { Route as ApiReportsSettersRouteImport } from './routes/api.reports.setters'
 import { Route as ApiReportsVslCalidadRouteImport } from './routes/api.reports.vsl-calidad'
 import { Route as ApiReportsVslCalidadDetailRouteImport } from './routes/api.reports.vsl-calidad-detail'
 import { Route as ApiReportsVslCalidadStatusRouteImport } from './routes/api.reports.vsl-calidad-status'
@@ -36,6 +38,11 @@ const IndexRoute = IndexRouteImport.update({
 const ReportsIndexRoute = ReportsIndexRouteImport.update({
   id: '/reports/',
   path: '/reports/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsSettersRoute = ReportsSettersRouteImport.update({
+  id: '/reports/setters',
+  path: '/reports/setters',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsVslCalidadRoute = ReportsVslCalidadRouteImport.update({
@@ -72,6 +79,11 @@ const ApiReportsConsultoresRoute = ApiReportsConsultoresRouteImport.update({
 const ApiReportsDailyMeetingsRoute = ApiReportsDailyMeetingsRouteImport.update({
   id: '/api/reports/daily-meetings',
   path: '/api/reports/daily-meetings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReportsSettersRoute = ApiReportsSettersRouteImport.update({
+  id: '/api/reports/setters',
+  path: '/api/reports/setters',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiReportsVslCalidadRoute = ApiReportsVslCalidadRouteImport.update({
@@ -127,6 +139,7 @@ const ApiReportsVslClosersReconcileRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/reports/setters': typeof ReportsSettersRoute
   '/reports/vsl-calidad': typeof ReportsVslCalidadRoute
   '/reports/vsl-citas': typeof ReportsVslCitasRoute
   '/reports/vsl-closers': typeof ReportsVslClosersRoute
@@ -135,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/api/reports/commercial-trends': typeof ApiReportsCommercialTrendsRoute
   '/api/reports/consultores': typeof ApiReportsConsultoresRoute
   '/api/reports/daily-meetings': typeof ApiReportsDailyMeetingsRoute
+  '/api/reports/setters': typeof ApiReportsSettersRoute
   '/api/reports/vsl-calidad': typeof ApiReportsVslCalidadRoute
   '/api/reports/vsl-calidad-detail': typeof ApiReportsVslCalidadDetailRoute
   '/api/reports/vsl-calidad-status': typeof ApiReportsVslCalidadStatusRoute
@@ -147,6 +161,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/reports/setters': typeof ReportsSettersRoute
   '/reports/vsl-calidad': typeof ReportsVslCalidadRoute
   '/reports/vsl-citas': typeof ReportsVslCitasRoute
   '/reports/vsl-closers': typeof ReportsVslClosersRoute
@@ -155,6 +170,7 @@ export interface FileRoutesByTo {
   '/api/reports/commercial-trends': typeof ApiReportsCommercialTrendsRoute
   '/api/reports/consultores': typeof ApiReportsConsultoresRoute
   '/api/reports/daily-meetings': typeof ApiReportsDailyMeetingsRoute
+  '/api/reports/setters': typeof ApiReportsSettersRoute
   '/api/reports/vsl-calidad': typeof ApiReportsVslCalidadRoute
   '/api/reports/vsl-calidad-detail': typeof ApiReportsVslCalidadDetailRoute
   '/api/reports/vsl-calidad-status': typeof ApiReportsVslCalidadStatusRoute
@@ -168,6 +184,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/reports/setters': typeof ReportsSettersRoute
   '/reports/vsl-calidad': typeof ReportsVslCalidadRoute
   '/reports/vsl-citas': typeof ReportsVslCitasRoute
   '/reports/vsl-closers': typeof ReportsVslClosersRoute
@@ -176,6 +193,7 @@ export interface FileRoutesById {
   '/api/reports/commercial-trends': typeof ApiReportsCommercialTrendsRoute
   '/api/reports/consultores': typeof ApiReportsConsultoresRoute
   '/api/reports/daily-meetings': typeof ApiReportsDailyMeetingsRoute
+  '/api/reports/setters': typeof ApiReportsSettersRoute
   '/api/reports/vsl-calidad': typeof ApiReportsVslCalidadRoute
   '/api/reports/vsl-calidad-detail': typeof ApiReportsVslCalidadDetailRoute
   '/api/reports/vsl-calidad-status': typeof ApiReportsVslCalidadStatusRoute
@@ -190,6 +208,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/reports/setters'
     | '/reports/vsl-calidad'
     | '/reports/vsl-citas'
     | '/reports/vsl-closers'
@@ -198,6 +217,7 @@ export interface FileRouteTypes {
     | '/api/reports/commercial-trends'
     | '/api/reports/consultores'
     | '/api/reports/daily-meetings'
+    | '/api/reports/setters'
     | '/api/reports/vsl-calidad'
     | '/api/reports/vsl-calidad-detail'
     | '/api/reports/vsl-calidad-status'
@@ -210,6 +230,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/reports/setters'
     | '/reports/vsl-calidad'
     | '/reports/vsl-citas'
     | '/reports/vsl-closers'
@@ -218,6 +239,7 @@ export interface FileRouteTypes {
     | '/api/reports/commercial-trends'
     | '/api/reports/consultores'
     | '/api/reports/daily-meetings'
+    | '/api/reports/setters'
     | '/api/reports/vsl-calidad'
     | '/api/reports/vsl-calidad-detail'
     | '/api/reports/vsl-calidad-status'
@@ -230,6 +252,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/reports/setters'
     | '/reports/vsl-calidad'
     | '/reports/vsl-citas'
     | '/reports/vsl-closers'
@@ -238,6 +261,7 @@ export interface FileRouteTypes {
     | '/api/reports/commercial-trends'
     | '/api/reports/consultores'
     | '/api/reports/daily-meetings'
+    | '/api/reports/setters'
     | '/api/reports/vsl-calidad'
     | '/api/reports/vsl-calidad-detail'
     | '/api/reports/vsl-calidad-status'
@@ -251,6 +275,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ReportsSettersRoute: typeof ReportsSettersRoute
   ReportsVslCalidadRoute: typeof ReportsVslCalidadRoute
   ReportsVslCitasRoute: typeof ReportsVslCitasRoute
   ReportsVslClosersRoute: typeof ReportsVslClosersRoute
@@ -259,6 +284,7 @@ export interface RootRouteChildren {
   ApiReportsCommercialTrendsRoute: typeof ApiReportsCommercialTrendsRoute
   ApiReportsConsultoresRoute: typeof ApiReportsConsultoresRoute
   ApiReportsDailyMeetingsRoute: typeof ApiReportsDailyMeetingsRoute
+  ApiReportsSettersRoute: typeof ApiReportsSettersRoute
   ApiReportsVslCalidadRoute: typeof ApiReportsVslCalidadRoute
   ApiReportsVslCalidadDetailRoute: typeof ApiReportsVslCalidadDetailRoute
   ApiReportsVslCalidadStatusRoute: typeof ApiReportsVslCalidadStatusRoute
@@ -282,6 +308,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports/'
       preLoaderRoute: typeof ReportsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports/setters': {
+      id: '/reports/setters'
+      path: '/reports/setters'
+      fullPath: '/reports/setters'
+      preLoaderRoute: typeof ReportsSettersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports/vsl-calidad': {
@@ -331,6 +364,13 @@ declare module '@tanstack/react-router' {
       path: '/api/reports/daily-meetings'
       fullPath: '/api/reports/daily-meetings'
       preLoaderRoute: typeof ApiReportsDailyMeetingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/reports/setters': {
+      id: '/api/reports/setters'
+      path: '/api/reports/setters'
+      fullPath: '/api/reports/setters'
+      preLoaderRoute: typeof ApiReportsSettersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/reports/vsl-calidad': {
@@ -423,6 +463,7 @@ const ApiReportsVslClosersRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ReportsSettersRoute: ReportsSettersRoute,
   ReportsVslCalidadRoute: ReportsVslCalidadRoute,
   ReportsVslCitasRoute: ReportsVslCitasRoute,
   ReportsVslClosersRoute: ReportsVslClosersRoute,
@@ -431,6 +472,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiReportsCommercialTrendsRoute: ApiReportsCommercialTrendsRoute,
   ApiReportsConsultoresRoute: ApiReportsConsultoresRoute,
   ApiReportsDailyMeetingsRoute: ApiReportsDailyMeetingsRoute,
+  ApiReportsSettersRoute: ApiReportsSettersRoute,
   ApiReportsVslCalidadRoute: ApiReportsVslCalidadRoute,
   ApiReportsVslCalidadDetailRoute: ApiReportsVslCalidadDetailRoute,
   ApiReportsVslCalidadStatusRoute: ApiReportsVslCalidadStatusRoute,

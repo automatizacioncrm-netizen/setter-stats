@@ -32,6 +32,7 @@ export default defineConfig({
             "APPS_SCRIPT_CITAS_URL",
             "APPS_SCRIPT_CONSULTORES_URL",
             "APPS_SCRIPT_URL_VSL",
+            "APPS_SCRIPT_URL_SETTERS",
           ]) {
             if (process.env[key] === undefined && env[key]) process.env[key] = env[key];
           }

@@ -235,6 +235,16 @@ const reportSchema = z.object({
   success: z.literal(true),
   generatedAt: z.string().datetime({ offset: true }),
   timeZone: z.literal("America/Lima"),
+  dataThrough: z.string().refine(validDate).optional(),
+  periods: z
+    .array(
+      z.object({
+        label: z.string().min(1),
+        from: z.string().refine(validDate),
+        to: z.string().refine(validDate),
+      }),
+    )
+    .optional(),
   quality: table(15, [0]),
   qualityOrganico: ligLeadSchema.optional(),
   qualityLIG: ligLeadSchema.optional(),

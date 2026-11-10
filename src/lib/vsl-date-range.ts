@@ -8,7 +8,8 @@ export type DatePreset =
   | "thisMonth"
   | "lastMonth"
   | "custom"
-  | `month:${number}`;
+  | `month:${number}`
+  | `month:${number}:${number}`;
 const DAY = 86400000;
 export function validDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -104,9 +105,10 @@ export function rangeForPreset(
       if (!custom) throw new Error("Aplica un rango personalizado.");
       return customRange(custom.startDate, custom.endDate);
     default: {
-      const month = Number(preset.split(":")[1]);
+      const [, monthValue, yearValue = limaDay(now).slice(0, 4)] = preset.split(":");
+      const month = Number(monthValue);
       if (!Number.isInteger(month) || month < 1 || month > 12) throw new Error("Mes inválido.");
-      return monthOfYear(Number(limaDay(now).slice(0, 4)), month);
+      return monthOfYear(Number(yearValue), month);
     }
   }
 }

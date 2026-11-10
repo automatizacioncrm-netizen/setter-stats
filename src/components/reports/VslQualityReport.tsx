@@ -9,10 +9,11 @@ import { VslDateFilter } from "./VslDateFilter";
 import {
   rangeForPreset,
   rangeLabel,
-  customRange,
+  limaDay,
   type DatePreset,
   type DateRange,
 } from "@/lib/vsl-date-range";
+import { managementPeriods, managementRange, orderManagementRows } from "@/lib/management-period";
 import { useVslSync } from "@/hooks/use-vsl-sync";
 import { syncLabel } from "@/lib/vsl-sync";
 import { MonthlySurveyTable } from "./MonthlySurveyTable";
@@ -33,14 +34,20 @@ export function ReportTable({
   table,
   frozen,
   onDetail,
+  authoritative = false,
 }: {
   title: string;
   table: QualityReport["quality"];
   frozen: number;
   onDetail?: (selection: SurveySelection, trigger: HTMLElement) => void;
+  authoritative?: boolean;
 }) {
   const survey = frozen === 2;
-  const monthly = survey ? undefined : presentMonthlyLeadRows(table.rows, "vsl");
+  const monthly = survey
+    ? undefined
+    : authoritative
+      ? { rows: table.rows, error: undefined }
+      : presentMonthlyLeadRows(table.rows, "vsl");
   const rows = survey
     ? groupSurveyRows(table.rows)
     : (monthly?.rows ?? []).map((row) => ({
@@ -167,66 +174,109 @@ export function ReportTable({
     </section>
   );
 }
+
+async function loadManagementReport(signal: AbortSignal, range?: DateRange) {
+  const params = new URLSearchParams(range ?? {});
+  const body = await fetchVslReportJson(
+    "/api/reports/vsl-calidad" + (params.size ? "?" + params : ""),
+    signal,
+  );
+  return qualityReportSchema.parse(body);
+}
+
 export function VslQualityReport() {
   const [preset, setPreset] = useState<DatePreset>("all"),
     [customStart, setCustomStart] = useState(""),
     [customEnd, setCustomEnd] = useState(""),
     [filterError, setFilterError] = useState("");
-  const [applied, setApplied] = useState<{ preset: DatePreset; range?: DateRange | undefined }>(
-      () => ({
-        preset: "all",
-      }),
-    ),
+  const [applied, setApplied] = useState<{
+      preset: DatePreset;
+      range?: DateRange;
+      revision: number;
+    }>({ preset: "all", revision: 0 }),
     [revision, setRevision] = useState(0);
-  const [lastValid, setLastValid] = useState<QualityReport | null>(null);
-  const sync = useVslSync(() => {
-    setApplied((current) => ({ ...current, range: rangeForPreset(current.preset, current.range) }));
-    setRevision((value) => value + 1);
-  });
+  const [today, setToday] = useState(limaDay);
+  useEffect(() => {
+    const updateDay = () => setToday(limaDay());
+    const timer = setInterval(updateDay, 30_000);
+    window.addEventListener("focus", updateDay);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", updateDay);
+    };
+  }, []);
+  const now = new Date(today + "T12:00:00-05:00");
+  const activeRange = managementRange(applied.preset, applied.range, now);
+  const commercialRange = rangeForPreset(applied.preset, applied.range, now);
+  const sync = useVslSync(() => setRevision((value) => value + 1));
   const selectPreset = (value: DatePreset) => {
     setPreset(value);
     setFilterError("");
+    if (value === "all") void historical.refetch();
     if (value !== "custom") {
-      setApplied({ preset: value, range: rangeForPreset(value) });
-      setRevision((current) => current + 1);
+      setApplied((current) => ({ preset: value, revision: current.revision + 1 }));
     }
   };
   const applyCustom = () => {
     try {
-      setApplied({ preset: "custom", range: customRange(customStart, customEnd) });
-      setRevision((current) => current + 1);
+      const range = { startDate: customStart, endDate: customEnd };
+      managementRange("custom", range);
+      setApplied((current) => ({ preset: "custom", range, revision: current.revision + 1 }));
       setFilterError("");
     } catch (error) {
       setFilterError(error instanceof Error ? error.message : "Rango inválido.");
     }
   };
-  const query = useQuery({
-    queryKey: [
-      "vsl-quality-report",
-      "server-range-funnels-v8",
-      applied.range?.startDate ?? "all",
-      applied.range?.endDate ?? "all",
-      revision,
-    ],
+  const historical = useQuery({
+    queryKey: ["vsl-quality-report", "management-history", today, revision],
     queryFn: async ({ signal }) => {
-      const params = new URLSearchParams(applied.range ?? {});
-      const body = await fetchVslReportJson(
-        "/api/reports/vsl-calidad" + (params.size ? "?" + params : ""),
-        signal,
-      );
-      return qualityReportSchema.parse(body);
+      const report = await loadManagementReport(signal);
+      if (!report.periods || !report.dataThrough)
+        throw new Error(
+          "Apps Script no informó los períodos y el corte del histórico de Gerencia.",
+        );
+      const periods = managementPeriods(report.periods, report.dataThrough, today);
+      const order = <T extends QualityReport["quality"]>(table: T): T => ({
+        ...table,
+        rows: orderManagementRows(table.rows, periods),
+      });
+      return {
+        ...report,
+        periods,
+        quality: order(report.quality),
+        qualityOrganico: report.qualityOrganico && order(report.qualityOrganico),
+        qualityLIG: report.qualityLIG && order(report.qualityLIG),
+        surveys: order(report.surveys),
+        surveyStatus: order(report.surveyStatus),
+      };
     },
     retry: false,
     staleTime: Infinity,
+    placeholderData: (previous) => previous,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const filtered = useQuery({
+    queryKey: [
+      "vsl-quality-report",
+      "management-range",
+      activeRange?.startDate,
+      activeRange?.endDate,
+      revision,
+      applied.revision,
+    ],
+    queryFn: ({ signal }) => loadManagementReport(signal, activeRange),
+    enabled: !!activeRange,
+    retry: false,
     gcTime: 300000,
     refetchOnMount: "always",
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-  useEffect(() => {
-    if (query.data) setLastValid(query.data);
-  }, [query.data]);
-  const data = query.data ?? lastValid;
+  const query = activeRange ? filtered : historical;
+  const data =
+    query.isError || query.isFetching || query.isPlaceholderData ? undefined : query.data;
   const warning = sync.state?.warning;
   const commercialFetching = useIsFetching({ queryKey: ["vsl-commercial"] }) > 0;
   return (
@@ -256,7 +306,9 @@ export function VslQualityReport() {
         onApply={applyCustom}
         onClear={() => selectPreset("all")}
         error={filterError}
-        activeRange={applied.range}
+        activeRange={data?.filter ?? activeRange}
+        periods={historical.data?.periods ?? []}
+        today={today}
       />
       {(sync.state || sync.submitting) && (
         <section
@@ -294,7 +346,7 @@ export function VslQualityReport() {
       <LoadingModal
         open={query.isFetching || commercialFetching}
         title="Cargando datos…"
-        description={`Consultando los reportes para ${rangeLabel(applied.range)}. Espera un momento.`}
+        description={`Consultando los reportes para ${rangeLabel(activeRange)}. Espera un momento.`}
       />
       {query.isError && (
         <div
@@ -311,14 +363,13 @@ export function VslQualityReport() {
           </button>
         </div>
       )}
-      {!query.data && data && (
-        <p className="text-sm text-amber-700">
-          Se conservan los últimos datos válidos de: {rangeLabel(data.filter)}. Aún no corresponden
-          al nuevo filtro solicitado.
-        </p>
-      )}
       {data && (
         <>
+          {!activeRange && data.dataThrough && (
+            <p className="text-sm text-muted-foreground">
+              Datos hasta el {data.dataThrough.split("-").reverse().join("/")} (Lima)
+            </p>
+          )}
           <p className="text-sm text-muted-foreground">
             Última actualización del servidor:{" "}
             {new Date(data.generatedAt).toLocaleString("es-PE", { timeZone: data.timeZone })}{" "}
@@ -345,10 +396,12 @@ export function VslQualityReport() {
                 title="TABLA 1.1: ANÁLISIS DE CALIDAD DE LEADS DEL EMBUDO VSL | CLOSER"
                 table={data.quality}
                 frozen={1}
+                authoritative={!activeRange}
               />
               <FunnelLeadQualityTable
                 title="TABLA 1.2: ANÁLISIS DE CALIDAD DE LEADS DEL EMBUDO ORGÁNICO"
                 table={data.qualityOrganico}
+                authoritative={!activeRange}
                 filtered={!!data.filter}
                 periodLabel={data.filter ? rangeLabel(data.filter) : undefined}
               />
@@ -366,14 +419,19 @@ export function VslQualityReport() {
             table={data.appointmentsByFunnel}
             error={data.appointmentsByFunnelError}
           />
-          <VslCommercialTable range={applied.range} refreshKey={String(revision)} />
-          {(data.diagnostics?.warnings ?? []).map((warning, index) => (
-            <p key={index} className="text-sm text-muted-foreground">
-              {warning}
-            </p>
-          ))}
         </>
       )}
+      {(historical.data || filtered.data) && (
+        <VslCommercialTable
+          range={commercialRange}
+          refreshKey={`${revision}:${applied.revision}`}
+        />
+      )}
+      {(data?.diagnostics?.warnings ?? []).map((warning, index) => (
+        <p key={index} className="text-sm text-muted-foreground">
+          {warning}
+        </p>
+      ))}
     </main>
   );
 }

@@ -445,6 +445,82 @@ test("real ISO month periods are validated and joined without timezone conversio
   assert.equal(data.surveys.rows[0][0], f.surveys.rows[0][0]);
 });
 const dates = require("../src/lib/vsl-date-range.ts");
+const {
+  managementPeriods,
+  managementRange,
+  orderManagementRows,
+} = require("../src/lib/management-period.ts");
+
+test("Gerencia uses API months across Lima month and year boundaries without changing metrics", () => {
+  const months = [
+    ["JULIO", "2026-07-01", "2026-07-31"],
+    ["AGOSTO", "2026-08-01", "2026-08-31"],
+    ["SEPTIEMBRE", "2026-09-01", "2026-09-30"],
+    ["OCTUBRE", "2026-10-01", "2026-10-31"],
+    ["NOVIEMBRE", "2026-11-01", "2026-11-30"],
+    ["DICIEMBRE", "2026-12-01", "2026-12-31"],
+    ["ENERO", "2027-01-01", "2027-01-31"],
+  ];
+  for (const [instant, cutoff, count] of [
+    ["2026-11-11T02:00:00Z", "2026-11-10", 5],
+    ["2026-12-01T05:00:00Z", "2026-12-01", 6],
+    ["2027-01-05T05:00:00Z", "2027-01-05", 7],
+  ]) {
+    const today = dates.limaDay(new Date(instant));
+    assert.equal(today, cutoff);
+    const periods = months.slice(0, count).map(([label, from, to], index) => ({
+      label,
+      from,
+      to: index === count - 1 ? cutoff : to,
+    }));
+    const ordered = managementPeriods(periods, cutoff, today);
+    assert.equal(ordered.length, count);
+    assert.equal(ordered[0].from, months[count - 1][1]);
+    assert.equal(ordered[0].to, cutoff);
+    assert.equal(ordered.at(-1).from, "2026-07-01");
+    const rows = periods.map(({ label }, index) => [label, index, 0.125, "CONFIRMADO"]);
+    assert.deepEqual(
+      orderManagementRows(rows, ordered).map((row) => row.slice(1)),
+      rows.toReversed().map((row) => row.slice(1)),
+    );
+    assert.throws(() => orderManagementRows([["FEBRERO", 1]], ordered), /período confirmado/);
+  }
+});
+
+test("Gerencia caps calendar presets in Lima and rejects invalid custom dates", () => {
+  const now = new Date("2026-11-11T02:00:00Z");
+  assert.deepEqual(managementRange("month:11:2026", undefined, now), {
+    startDate: "2026-11-01",
+    endDate: "2026-11-10",
+  });
+  assert.deepEqual(managementRange("thisMonth", undefined, now), {
+    startDate: "2026-11-01",
+    endDate: "2026-11-10",
+  });
+  assert.deepEqual(managementRange("month:10:2026", undefined, now), {
+    startDate: "2026-10-01",
+    endDate: "2026-10-31",
+  });
+  assert.equal(managementRange("thisWeek", undefined, now).endDate, "2026-11-10");
+  assert.equal(
+    managementRange("month:2:2028", undefined, new Date("2028-03-05T05:00:00Z")).endDate,
+    "2028-02-29",
+  );
+  const custom = { startDate: "2026-10-20", endDate: "2026-11-04" };
+  assert.deepEqual(managementRange("custom", custom, now), custom);
+  assert.throws(
+    () => managementRange("custom", { ...custom, endDate: "2026-11-11" }, now),
+    /posterior a hoy/,
+  );
+  assert.throws(
+    () => managementRange("custom", { ...custom, endDate: "2026-10-19" }, now),
+    /posterior a la fecha final/,
+  );
+  assert.throws(
+    () => managementRange("custom", { ...custom, startDate: "2025-11-03" }, now),
+    /366/,
+  );
+});
 const { syncLabel } = require("../src/lib/vsl-sync.ts");
 const { vslSyncStartApi, vslSyncStatusApi } = require("../src/server/api/vsl-sync.api.server.ts");
 test("date presets use Lima, inclusive Monday-Sunday weeks, leap dates and year transitions", () => {

@@ -1,5 +1,6 @@
 import { validateAppointmentsByFunnel } from "../../lib/appointments-by-funnel";
-import { validateRange, type DateRange } from "../../lib/vsl-date-range";
+import { limaDay, validateRange, type DateRange } from "../../lib/vsl-date-range";
+import { managementPeriods } from "../../lib/management-period";
 import { fetchVslJson, VslTransportError } from "../adapters/vsl-quality.adapter.server";
 import { qualityReportSchema } from "../../lib/vsl-quality";
 let operational = false;
@@ -33,11 +34,17 @@ async function loadReport(range?: DateRange): Promise<Response> {
       );
     if (!range && result.data.filter)
       throw new Error("La API devolvió un filtro inesperado para Todo el histórico.");
+    const periods =
+      !range && result.data.periods && result.data.dataThrough
+        ? managementPeriods(result.data.periods, result.data.dataThrough, limaDay())
+        : undefined;
+    const oldest = periods?.at(-1);
+    const newest = periods?.[0];
     const funnel = validateAppointmentsByFunnel(
       raw && typeof raw === "object" && "appointmentsByFunnel" in raw
         ? raw.appointmentsByFunnel
         : undefined,
-      range,
+      range ?? (oldest && newest ? { startDate: oldest.from, endDate: newest.to } : undefined),
     );
     operational = true;
     return Response.json(

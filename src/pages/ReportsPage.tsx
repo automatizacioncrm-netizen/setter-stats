@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { consultantsQueryKey, fetchConsultants } from "@/lib/consultants-query";
 import { ReportCard } from "@/components/reports/ReportCard";
+import { settersReportTitle } from "@/lib/setters-report";
 
 export function ReportsPage() {
   const consultants = useQuery({
@@ -44,6 +45,12 @@ export function ReportsPage() {
             pendingLabel="Por verificar"
             accessible
             to="/reports/vsl-citas"
+          />
+          <ReportCard
+            title={settersReportTitle}
+            description="Llamadas, seteos EM/CM, agendamientos y call confirmer por setter"
+            available
+            to="/reports/setters"
           />
         </div>
       </div>

@@ -5,7 +5,7 @@ interface ReportCardProps {
   title: string;
   description: string;
   available: boolean;
-  to?: "/reports/vsl-closers" | "/reports/vsl-citas" | "/reports/vsl-calidad";
+  to?: "/reports/vsl-closers" | "/reports/vsl-citas" | "/reports/vsl-calidad" | "/reports/setters";
   accessible?: boolean;
   pendingLabel?: string;
   error?: string | undefined;
