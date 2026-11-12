@@ -336,8 +336,16 @@ export function ConsultantOccupancy() {
   const users =
     data?.usuarios.filter((user) => !estructura || user.estructuras.includes(estructura)) ?? [];
   const userName = data?.filtros.usuarioNombre;
+  const bonus = data?.filtros.usuario && !data.filtros.estructura ? data.bonoVisita : undefined;
+  const bonusColumn =
+    bonus &&
+    (bonus.total.horasAgendadas > 0 || bonus.periodos.some((period) => period.horasAgendadas > 0))
+      ? { ...bonus, nombre: "BONO DE VISITA" }
+      : undefined;
   const combined =
-    data?.filtros.usuario && !data.filtros.estructura && data.estructuras.length >= 2
+    data?.filtros.usuario &&
+    !data.filtros.estructura &&
+    (data.estructuras.length >= 2 || bonusColumn)
       ? data.combinado
       : undefined;
   const unassigned = data?.diagnostico.eventosSinEstructuraEnLaSemana;
@@ -561,16 +569,22 @@ export function ConsultantOccupancy() {
         {data && !current?.error && (
           <div aria-busy={loading} className={loading ? "space-y-4 opacity-50" : "space-y-4"}>
             <p className="pr-24 text-sm font-semibold">{data.rango.label}</p>
-            {data.estructuras.every(({ total }) => total.horasAgendadas === 0) && (
+            {(combined
+              ? combined.total.horasAgendadas === 0
+              : data.estructuras.every(({ total }) => total.horasAgendadas === 0)) && (
               <p className="text-sm text-muted-foreground">Sin eventos agendados en este período</p>
             )}
             {combined ? (
               <StructureCard
                 {...combined}
-                nombre={`${userName} · ${data.estructuras.map(({ nombre }) => nombre).join(" + ")}`}
+                nombre={
+                  data.estructuras.length >= 2
+                    ? `${userName} · ${data.estructuras.map(({ nombre }) => nombre).join(" + ")}`
+                    : [data.estructuras[0]?.nombre, userName].filter(Boolean).join(" · ")
+                }
                 grouping={data.rango.agrupacion}
                 user={null}
-                breakdown={data.estructuras}
+                breakdown={bonusColumn ? [...data.estructuras, bonusColumn] : data.estructuras}
               />
             ) : (
               data.estructuras.map((structure) => (
@@ -591,10 +605,19 @@ export function ConsultantOccupancy() {
               )}
               <p>
                 Si dos eventos se cruzan en el mismo horario, esa hora se cuenta una sola vez
-                {combined
-                  ? ", por eso el total puede ser menor que la suma de las estructuras."
-                  : "."}
+                {combined ? ", por eso el total puede ser menor que la suma de las columnas." : "."}
               </p>
+              {!data.filtros.usuario && !!data.bonosPorConsultor?.length && (
+                <p>
+                  Bonos de visita (no se cuentan en ninguna estructura):{" "}
+                  {data.bonosPorConsultor
+                    .map(
+                      ({ nombre, horas, eventos }) =>
+                        `${nombre} ${formatHours(horas)} (${eventos} visitas)`,
+                    )
+                    .join(" · ")}
+                </p>
+              )}
               {unassigned && (unassigned.horas > 0 || unassigned.eventos > 0) && (
                 <p>
                   {unassigned.eventos} eventos ({formatHours(unassigned.horas)}) de este período no

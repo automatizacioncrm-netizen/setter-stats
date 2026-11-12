@@ -37,6 +37,16 @@ export const occupancySchema = z.object({
   meses: z.array(z.object({ valor: z.string(), label: z.string(), conDatos: z.boolean() })),
   estructuras: z.array(structure),
   combinado: occupancy.nullish(),
+  bonoVisita: occupancy.nullish(),
+  bonosPorConsultor: z
+    .array(
+      z.object({
+        nombre: z.string(),
+        horas: z.number(),
+        eventos: z.number(),
+      }),
+    )
+    .nullish(),
   diagnostico: z.object({
     eventosSinEstructuraEnLaSemana: events,
     eventosClasificadosPorNombreEnLaSemana: events,
