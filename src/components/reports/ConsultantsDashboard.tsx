@@ -10,6 +10,7 @@ import {
   type ConsultantsReport,
 } from "@/lib/consultants-report";
 import { consultantsQueryKey, fetchConsultants } from "@/lib/consultants-query";
+import { ConsultantOccupancy } from "./ConsultantOccupancy";
 const areaColumns = ["MES", "RRHH", "MKTG", "FINANZAS", "COMERCIAL/EMPRESARIAL"] as const;
 const entrepreneurColumns = ["NOMBRE", ...consultantMonths, "TOTAL"] as const;
 export function ConsultantsTables({ data }: { data: ConsultantsReport }) {
@@ -143,6 +144,7 @@ export function ConsultantsDashboard() {
         ← Reportes comerciales
       </Link>
       <h1 className="text-xl font-semibold">CONSULTOR | CITAS Y CALENDARIOS</h1>
+      <ConsultantOccupancy />
       {query.isFetching && (
         <div role="status" className="rounded-xl border border-border bg-white p-6 shadow-card">
           Cargando horas de consultoría…

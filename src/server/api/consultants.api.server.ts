@@ -1,6 +1,7 @@
 import { consultantsSchema } from "../../lib/consultants-report";
+import { occupancySchema } from "../../lib/consultant-occupancy";
 let pending: Promise<Response> | undefined;
-async function loadConsultants() {
+async function loadConsultants(occupancy?: { params: URLSearchParams; signal: AbortSignal }) {
   const headers = { "Cache-Control": "no-store" };
   try {
     const configured = process.env["APPS_SCRIPT_CONSULTORES_URL"];
@@ -22,7 +23,21 @@ async function loadConsultants() {
     let response: Response;
     try {
       // Public Web App: URL unchanged, GET without headers, parameters or credentials.
-      response = await fetch(configured, { method: "GET", signal: AbortSignal.timeout(30000) });
+      const timeout = AbortSignal.timeout(30000);
+      if (occupancy) {
+        url.searchParams.set("action", "ocupacion");
+        for (const key of ["week", "mes", "desde", "hasta", "estructura", "usuario", "agrupar"]) {
+          const value = occupancy.params.get(key);
+          if (value) url.searchParams.set(key, value);
+        }
+        response = await fetch(url, {
+          method: "GET",
+          redirect: "follow",
+          signal: AbortSignal.any([timeout, occupancy.signal]),
+        });
+      } else {
+        response = await fetch(configured, { method: "GET", signal: timeout });
+      }
     } catch {
       throw new Error("No se pudo conectar con consultores o se agotó el tiempo de espera.");
     }
@@ -33,6 +48,19 @@ async function loadConsultants() {
       raw = await response.json();
     } catch {
       throw new Error("El servicio de consultores devolvió JSON vacío o inválido.");
+    }
+    if (occupancy) {
+      const parsed = occupancySchema.safeParse(raw);
+      if (parsed.success) return Response.json(parsed.data, { headers });
+      return Response.json(
+        {
+          error:
+            raw && typeof raw === "object" && "error" in raw && typeof raw.error === "string"
+              ? raw.error
+              : "No se pudo cargar la ocupación",
+        },
+        { status: 502, headers },
+      );
     }
     if (raw && typeof raw === "object" && "success" in raw && raw.success === false)
       throw new Error("El servicio de consultores informó que no pudo generar el reporte.");
@@ -48,14 +76,23 @@ async function loadConsultants() {
   } catch (error) {
     return Response.json(
       {
-        error:
-          error instanceof Error ? error.message : "No se pudo cargar el reporte de consultores.",
+        error: occupancy
+          ? "No se pudo cargar la ocupación"
+          : error instanceof Error
+            ? error.message
+            : "No se pudo cargar el reporte de consultores.",
       },
       { status: 502, headers },
     );
   }
 }
-export async function consultantsApi() {
+export async function consultantsApi(request?: Request) {
+  if (request) {
+    const params = new URL(request.url).searchParams;
+    if (params.get("action") === "ocupacion") {
+      return loadConsultants({ params, signal: request.signal });
+    }
+  }
   pending ??= loadConsultants().finally(() => {
     pending = undefined;
   });
