@@ -39,12 +39,26 @@ function StructureCard({
   total,
   grouping,
   user,
-}: OccupancyStructure & { grouping: "dia" | "semana"; user: string | null | undefined }) {
+  breakdown = [],
+}: OccupancyStructure & {
+  grouping: "dia" | "semana";
+  user: string | null | undefined;
+  breakdown?: OccupancyStructure[];
+}) {
   const maxHours = Math.max(
     8,
     ...periodos.flatMap((day) => [day.horasDisponibles, day.horasAgendadas]),
   );
-  const chartData = periodos.map((day) => ({ ...day, ocupacion: formatOccupancy(day.porcentaje) }));
+  const chartData = periodos.map((day, index) => ({
+    ...day,
+    ocupacion: formatOccupancy(day.porcentaje),
+    desglose: breakdown
+      .map(
+        (structure) =>
+          `${structure.nombre} ${formatHours(structure.periodos[index]!.horasAgendadas)}`,
+      )
+      .join(" · "),
+  }));
 
   return (
     <article className="min-w-0 space-y-4 rounded-xl border border-border bg-white p-4 shadow-card">
@@ -69,10 +83,19 @@ function StructureCard({
                   {label}
                 </th>
               ))}
+              {breakdown.map(({ nombre }) => (
+                <th
+                  key={nombre}
+                  scope="col"
+                  className="px-3 py-2 text-right text-xs text-muted-foreground"
+                >
+                  {nombre}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {periodos.map((day) => (
+            {periodos.map((day, index) => (
               <tr key={day.desde} className="border-b border-border">
                 <th scope="row" className="px-3 py-2 text-left font-medium">
                   {day.etiqueta}
@@ -80,6 +103,14 @@ function StructureCard({
                 <td className="px-3 py-2 text-right">{formatHours(day.horasDisponibles)}</td>
                 <td className="px-3 py-2 text-right">{formatHours(day.horasAgendadas)}</td>
                 <td className="px-3 py-2 text-right">{formatOccupancy(day.porcentaje)}</td>
+                {breakdown.map((structure) => (
+                  <td
+                    key={structure.nombre}
+                    className="px-3 py-2 text-right text-xs text-muted-foreground"
+                  >
+                    {formatHours(structure.periodos[index]!.horasAgendadas)}
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
@@ -91,6 +122,14 @@ function StructureCard({
               <td className="px-3 py-2 text-right">{formatHours(total.horasDisponibles)}</td>
               <td className="px-3 py-2 text-right">{formatHours(total.horasAgendadas)}</td>
               <td className="px-3 py-2 text-right">{formatOccupancy(total.porcentaje)}</td>
+              {breakdown.map((structure) => (
+                <td
+                  key={structure.nombre}
+                  className="px-3 py-2 text-right text-xs text-muted-foreground"
+                >
+                  {formatHours(structure.total.horasAgendadas)}
+                </td>
+              ))}
             </tr>
           </tfoot>
         </table>
@@ -118,7 +157,14 @@ function StructureCard({
             />
             <Tooltip
               formatter={(value: number) => formatHours(value)}
-              labelFormatter={(label, items) => `${label} · ${items[0]?.payload.ocupacion ?? ""}`}
+              labelFormatter={(label, items) => (
+                <>
+                  {label} · {items[0]?.payload.ocupacion ?? ""}
+                  {items[0]?.payload.desglose && (
+                    <span className="block text-muted-foreground">{items[0].payload.desglose}</span>
+                  )}
+                </>
+              )}
             />
             <Legend />
             <Bar
@@ -290,6 +336,10 @@ export function ConsultantOccupancy() {
   const users =
     data?.usuarios.filter((user) => !estructura || user.estructuras.includes(estructura)) ?? [];
   const userName = data?.filtros.usuarioNombre;
+  const combined =
+    data?.filtros.usuario && !data.filtros.estructura && data.estructuras.length >= 2
+      ? data.combinado
+      : undefined;
   const unassigned = data?.diagnostico.eventosSinEstructuraEnLaSemana;
   const classified = data?.diagnostico.eventosClasificadosPorNombreEnLaSemana;
 
@@ -514,22 +564,37 @@ export function ConsultantOccupancy() {
             {data.estructuras.every(({ total }) => total.horasAgendadas === 0) && (
               <p className="text-sm text-muted-foreground">Sin eventos agendados en este período</p>
             )}
-            {data.estructuras.map((structure) => (
+            {combined ? (
               <StructureCard
-                key={structure.nombre}
-                {...structure}
+                {...combined}
+                nombre={`${userName} · ${data.estructuras.map(({ nombre }) => nombre).join(" + ")}`}
                 grouping={data.rango.agrupacion}
-                user={userName}
+                user={null}
+                breakdown={data.estructuras}
               />
-            ))}
+            ) : (
+              data.estructuras.map((structure) => (
+                <StructureCard
+                  key={structure.nombre}
+                  {...structure}
+                  grouping={data.rango.agrupacion}
+                  user={userName}
+                />
+              ))
+            )}
             <div className="space-y-1 text-sm text-muted-foreground">
-              {data.combinado && (
+              {!combined && data.combinado && (
                 <p>
                   {userName ? `Carga total de ${userName}` : "Todas las estructuras juntas"}:{" "}
                   {summary(data.combinado.total)}
                 </p>
               )}
-              <p>Si dos eventos se cruzan en el mismo horario, esa hora se cuenta una sola vez.</p>
+              <p>
+                Si dos eventos se cruzan en el mismo horario, esa hora se cuenta una sola vez
+                {combined
+                  ? ", por eso el total puede ser menor que la suma de las estructuras."
+                  : "."}
+              </p>
               {unassigned && (unassigned.horas > 0 || unassigned.eventos > 0) && (
                 <p>
                   {unassigned.eventos} eventos ({formatHours(unassigned.horas)}) de este período no

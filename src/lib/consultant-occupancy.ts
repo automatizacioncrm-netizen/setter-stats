@@ -24,7 +24,11 @@ export const occupancySchema = z.object({
     agrupacion: grouping,
     esActual: z.boolean(),
   }),
-  filtros: z.object({ usuarioNombre: z.string().nullish() }),
+  filtros: z.object({
+    estructura: z.string().nullish(),
+    usuario: z.string().nullish(),
+    usuarioNombre: z.string().nullish(),
+  }),
   estructurasDisponibles: z.array(z.string()),
   usuarios: z.array(
     z.object({ key: z.string(), nombre: z.string(), estructuras: z.array(z.string()) }),
@@ -32,7 +36,7 @@ export const occupancySchema = z.object({
   semanas: z.array(week.extend({ conDatos: z.boolean() })),
   meses: z.array(z.object({ valor: z.string(), label: z.string(), conDatos: z.boolean() })),
   estructuras: z.array(structure),
-  combinado: z.object({ total: totals }).nullish(),
+  combinado: occupancy.nullish(),
   diagnostico: z.object({
     eventosSinEstructuraEnLaSemana: events,
     eventosClasificadosPorNombreEnLaSemana: events,

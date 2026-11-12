@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
   consultantMonths,
@@ -9,7 +8,6 @@ import {
   type ConsultantSort,
   type ConsultantsReport,
 } from "@/lib/consultants-report";
-import { consultantsQueryKey, fetchConsultants } from "@/lib/consultants-query";
 import { ConsultantOccupancy } from "./ConsultantOccupancy";
 const areaColumns = ["MES", "RRHH", "MKTG", "FINANZAS", "COMERCIAL/EMPRESARIAL"] as const;
 const entrepreneurColumns = ["NOMBRE", ...consultantMonths, "TOTAL"] as const;
@@ -129,15 +127,6 @@ function ConsultantsTable({
 }
 
 export function ConsultantsDashboard() {
-  const query = useQuery({
-    queryKey: consultantsQueryKey,
-    queryFn: fetchConsultants,
-    retry: false,
-    staleTime: Infinity,
-    gcTime: 1800000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
   return (
     <main className="min-h-screen space-y-6 bg-background p-4 sm:p-8">
       <Link to="/reports" className="text-sm text-brand hover:underline">
@@ -145,29 +134,6 @@ export function ConsultantsDashboard() {
       </Link>
       <h1 className="text-xl font-semibold">CONSULTOR | CITAS Y CALENDARIOS</h1>
       <ConsultantOccupancy />
-      {query.isFetching && (
-        <div role="status" className="rounded-xl border border-border bg-white p-6 shadow-card">
-          Cargando horas de consultoría…
-        </div>
-      )}
-      {query.isError ? (
-        <section
-          role="alert"
-          className="space-y-3 rounded-xl border border-destructive bg-white p-6 shadow-card"
-        >
-          <h2 className="font-semibold">No se pudo cargar el reporte</h2>
-          <p className="text-sm text-destructive">{query.error.message}</p>
-          <button
-            disabled={query.isFetching}
-            onClick={() => void query.refetch({ cancelRefetch: false })}
-            className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
-          >
-            Reintentar
-          </button>
-        </section>
-      ) : query.data ? (
-        <ConsultantsTables data={query.data} />
-      ) : null}
     </main>
   );
 }
