@@ -1,6 +1,7 @@
 import { presentMonthlyLeadRows } from "@/lib/monthly-lead-quality";
 import type { QualityReport } from "@/lib/vsl-quality";
 import { displayReportCell } from "@/lib/vsl-quality";
+import { isVisibleLeadQualityColumn } from "./lead-quality-columns";
 export function FunnelLeadQualityTable({
   title,
   table,
@@ -20,6 +21,9 @@ export function FunnelLeadQualityTable({
       : presentMonthlyLeadRows(table.rows, "funnel")
     : undefined;
   if (filtered && !table) return null;
+  const columns = (table?.columns ?? [])
+    .map((header, index) => ({ header, index }))
+    .filter(({ header }) => isVisibleLeadQualityColumn(header));
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-background shadow-card">
       <h2 className="bg-muted/60 p-4 text-center text-base font-bold text-muted-foreground">
@@ -37,15 +41,18 @@ export function FunnelLeadQualityTable({
             </p>
           )}
           <div className="max-h-[65vh] overflow-auto">
-            <table className="w-full table-fixed border-collapse text-sm" style={{ minWidth: 832 }}>
+            <table
+              className="w-full table-fixed border-collapse text-sm"
+              style={{ minWidth: 160 + (columns.length - 1) * 112 }}
+            >
               <colgroup>
-                {table.columns.map((_, i) => (
+                {columns.map(({ index: i }) => (
                   <col key={i} style={{ width: i === 0 ? 160 : 112 }} />
                 ))}
               </colgroup>
               <thead className="sticky top-0 z-20 bg-white text-black">
                 <tr>
-                  {table.columns.map((column, i) => (
+                  {columns.map(({ header, index: i }) => (
                     <th
                       key={i}
                       className={
@@ -53,7 +60,7 @@ export function FunnelLeadQualityTable({
                         (i === 0 ? "sticky left-0 z-30 bg-white" : "")
                       }
                     >
-                      {i === 0 ? "PERIODO" : column}
+                      {i === 0 ? "PERIODO" : header}
                     </th>
                   ))}
                 </tr>
@@ -61,27 +68,31 @@ export function FunnelLeadQualityTable({
               <tbody>
                 {monthly?.rows.map((row, index) => (
                   <tr key={index} className="border-t-2 border-zinc-400">
-                    {row.map((value, i) => (
-                      <td
-                        key={i}
-                        className={
-                          "border border-border px-1.5 py-2 text-center align-middle tabular-nums " +
-                          (i === 0 ? "sticky left-0 z-10 bg-background font-semibold " : "") +
-                          (i === 4 || i === 6 ? "bg-brand-soft font-semibold text-brand" : "")
-                        }
-                      >
-                        {i === 0
-                          ? filtered
-                            ? (periodLabel ?? value ?? "—")
-                            : displayReportCell(value, 0, false)
-                          : typeof value === "number" && (i === 4 || i === 6)
-                            ? new Intl.NumberFormat("es-PE", {
-                                style: "percent",
-                                maximumFractionDigits: 0,
-                              }).format(value)
-                            : (value ?? "—")}
-                      </td>
-                    ))}
+                    {columns.map(({ header, index: i }) => {
+                      const value = row[i];
+                      const percent = header.trimStart().startsWith("%");
+                      return (
+                        <td
+                          key={i}
+                          className={
+                            "border border-border px-1.5 py-2 text-center align-middle tabular-nums " +
+                            (i === 0 ? "sticky left-0 z-10 bg-background font-semibold " : "") +
+                            (percent ? "bg-brand-soft font-semibold text-brand" : "")
+                          }
+                        >
+                          {i === 0
+                            ? filtered
+                              ? (periodLabel ?? value ?? "—")
+                              : displayReportCell(value ?? null, 0, false)
+                            : typeof value === "number" && percent
+                              ? new Intl.NumberFormat("es-PE", {
+                                  style: "percent",
+                                  maximumFractionDigits: 0,
+                                }).format(value)
+                              : (value ?? "—")}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>

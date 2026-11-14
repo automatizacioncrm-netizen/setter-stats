@@ -1,5 +1,6 @@
 import { presentMonthlyLeadRows } from "@/lib/monthly-lead-quality";
 import { FunnelLeadQualityTable } from "./FunnelLeadQualityTable";
+import { isVisibleLeadQualityColumn } from "./lead-quality-columns";
 import { fetchVslReportJson } from "@/lib/vsl-report-request";
 import { VslCommercialTable } from "./VslCommercialTable";
 import { AppointmentsByFunnelTable } from "./AppointmentsByFunnelTable";
@@ -57,7 +58,7 @@ export function ReportTable({
         endOfMonth: false,
       }));
   const visibleColumn = (index: number) =>
-    survey ? index !== 18 : ![11, 12, 13, 14].includes(index);
+    survey ? index !== 18 : isVisibleLeadQualityColumn(table.columns[index] ?? "");
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-background shadow-card">
       <h2 className="bg-muted/60 p-4 text-center text-base font-bold text-muted-foreground">

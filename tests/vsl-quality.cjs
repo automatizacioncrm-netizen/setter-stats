@@ -256,11 +256,30 @@ test("integrated surveys render all questions and four merged KPI cells per mont
   );
   assert.ok(quality.includes("OCTUBRE"));
   assert.ok(!quality.includes("DEL 22 AL 27 DE OCT"));
-  assert.equal((quality.match(/<td /g) || []).length, 11);
+  assert.equal((quality.match(/<td /g) || []).length, 8);
+  assert.doesNotMatch(quality, /TOTAL DE AGENDAMIENTOS|ASISTENCIA A CITAS/);
   assert.ok(!quality.includes("CITAS CON MATCH"));
   assert.ok(!quality.includes("CITAS SIN MATCH"));
   assert.ok(!quality.includes("TOTAL DE SETEOS"));
   assert.ok(!quality.includes("NO ASISTIERON"));
+  const november = renderToStaticMarkup(
+    React.createElement(ReportTable, {
+      title: "Calidad",
+      frozen: 1,
+      authoritative: true,
+      table: {
+        columns: f.quality.columns,
+        rows: [
+          ["2026-11-01 / 2026-11-14", 128, 30, 0.23, 98, 0.77, 40, 20, 0.5, 14, 0.11, 10, 5, 15, 5],
+        ],
+      },
+    }),
+  );
+  assert.deepEqual(
+    [...november.matchAll(/<td[^>]*>([^<]+)<\/td>/g)].slice(1).map((match) => match[1]),
+    ["128", "30", "23%", "98", "77%", "14", "11%"],
+  );
+  assert.equal((november.match(/bg-brand-soft font-semibold text-brand/g) || []).length, 3);
   const empty = renderToStaticMarkup(
     React.createElement(MonthlySurveyTable, {
       table: { ...f.surveys, rows: [] },
@@ -1224,8 +1243,8 @@ test("Orgánico and LIG contracts preserve seven real columns, ratios, periods a
   const html = renderToStaticMarkup(
     React.createElement(FunnelLeadQualityTable, { title: "Orgánico", table: organic }),
   );
-  assert.equal((html.match(/<th /g) || []).length, 7);
-  assert.ok(html.includes("50%"));
+  assert.equal((html.match(/<th /g) || []).length, 4);
+  assert.doesNotMatch(html, /TOTAL DE AGENDAMIENTOS|ASISTENCIA A CITAS|>50%</);
   assert.ok(html.includes("10%"));
   assert.ok(html.includes("OCTUBRE"));
   assert.ok(!html.includes("1 AL 20 OCT"));
@@ -1415,8 +1434,8 @@ test("LIG renders authoritative API rows and rounded percentages without client 
   const html = renderToStaticMarkup(
     React.createElement(FunnelLeadQualityTable, { title: "LIG", table, authoritative: true }),
   );
-  for (const text of ["112", "68", "48%", "47%", "8%", "7%", "AGOSTO"])
-    assert.ok(html.includes(text));
+  for (const text of ["112", "68", "8%", "7%", "AGOSTO"]) assert.ok(html.includes(text));
+  assert.doesNotMatch(html, />48%<|>47%<|TOTAL DE AGENDAMIENTOS|ASISTENCIA A CITAS/);
   assert.equal((html.match(/<tr /g) || []).length, 3);
   const cuts = {
     ...table,
@@ -1539,7 +1558,7 @@ test("filtered funnel tables use the active filter label for month, Today and cu
       );
       assert.ok(html.includes(label));
       assert.ok(!html.includes(period));
-      assert.ok(html.includes("20%"));
+      assert.doesNotMatch(html, />20%<|TOTAL DE AGENDAMIENTOS|ASISTENCIA A CITAS/);
       assert.ok(html.includes("11%"));
       assert.equal((html.match(/<tr /g) || []).length, 1);
       assert.equal(
