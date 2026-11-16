@@ -1,5 +1,6 @@
 import { z } from "zod";
 const count = z.number().finite().int().nonnegative();
+const commercialMonth = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
 export const ALLOWED_PRODUCTS = ["EQUIPO MILLONARIO", "CIRCULO MILLONARIO"] as const;
 export type AllowedProduct = (typeof ALLOWED_PRODUCTS)[number];
 export function isAllowedProduct(product: string): product is AllowedProduct {
@@ -38,7 +39,7 @@ const commonRowSchema = z.object({
 });
 const envelopeSchema = z.object({
   success: z.literal(true),
-  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  month: commercialMonth,
   timeZone: z.string().min(1),
   generatedAt: z.string().optional(),
   rows: z.array(commonRowSchema),
@@ -82,6 +83,41 @@ export const commercialSchema = envelopeSchema
   });
 export type CommercialReport = z.infer<typeof commercialSchema>;
 export type CommercialMetric = CommercialReport["rows"][number];
+const closerPeriod = z.object({
+  closer: z.string().min(1),
+  firstMonth: commercialMonth,
+  lastMonth: commercialMonth,
+});
+export const commercialClosersSchema = z.object({
+  success: z.literal(true),
+  closers: z.array(closerPeriod.extend({ citas: count })),
+});
+const closerMetricSchema = commonRowSchema
+  .pick({
+    asistencias: true,
+    ventas: true,
+    conversion: true,
+  })
+  .extend({
+    noAsistencias: count,
+    citasAsignadas: count,
+    cashCollectedUSD: z.number().finite(),
+  });
+export const commercialCloserSchema = closerPeriod.extend({
+  success: z.literal(true),
+  currency: z.literal("USD"),
+  months: z.array(
+    z.object({
+      month: commercialMonth,
+      products: z.record(z.string(), closerMetricSchema),
+      total: closerMetricSchema,
+    }),
+  ),
+  totals: closerMetricSchema,
+  totalsByProduct: z.record(z.string(), closerMetricSchema),
+});
+export type CommercialCloserReport = z.infer<typeof commercialCloserSchema>;
+export type CommercialCloserMetric = z.infer<typeof closerMetricSchema>;
 export function pivotCommercial(report: CommercialReport) {
   return ALLOWED_CLOSERS.map((closer) => {
     const rows = report.rows.filter(

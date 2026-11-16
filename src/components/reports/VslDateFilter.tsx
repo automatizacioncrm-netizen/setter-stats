@@ -11,6 +11,8 @@ import {
 import { rangeLabel, type DatePreset, type DateRange } from "@/lib/vsl-date-range";
 import type { ManagementPeriod } from "@/lib/management-period";
 
+const HIDDEN_CLOSERS = new Set(["Essika Morales", "Cinthia Maquito"]);
+
 const QUICK_RANGES = [
   ["today", "Hoy"],
   ["yesterday", "Ayer"],
@@ -33,6 +35,11 @@ export function VslDateFilter({
   activeRange,
   periods,
   today,
+  closer,
+  closers,
+  onCloser,
+  closerPeriod,
+  closerStatus,
 }: {
   preset: DatePreset;
   start: string;
@@ -46,6 +53,11 @@ export function VslDateFilter({
   activeRange?: DateRange | undefined;
   periods: readonly ManagementPeriod[];
   today: string;
+  closer: string;
+  closers: readonly { closer: string }[];
+  onCloser: (closer: string) => void;
+  closerPeriod: string;
+  closerStatus?: string | undefined;
 }) {
   return (
     <section
@@ -55,7 +67,11 @@ export function VslDateFilter({
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1 text-sm font-medium">
           <label htmlFor="vsl-report-period">Período</label>
-          <Select value={preset} onValueChange={(value) => onPreset(value as DatePreset)}>
+          <Select
+            value={preset}
+            disabled={!!closer}
+            onValueChange={(value) => onPreset(value as DatePreset)}
+          >
             <SelectTrigger
               id="vsl-report-period"
               className="min-h-9 w-52 gap-2 rounded-lg border-border bg-background"
@@ -90,7 +106,36 @@ export function VslDateFilter({
             </SelectContent>
           </Select>
         </div>
-        {preset === "custom" && (
+        <div className="flex min-w-0 max-w-full flex-col gap-1 text-sm font-medium">
+          <label htmlFor="vsl-report-closer">Closer</label>
+          <Select
+            value={closer ? "closer:" + closer : "all"}
+            onValueChange={(value) =>
+              onCloser(value === "all" ? "" : value.slice("closer:".length))
+            }
+          >
+            <SelectTrigger
+              id="vsl-report-closer"
+              className="min-h-9 w-72 max-w-full gap-2 rounded-lg border-border bg-background [&>span]:truncate"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent
+              align="start"
+              className="max-w-[calc(100vw-2rem)] rounded-lg border-border"
+            >
+              <SelectItem value="all">Todos</SelectItem>
+              {closers
+                .filter(({ closer: name }) => !HIDDEN_CLOSERS.has(name))
+                .map(({ closer: name }) => (
+                  <SelectItem key={name} value={"closer:" + name} className="break-words">
+                    {name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {!closer && preset === "custom" && (
           <>
             <label className="flex flex-col gap-1 text-sm">
               Fecha inicial
@@ -125,9 +170,11 @@ export function VslDateFilter({
         </button>
       </div>
       <p className="text-sm text-muted-foreground">
-        Período aplicado a las tablas: <strong>{rangeLabel(activeRange)}</strong>
+        Período aplicado a las tablas:{" "}
+        <strong>{closer ? closerPeriod : rangeLabel(activeRange)}</strong>
       </p>
-      {error && (
+      {closerStatus && <p className="break-words text-sm text-muted-foreground">{closerStatus}</p>}
+      {!closer && error && (
         <p role="alert" className="text-sm text-destructive">
           {error}
         </p>

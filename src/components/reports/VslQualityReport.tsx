@@ -3,6 +3,12 @@ import { FunnelLeadQualityTable } from "./FunnelLeadQualityTable";
 import { isVisibleLeadQualityColumn } from "./lead-quality-columns";
 import { fetchVslReportJson } from "@/lib/vsl-report-request";
 import { VslCommercialTable } from "./VslCommercialTable";
+import {
+  monthLabel,
+  useCommercialCloser,
+  useCommercialClosers,
+  VslCommercialCloser,
+} from "./VslCommercialCloser";
 import { AppointmentsByFunnelTable } from "./AppointmentsByFunnelTable";
 import { LoadingModal } from "./LoadingModal";
 import { useEffect, useState } from "react";
@@ -190,6 +196,13 @@ export function VslQualityReport() {
     [customStart, setCustomStart] = useState(""),
     [customEnd, setCustomEnd] = useState(""),
     [filterError, setFilterError] = useState("");
+  const [closer, setCloser] = useState("");
+  const closerOptions = useCommercialClosers();
+  const closerDetail = useCommercialCloser(closer);
+  const closerReport = closerDetail.data;
+  const closerPeriod = closerReport
+    ? `Todo (desde ${monthLabel(closerReport.firstMonth)} hasta ${monthLabel(closerReport.lastMonth)}) · Closer: ${closer}`
+    : `Todo · Closer: ${closer}`;
   const [applied, setApplied] = useState<{
       preset: DatePreset;
       range?: DateRange;
@@ -278,6 +291,17 @@ export function VslQualityReport() {
   const query = activeRange ? filtered : historical;
   const data =
     query.isError || query.isFetching || query.isPlaceholderData ? undefined : query.data;
+  const metadata = closer ? (query.data ?? historical.data) : data;
+  const clearFilters = () => {
+    setCloser("");
+    setPreset("all");
+    setCustomStart("");
+    setCustomEnd("");
+    setFilterError("");
+    setApplied({ preset: "all", revision: 0 });
+    if (!historical.data && !historical.isFetching)
+      void historical.refetch({ cancelRefetch: false });
+  };
   const warning = sync.state?.warning;
   const commercialFetching = useIsFetching({ queryKey: ["vsl-commercial"] }) > 0;
   return (
@@ -305,11 +329,22 @@ export function VslQualityReport() {
         onStart={setCustomStart}
         onEnd={setCustomEnd}
         onApply={applyCustom}
-        onClear={() => selectPreset("all")}
+        onClear={clearFilters}
         error={filterError}
         activeRange={data?.filter ?? activeRange}
         periods={historical.data?.periods ?? []}
         today={today}
+        closer={closer}
+        closers={closerOptions.data?.closers ?? []}
+        onCloser={setCloser}
+        closerPeriod={closerPeriod}
+        closerStatus={
+          closerOptions.error
+            ? `No se pudo cargar la lista de closers. ${closerOptions.error.message}`
+            : closerOptions.isFetching
+              ? "Cargando closers..."
+              : undefined
+        }
       />
       {(sync.state || sync.submitting) && (
         <section
@@ -345,11 +380,11 @@ export function VslQualityReport() {
         </div>
       )}
       <LoadingModal
-        open={query.isFetching || commercialFetching}
+        open={!closer && (query.isFetching || commercialFetching)}
         title="Cargando datos…"
         description={`Consultando los reportes para ${rangeLabel(activeRange)}. Espera un momento.`}
       />
-      {query.isError && (
+      {!closer && query.isError && (
         <div
           role="alert"
           className="space-y-2 rounded-lg border border-destructive bg-white p-4 text-destructive"
@@ -364,25 +399,40 @@ export function VslQualityReport() {
           </button>
         </div>
       )}
-      {data && (
+      {metadata && (
         <>
-          {!activeRange && data.dataThrough && (
+          {(!activeRange || closer) && metadata.dataThrough && (
             <p className="text-sm text-muted-foreground">
-              Datos hasta el {data.dataThrough.split("-").reverse().join("/")} (Lima)
+              Datos hasta el {metadata.dataThrough.split("-").reverse().join("/")} (Lima)
             </p>
           )}
           <p className="text-sm text-muted-foreground">
             Última actualización del servidor:{" "}
-            {new Date(data.generatedAt).toLocaleString("es-PE", { timeZone: data.timeZone })}{" "}
+            {new Date(metadata.generatedAt).toLocaleString("es-PE", {
+              timeZone: metadata.timeZone,
+            })}{" "}
             (America/Lima)
           </p>
-          {data.queriedAt && (
+          {metadata.queriedAt && (
             <p className="text-sm text-muted-foreground">
               Fecha de consulta:{" "}
-              {new Date(data.queriedAt).toLocaleString("es-PE", { timeZone: "America/Lima" })}{" "}
+              {new Date(metadata.queriedAt).toLocaleString("es-PE", { timeZone: "America/Lima" })}{" "}
               (America/Lima)
             </p>
           )}
+        </>
+      )}
+      {closer && (
+        <VslCommercialCloser
+          closer={closer}
+          report={closerReport}
+          error={closerDetail.error}
+          busy={closerDetail.isFetching}
+          onRetry={() => void closerDetail.refetch({ cancelRefetch: false })}
+        />
+      )}
+      {!closer && data && (
+        <>
           {(data.quality.truncated || data.surveys.truncated || data.surveyStatus.truncated) && (
             <p role="status" className="text-muted-foreground">
               El servidor indica que el reporte está truncado.
@@ -423,16 +473,19 @@ export function VslQualityReport() {
         </>
       )}
       {(historical.data || filtered.data) && (
-        <VslCommercialTable
-          range={commercialRange}
-          refreshKey={`${revision}:${applied.revision}`}
-        />
+        <div className={closer ? "hidden" : "contents"}>
+          <VslCommercialTable
+            range={commercialRange}
+            refreshKey={`${revision}:${applied.revision}`}
+          />
+        </div>
       )}
-      {(data?.diagnostics?.warnings ?? []).map((warning, index) => (
-        <p key={index} className="text-sm text-muted-foreground">
-          {warning}
-        </p>
-      ))}
+      {!closer &&
+        (data?.diagnostics?.warnings ?? []).map((warning, index) => (
+          <p key={index} className="text-sm text-muted-foreground">
+            {warning}
+          </p>
+        ))}
     </main>
   );
 }

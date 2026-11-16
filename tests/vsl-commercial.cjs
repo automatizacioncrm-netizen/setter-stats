@@ -11,6 +11,7 @@ require.extensions[".ts"] = (m, p) =>
   );
 const {
   commercialSchema,
+  commercialCloserSchema,
   ALLOWED_CLOSERS,
   canonicalCloser,
   pivotCommercial,
@@ -138,7 +139,7 @@ test("backend validates month before network, isolates months and shares identic
   }
 });
 
-test("Table 4 renders eleven columns, parallel products and one merged month per closer group", () => {
+test("commercial tables render monthly groups and use the closer's API totals by product", () => {
   const Module = require("node:module"),
     path = require("node:path"),
     resolve = Module._resolveFilename;
@@ -160,9 +161,10 @@ test("Table 4 renders eleven columns, parallel products and one merged month per
       ...args,
     );
   };
-  let VslCommercialTable;
+  let VslCommercialTable, VslCommercialCloser;
   try {
     ({ VslCommercialTable } = require("../src/components/reports/VslCommercialTable.tsx"));
+    ({ VslCommercialCloser } = require("../src/components/reports/VslCommercialCloser.tsx"));
   } finally {
     Module._resolveFilename = resolve;
   }
@@ -211,6 +213,7 @@ test("Table 4 renders eleven columns, parallel products and one merged month per
   assert.ok(body.indexOf("OCTUBRE 2026") < body.indexOf("SEPTIEMBRE 2026"));
   assert.ok(body.indexOf("SEPTIEMBRE 2026") < body.indexOf("AGOSTO 2026"));
   assert.ok(!html.includes("<select"));
+  assert.ok(!html.includes("vsl-report-closer"));
   assert.ok(!html.includes("Actualizar tabla 4"));
   assert.ok(!html.includes("Filtros exclusivos"));
   assert.ok(!html.includes("GIRA / OTROS"));
@@ -240,6 +243,45 @@ test("Table 4 renders eleven columns, parallel products and one merged month per
   assert.equal((dailyHtml.match(/<td /g) || []).length, 0);
   assert.ok(dailyHtml.includes("no dispone de datos diarios"));
   client.clear();
+
+  const equipo = { ...metric({ asistencias: 7, conversion: 1 / 7, cashCollectedUSD: 1497 }), noAsistencias: 8, citasAsignadas: 15 };
+  const circulo = { ...equipo, asistencias: 4, citasAsignadas: 12, conversion: 0.25, cashCollectedUSD: 882.35 };
+  const november = { ...equipo, asistencias: 11, noAsistencias: 16, citasAsignadas: 27, ventas: 2, conversion: 2 / 11, cashCollectedUSD: 2379.35 };
+  const total = { ...november, asistencias: 115, noAsistencias: 81, citasAsignadas: 196, ventas: 9, conversion: 9 / 115, cashCollectedUSD: 12940.35 };
+  const empty = { ...equipo, asistencias: 0, noAsistencias: 0, citasAsignadas: 0, ventas: 0, conversion: null, cashCollectedUSD: 0 };
+  const closerReport = commercialCloserSchema.parse({
+    success: true,
+    closer: equipo.closer,
+    firstMonth: "2026-10",
+    lastMonth: "2026-11",
+    currency: "USD",
+    months: [
+      { month: "2026-11", products: { "EQUIPO MILLONARIO": equipo, "CIRCULO MILLONARIO": circulo, "Vacío": empty }, total: november },
+      { month: "2026-10", products: { "Otro producto": equipo }, total: equipo },
+    ],
+    totals: total,
+    totalsByProduct: { "EQUIPO MILLONARIO": { ...equipo, cashCollectedUSD: 9999.99 }, "CIRCULO MILLONARIO": circulo },
+  });
+  const closerHtml = renderToStaticMarkup(React.createElement(VslCommercialCloser, {
+    closer: closerReport.closer,
+    report: closerReport,
+    error: null,
+    busy: false,
+    onRetry() {},
+  }));
+  assert.equal((closerHtml.match(/<table/g) || []).length, 1);
+  assert.equal((closerHtml.match(/colSpan="5"/g) || []).length, 4);
+  assert.doesNotMatch(closerHtml, /<details|Desglose por producto|Vacío/);
+  assert.match(closerHtml, /Otro producto/);
+  const closerBody = closerHtml.match(/<tbody>([\s\S]*?)<\/tbody>/)[1];
+  const rows = [...closerBody.matchAll(/<tr[^>]*>(.*?)<\/tr>/g)].map(([, row]) =>
+    [...row.matchAll(/<t[dh][^>]*>(.*?)<\/t[dh]>/g)].map(([, value]) => value),
+  );
+  assert.deepEqual(rows.map(([label]) => label), ["Noviembre 2026", "Octubre 2026", "Total"]);
+  assert.deepEqual(rows[0].slice(1, 11), ["7", "8", "1", "14.29%", "$1,497.00", "4", "8", "1", "25.00%", "$882.35"]);
+  assert.deepEqual(rows[1].slice(1, 6), ["0", "0", "0", "0.00%", "$0.00"]);
+  assert.equal(rows[2][5], "$9,999.99");
+  assert.deepEqual(rows[2].slice(-5), ["115", "81", "9", "7.83%", "$12,940.35"]);
 });
 
 test("excluded products never enter sales, cash, conversion or closer options across all four months", () => {
