@@ -6,12 +6,7 @@ import { LeadsWithoutAppointmentSection } from "./LeadsWithoutAppointmentSection
 import { ExecutiveTable } from "./ExecutiveTable";
 import { joinCloserPerformance } from "@/lib/closer-performance";
 
-import {
-  REPORT_SETTERS,
-  REPORT_CLOSER_TEAM,
-  teamPerformanceRows,
-  normalizePersonKey,
-} from "@/lib/report-team";
+import { REPORT_SETTERS, teamPerformanceRows } from "@/lib/report-team";
 
 const panel = "space-y-3 rounded-xl border border-border bg-surface p-5 shadow-card";
 const percent = (value: number | null) =>
@@ -33,12 +28,6 @@ export function ExecutivePerformance({
 }) {
   const [closerDetailOpen, setCloserDetailOpen] = useState(false);
   const p = report.performance;
-  const conversion = teamPerformanceRows(
-    p?.conversionPorCloser ?? [],
-    REPORT_CLOSER_TEAM,
-    (r) => r.closer,
-    (r) => r.ventas,
-  ).map((r) => ({ ...r, closer: r.name, ventas: r.count }));
   const allSetters = teamPerformanceRows(
     p?.asistenciaPorSetter ?? [],
     REPORT_SETTERS,
@@ -46,20 +35,10 @@ export function ExecutivePerformance({
     (r) => Number(r.agendamientos),
   ).map((r) => ({ ...r, setter: r.name, agendamientos: r.count }));
   const setters = allSetters.filter((r) => Number(r.agendamientos) > 0 || r.citasAsistidas > 0);
-  const closers = teamPerformanceRows(
-    p?.asistenciaPorCloserTodosEmbudos ?? [],
-    REPORT_CLOSER_TEAM,
-    (r) => r.closer,
-    (r) => r.agendamientos,
-  ).map((r) => ({ ...r, closer: r.name, agendamientos: r.count }));
-  const attendanceNames = new Set(
-    p?.asistenciaPorCloserTodosEmbudos.map((r) => normalizePersonKey(r.closer)),
-  );
-  const conversionNames = new Set(p?.conversionPorCloser.map((r) => normalizePersonKey(r.closer)));
   const closerPerformance = joinCloserPerformance(
-    closers.filter((r) => attendanceNames.has(normalizePersonKey(r.closer))),
-    conversion.filter((r) => conversionNames.has(normalizePersonKey(r.closer))),
-  );
+    p?.asistenciaPorCloserTodosEmbudos ?? [],
+    p?.conversionPorCloser ?? [],
+  ).sort((a, b) => (b.agendamientos ?? -1) - (a.agendamientos ?? -1));
   const all = report.filters.pipeline === "all";
   const conversionScope = all ? "vsl+oei+lig" : report.filters.pipeline;
   const attendanceScope = all ? "vsl+oei+lig" : report.filters.pipeline;
@@ -153,7 +132,7 @@ export function ExecutivePerformance({
                 key: "attendanceRate",
                 label: "% Asistencia",
                 value: (r) => r.asistenciaPct,
-                render: (r) => percent(r.asistenciaPct),
+                render: (r) => (r.agendamientos == null ? "—" : percent(r.asistenciaPct)),
                 formula:
                   "Citas asistidas / citas asignadas × 100. Atribución por closer de la cita; esta tasa mide asistencia, no conversión de ventas.",
               },

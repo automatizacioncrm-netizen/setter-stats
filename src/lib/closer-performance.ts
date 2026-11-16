@@ -1,5 +1,4 @@
 import { ratio } from "./executive-metrics";
-import { normalizePersonKey } from "./report-team";
 
 type AttendanceRow = { closer: string; agendamientos: number; citasAsistidas: number };
 type ConversionRow = { closer: string; ventas: number; citasAsistidas: number };
@@ -11,11 +10,11 @@ export function joinCloserPerformance(
 ) {
   const people = new Map<string, { attendance?: AttendanceRow; conversion?: ConversionRow }>();
   for (const row of attendance) {
-    const key = normalizePersonKey(row.closer);
+    const key = row.closer;
     people.set(key, { ...people.get(key), attendance: row });
   }
   for (const row of conversion) {
-    const key = normalizePersonKey(row.closer);
+    const key = row.closer;
     people.set(key, { ...people.get(key), conversion: row });
   }
   return [...people].map(([key, sources]) => {
