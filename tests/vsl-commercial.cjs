@@ -269,19 +269,26 @@ test("commercial tables render monthly groups and use the closer's API totals by
     busy: false,
     onRetry() {},
   }));
-  assert.equal((closerHtml.match(/<table/g) || []).length, 1);
-  assert.equal((closerHtml.match(/colSpan="5"/g) || []).length, 4);
-  assert.doesNotMatch(closerHtml, /<details|Desglose por producto|Vacío/);
-  assert.match(closerHtml, /Otro producto/);
-  const closerBody = closerHtml.match(/<tbody>([\s\S]*?)<\/tbody>/)[1];
-  const rows = [...closerBody.matchAll(/<tr[^>]*>(.*?)<\/tr>/g)].map(([, row]) =>
-    [...row.matchAll(/<t[dh][^>]*>(.*?)<\/t[dh]>/g)].map(([, value]) => value),
+  assert.equal((closerHtml.match(/<table/g) || []).length, 2);
+  assert.equal((closerHtml.match(/colSpan="2"/g) || []).length, 3);
+  assert.equal((closerHtml.match(/colSpan="3"/g) || []).length, 3);
+  assert.match(closerHtml, /ASISTENCIA POR MES/);
+  assert.match(closerHtml, /VENTAS Y CASH COLLECTED POR MES/);
+  assert.doesNotMatch(closerHtml, /<details|Desglose por producto|Vacío|Otro producto/);
+  const [attendance, sales] = [...closerHtml.matchAll(/<tbody>([\s\S]*?)<\/tbody>/g)].map(
+    ([, body]) => [...body.matchAll(/<tr[^>]*>(.*?)<\/tr>/g)].map(([, row]) =>
+      [...row.matchAll(/<t[dh][^>]*>(.*?)<\/t[dh]>/g)].map(([, value]) => value),
+    ),
   );
-  assert.deepEqual(rows.map(([label]) => label), ["Noviembre 2026", "Octubre 2026", "Total"]);
-  assert.deepEqual(rows[0].slice(1, 11), ["7", "8", "1", "14.29%", "$1,497.00", "4", "8", "1", "25.00%", "$882.35"]);
-  assert.deepEqual(rows[1].slice(1, 6), ["0", "0", "0", "0.00%", "$0.00"]);
-  assert.equal(rows[2][5], "$9,999.99");
-  assert.deepEqual(rows[2].slice(-5), ["115", "81", "9", "7.83%", "$12,940.35"]);
+  for (const rows of [attendance, sales])
+    assert.deepEqual(rows.map(([label]) => label), ["Noviembre 2026", "Octubre 2026", "Total"]);
+  assert.deepEqual(attendance[0].slice(1), ["7", "8", "4", "8", "11", "16"]);
+  assert.deepEqual(attendance[1].slice(1), ["0", "0", "0", "0", "7", "8"]);
+  assert.deepEqual(attendance[2].slice(-2), ["115", "81"]);
+  assert.deepEqual(sales[0].slice(1), ["1", "14.29%", "$1,497.00", "1", "25.00%", "$882.35", "2", "18.18%", "$2,379.35"]);
+  assert.deepEqual(sales[1].slice(1, 7), ["0", "0.00%", "$0.00", "0", "0.00%", "$0.00"]);
+  assert.equal(sales[2][3], "$9,999.99");
+  assert.deepEqual(sales[2].slice(-3), ["9", "7.83%", "$12,940.35"]);
 });
 
 test("excluded products never enter sales, cash, conversion or closer options across all four months", () => {

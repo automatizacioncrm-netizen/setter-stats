@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { LoaderCircle } from "lucide-react";
 import {
-  ALLOWED_PRODUCTS,
   commercialCloserSchema,
   commercialClosersSchema,
   formatCommercialUSD,
@@ -31,52 +30,45 @@ const conversionFormat = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
-const columns = ["Asistidas", "No asistidas", "Ventas", "% Conversión", "Cash collected (USD)"];
 
 export function monthLabel(month: string) {
   const label = monthFormat.format(new Date(month + "-01T00:00:00Z")).replace(" de ", " ");
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function metricValues(metric?: CommercialCloserMetric) {
-  if (!metric) return [0, 0, 0, "0.00%", formatCommercialUSD(0)];
-  return [
-    metric.asistencias,
-    metric.noAsistencias,
-    metric.ventas,
-    metric.conversion === null
-      ? metric.ventas
-        ? "N/D"
-        : "0.00%"
-      : conversionFormat.format(metric.conversion),
-    formatCommercialUSD(metric.cashCollectedUSD),
-  ];
-}
+const groups = [
+  { product: "EQUIPO MILLONARIO", label: "EQUIPO MILLONARIO" },
+  { product: "CIRCULO MILLONARIO", label: "CÍRCULO MILLONARIO" },
+  { product: null, label: "TOTAL" },
+] as const;
 
-function MetricTable({ report }: { report: CommercialCloserReport }) {
-  const extraProducts = new Set<string>();
-  for (const products of [
-    report.totalsByProduct,
-    ...report.months.map(({ products }) => products),
-  ]) {
-    for (const [name, metric] of Object.entries(products)) {
-      if (ALLOWED_PRODUCTS.some((product) => product === name)) continue;
-      if (
-        metric.citasAsignadas ||
-        metric.asistencias ||
-        metric.noAsistencias ||
-        metric.ventas ||
-        metric.cashCollectedUSD ||
-        metric.conversion
-      )
-        extraProducts.add(name);
-    }
-  }
+const tableSections = [
+  {
+    title: "ASISTENCIA POR MES",
+    columns: ["Asistidas", "No asistidas"],
+    minWidth: "min-w-[720px]",
+    values: (metric?: CommercialCloserMetric) => [
+      metric?.asistencias ?? 0,
+      metric?.noAsistencias ?? 0,
+    ],
+  },
+  {
+    title: "VENTAS Y CASH COLLECTED POR MES",
+    columns: ["Ventas", "% Conversión", "Cash collected (USD)"],
+    minWidth: "min-w-[1120px]",
+    values: (metric?: CommercialCloserMetric) => [
+      metric?.ventas ?? 0,
+      metric?.conversion == null
+        ? metric?.ventas
+          ? "N/D"
+          : "0.00%"
+        : conversionFormat.format(metric.conversion),
+      formatCommercialUSD(metric?.cashCollectedUSD ?? 0),
+    ],
+  },
+] as const;
 
-  const groups = [...ALLOWED_PRODUCTS, ...extraProducts].map((product) => ({
-    product,
-    label: product === "CIRCULO MILLONARIO" ? "CÍRCULO MILLONARIO" : product,
-  }));
+function MetricTables({ report }: { report: CommercialCloserReport }) {
   const rows = [
     ...report.months.map(({ month, products, total }) => ({
       label: monthLabel(month),
@@ -88,79 +80,79 @@ function MetricTable({ report }: { report: CommercialCloserReport }) {
   ];
 
   return (
-    <div
-      role="region"
-      aria-label="Comparación mensual por producto"
-      tabIndex={0}
-      className="max-w-full overflow-x-auto"
-    >
-      <table className="w-full min-w-[1120px] border-separate border-spacing-0 text-xs tabular-nums">
-        <thead className="bg-zinc-700 text-white">
-          <tr>
-            <th
-              rowSpan={2}
-              scope="col"
-              className="sticky left-0 z-10 border-b border-r border-zinc-500 bg-zinc-700 px-2 py-2"
+    <div className="min-w-0 space-y-6 p-4">
+      {tableSections.map(({ title, columns, minWidth, values }) => (
+        <section key={title} className="min-w-0 overflow-hidden rounded-lg border border-border">
+          <h3 className="bg-zinc-700 px-4 py-2 text-center text-sm font-bold text-white">
+            {title}
+          </h3>
+          <div role="region" aria-label={title} tabIndex={0} className="max-w-full overflow-x-auto">
+            <table
+              className={`w-full table-fixed border-separate border-spacing-0 text-sm tabular-nums ${minWidth}`}
             >
-              Mes
-            </th>
-            {[...groups, { product: null, label: "TOTAL" }].map(({ product, label }) => (
-              <th
-                key={product === null ? "total" : "product:" + product}
-                colSpan={columns.length}
-                scope="colgroup"
-                className="border-b border-r border-zinc-500 px-1.5 py-2 last:border-r-0"
-              >
-                {label}
-              </th>
-            ))}
-          </tr>
-          <tr>
-            {Array.from({ length: groups.length + 1 }, (_, index) =>
-              columns.map((column, columnIndex) => (
-                <th
-                  key={index + ":" + column}
-                  scope="col"
-                  className={
-                    "border-b border-zinc-500 px-1.5 py-1.5 font-medium " +
-                    (columnIndex === columns.length - 1 ? "border-r last:border-r-0" : "")
-                  }
-                >
-                  {column}
-                </th>
-              )),
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ label, products, total, summary }) => (
-            <tr
-              key={label}
-              className={summary ? "bg-muted font-bold" : "odd:bg-white even:bg-zinc-50"}
-            >
-              <th
-                scope="row"
-                className="sticky left-0 z-10 whitespace-nowrap border-b border-r border-border bg-inherit px-2 py-2"
-              >
-                {label}
-              </th>
-              {[...groups.map(({ product }) => products[product]), total].flatMap((metric, index) =>
-                metricValues(metric).map((value, columnIndex) => (
-                  <td
-                    key={index + ":" + columnIndex}
-                    className={
-                      "whitespace-nowrap border-b border-border px-1.5 py-2 " +
-                      (columnIndex === columns.length - 1 ? "border-r last:border-r-0" : "")
-                    }
+              <thead className="bg-zinc-700 text-white">
+                <tr>
+                  <th
+                    rowSpan={2}
+                    scope="col"
+                    className="sticky left-0 z-10 w-36 border-r border-zinc-500 bg-zinc-700 px-4 py-3"
                   >
-                    {value}
-                  </td>
-                )),
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                    Mes
+                  </th>
+                  {groups.map(({ product, label }) => (
+                    <th
+                      key={label}
+                      colSpan={columns.length}
+                      scope="colgroup"
+                      className={`border-b border-r border-zinc-500 px-4 py-3 last:border-r-0 ${product === null ? "bg-zinc-600" : ""}`}
+                    >
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+                <tr>
+                  {groups.flatMap(({ product, label }) =>
+                    columns.map((column) => (
+                      <th
+                        key={label + column}
+                        scope="col"
+                        className={`px-4 py-3 font-medium ${product === null ? "bg-zinc-600" : ""}`}
+                      >
+                        {column}
+                      </th>
+                    )),
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(({ label, products, total, summary }) => (
+                  <tr
+                    key={label}
+                    className={summary ? "bg-muted font-bold" : "odd:bg-white even:bg-zinc-50"}
+                  >
+                    <th
+                      scope="row"
+                      className="sticky left-0 z-10 border-b border-r border-border bg-inherit px-4 py-3"
+                    >
+                      {label}
+                    </th>
+                    {groups.flatMap(({ product, label: groupLabel }) =>
+                      values(product === null ? total : products[product]).map((value, index) => (
+                        <td
+                          key={groupLabel + index}
+                          className={`whitespace-nowrap border-b border-border px-4 py-3 ${product === null ? "bg-muted" : ""}`}
+                        >
+                          {value}
+                        </td>
+                      )),
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
@@ -232,7 +224,7 @@ export function VslCommercialCloser({
           </button>
         </div>
       ) : (
-        report && <MetricTable report={report} />
+        report && <MetricTables report={report} />
       )}
     </section>
   );
