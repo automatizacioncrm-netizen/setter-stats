@@ -1,6 +1,11 @@
 import { Fragment, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { addDays, format, parseISO } from "date-fns";
+import { es } from "date-fns/locale";
+import { CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
 import { limaDay, monthOfYear, validDate } from "@/lib/vsl-date-range";
@@ -24,8 +29,57 @@ function displayDate(isoDate: string) {
   return isoDate.split("-").reverse().join("/");
 }
 
-function parseDate(display: string) {
-  return display.trim().split("/").reverse().join("-");
+function DateField({
+  label,
+  value,
+  today,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  today: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = parseISO(value);
+  const currentDay = parseISO(today);
+  const year = currentDay.getFullYear();
+
+  return (
+    <div className="flex flex-col gap-1 text-sm font-medium">
+      <span>{label}</span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label={`${label}, ${displayDate(value)}`}
+            className={cn(filterClass, "flex w-36 items-center justify-between gap-2")}
+          >
+            {displayDate(value)}
+            <CalendarIcon aria-hidden="true" className="size-4 text-muted-foreground" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" aria-label={label} className="w-auto p-0">
+          <Calendar
+            mode="single"
+            required
+            selected={selected}
+            defaultMonth={selected}
+            today={currentDay}
+            locale={es}
+            captionLayout="dropdown"
+            startMonth={new Date(Math.min(selected.getFullYear(), year - 100), 0)}
+            endMonth={new Date(Math.max(selected.getFullYear(), year + 10), 11)}
+            formatters={{ formatMonthDropdown: (date) => format(date, "MMM", { locale: es }) }}
+            onDayClick={(date) => {
+              onChange(format(date, "yyyy-MM-dd"));
+              setOpen(false);
+            }}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
 }
 
 function recentMonths(today: string) {
@@ -96,10 +150,7 @@ export function SettersDashboard() {
   const today = limaDay();
   const months = recentMonths(today);
   const [{ desde, hasta }, setRange] = useState(() => ({ desde: today, hasta: today }));
-  const [draft, setDraft] = useState(() => ({
-    desde: displayDate(today),
-    hasta: displayDate(today),
-  }));
+  const [draft, setDraft] = useState(() => ({ desde: today, hasta: today }));
   const [active, setActive] = useState("");
   const [dateError, setDateError] = useState("");
   const [embudo, setEmbudo] = useState("");
@@ -128,14 +179,22 @@ export function SettersDashboard() {
   const rangeLabel = `Del ${displayDate(desde)} al ${displayDate(hasta)}`;
 
   function applyRange(range: { desde: string; hasta: string }, preset = "") {
-    setDraft({ desde: displayDate(range.desde), hasta: displayDate(range.hasta) });
+    setDraft({ desde: range.desde, hasta: range.hasta });
     setActive(preset);
     setDateError("");
     setSetter(null);
-    if (range.desde === desde && range.hasta === hasta) void report.refetch();
+    if (range.desde === desde && range.hasta === hasta)
+      void report.refetch({ cancelRefetch: false });
     else setRange(range);
   }
 
+  function navigateDay(offset?: -1 | 1) {
+    const day =
+      offset === undefined ? limaDay() : format(addDays(parseISO(hasta), offset), "yyyy-MM-dd");
+    applyRange({ desde: day, hasta: day });
+  }
+
+  const isToday = !isRange && desde === today;
   const data = report.data;
   const cards = data
     ? ([
@@ -155,6 +214,23 @@ export function SettersDashboard() {
         </Link>
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{settersReportTitle}</h1>
       </header>
+
+      <div role="group" aria-label="Navegación diaria" className="flex flex-wrap gap-2">
+        <button type="button" className={filterClass} onClick={() => navigateDay(-1)}>
+          ← Día anterior
+        </button>
+        <button
+          type="button"
+          aria-pressed={isToday}
+          className={cn(filterClass, isToday && activeClass)}
+          onClick={() => navigateDay()}
+        >
+          Hoy
+        </button>
+        <button type="button" className={filterClass} onClick={() => navigateDay(1)}>
+          Día siguiente →
+        </button>
+      </div>
 
       <div className="flex flex-wrap items-end gap-2">
         {(
@@ -201,32 +277,25 @@ export function SettersDashboard() {
         className="flex flex-wrap items-end gap-4"
         onSubmit={(event) => {
           event.preventDefault();
-          const range = {
-            desde: parseDate(draft.desde),
-            hasta: parseDate(draft.hasta),
-          };
-          if (!validDate(range.desde) || !validDate(range.hasta) || range.desde > range.hasta) {
-            setDateError("Ingresa un rango válido en formato DD/MM/YYYY.");
+          if (draft.desde > draft.hasta) {
+            setDateError("La fecha Desde no puede ser posterior a la fecha Hasta.");
             return;
           }
-          applyRange(range);
+          applyRange(draft);
         }}
       >
         {(["desde", "hasta"] as const).map((field) => (
-          <label key={field} className="flex flex-col gap-1 text-sm font-medium">
-            {field === "desde" ? "Desde" : "Hasta"} (Lima)
-            <input
-              type="text"
-              value={draft[field]}
-              placeholder="DD/MM/YYYY"
-              className={`${filterClass} w-36`}
-              onChange={(event) => {
-                setDraft({ ...draft, [field]: event.target.value });
-                setActive("");
-                setDateError("");
-              }}
-            />
-          </label>
+          <DateField
+            key={field}
+            label={field === "desde" ? "Desde (Lima)" : "Hasta (Lima)"}
+            value={draft[field]}
+            today={today}
+            onChange={(value) => {
+              setDraft((previous) => ({ ...previous, [field]: value }));
+              setActive("");
+              setDateError("");
+            }}
+          />
         ))}
         <button type="submit" className={filterClass} disabled={loadingRange}>
           Aplicar
