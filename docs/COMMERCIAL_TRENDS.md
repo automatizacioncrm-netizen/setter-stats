@@ -5,7 +5,7 @@
 - `apps-script/vsl-commercial/API.gs`: API completa basada en el adjunto más reciente del usuario (4/11/2026). Conserva todas las funciones y agrega tendencias. Este es el archivo listo para publicar.
 - `tests/fixtures/vsl-api-before-trends.gs`: copia original, exclusivamente como referencia de regresión. NO desplegarla.
 - `src/lib/commercial-trends.ts`: contrato, rango máximo de 12 meses, normalización/listas blancas existentes, validación de ratios y comparación contra la Tabla 4.
-- `src/server/api/commercial-trends.api.server.ts`, `src/routes/api.reports.commercial-trends.ts`: proxy privado del endpoint nuevo; utiliza únicamente APPS_SCRIPT_URL_VSL, comparte solicitudes iguales en curso y conserva los errores de transporte.
+- `src/server/api/commercial-trends.api.server.ts`, `src/routes/api.reports.commercial-trends.ts`: proxy privado del endpoint nuevo; utiliza únicamente APPS_SCRIPT_URL_GERENCIA, comparte solicitudes iguales en curso y conserva los errores de transporte.
 - `src/components/reports/CommercialTrendsCharts.tsx`: dos gráficos Recharts responsivos con leyenda, colores compartidos y tooltip de conteos/porcentaje.
 - `src/components/reports/VslCommercialTable.tsx`: monta ambos gráficos después de la tabla. Sus columnas, filas, fórmulas y filtros permanecen iguales.
 - `tests/commercial-trends.cjs`, `scripts/validate-commercial-trends.cjs`, `package.json`: pruebas y auditoría real posterior al despliegue.
@@ -42,7 +42,7 @@ Los meses solicitados se muestran como eje temporal. La ausencia de una combinac
 1. Guardar una copia del API.gs actual en el editor de Google.
 2. Reemplazar el contenido de ESE archivo por `apps-script/vsl-commercial/API.gs`. No agregarlo junto al archivo original, pues duplicaría constantes y doGet/doPost. El archivo entregado ya incluye los reportes existentes del adjunto.
 3. Guardar y ejecutar manualmente `COM_TRENDS_VERIFY_('2026-07','2026-11')` desde una función temporal de prueba, si se desea comprobar los datos reales antes de publicar. Esta función no escribe Sheets ni sincroniza GHL.
-4. Implementar → Administrar implementaciones → editar la aplicación web vigente → Nueva versión → Implementar. Mantener el mismo despliegue /exec y sus permisos existentes; no cambiar APPS_SCRIPT_URL_VSL.
+4. Implementar → Administrar implementaciones → editar la aplicación web vigente → Nueva versión → Implementar. Mantener el mismo despliegue /exec y sus permisos existentes; no cambiar APPS_SCRIPT_URL_GERENCIA.
 5. Abrir `/exec?action=commercial_trends&from=2026-07&to=2026-11` y confirmar success:true.
 6. Ejecutar `node scripts/validate-commercial-trends.cjs 2026-07 2026-11` desde el proyecto. Compara cada mes contra action=commercial y falla si difieren los conteos.
 7. Recargar el dashboard. Revisar ambas leyendas, tooltips y huecos N/D. El resto de las tablas conserva sus endpoints.

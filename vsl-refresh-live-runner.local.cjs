@@ -1,6 +1,6 @@
 const fs=require('fs'),ts=require('typescript');require.extensions['.ts']=(m,file)=>m._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,file);
 (async()=>{
- const {loadEnv}=await import('vite');if(!process.env.APPS_SCRIPT_URL_VSL)process.env.APPS_SCRIPT_URL_VSL=loadEnv('development',process.cwd(),'APPS_SCRIPT_URL_VSL').APPS_SCRIPT_URL_VSL;
+ const {loadEnv}=await import('vite');if(!process.env.APPS_SCRIPT_URL_GERENCIA)process.env.APPS_SCRIPT_URL_GERENCIA=loadEnv('development',process.cwd(),'APPS_SCRIPT_URL_GERENCIA').APPS_SCRIPT_URL_GERENCIA;
  const {vslSyncStartApi,vslSyncStatusApi}=require('./src/server/api/vsl-sync.api.server.ts'),{qualityApi}=require('./src/server/api/vsl-quality.api.server.ts');
  const resume=process.argv.includes("--resume");
  const evidence=resume && fs.existsSync("vsl-refresh-live-evidence.local")?JSON.parse(fs.readFileSync("vsl-refresh-live-evidence.local","utf8")):{startedAt:new Date().toISOString(),observed:[]};

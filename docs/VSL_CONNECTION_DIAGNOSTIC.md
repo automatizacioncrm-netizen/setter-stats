@@ -2,7 +2,7 @@
 
 ## Evidencia real (4 de noviembre de 2026, America/Lima)
 
-La variable usada sigue siendo APPS_SCRIPT_URL_VSL, privada en el servidor. La URL configurada pasa la validación HTTPS de script.google.com/macros/s/.../exec. No se sustituyó por una URL fija ni por otra variable.
+La variable usada sigue siendo APPS_SCRIPT_URL_GERENCIA, privada en el servidor. La URL configurada pasa la validación HTTPS de script.google.com/macros/s/.../exec. No se sustituyó por una URL fija ni por otra variable.
 
 - GET action=report histórico: 7,285 ms, HTTP 200, application/json; redirección final a https://script.googleusercontent.com/macros/echo (valores de sus parámetros omitidos).
 - GET action=report&startDate=2026-10-01&endDate=2026-10-31: 11,358 ms, HTTP 200, application/json.

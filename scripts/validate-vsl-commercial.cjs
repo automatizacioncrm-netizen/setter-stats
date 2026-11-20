@@ -9,11 +9,11 @@ require.extensions[".ts"] = (m, p) =>
   );
 (async () => {
   const { loadEnv } = await import("vite");
-  process.env.APPS_SCRIPT_URL_VSL ||= loadEnv(
+  process.env.APPS_SCRIPT_URL_GERENCIA ||= loadEnv(
     "development",
     process.cwd(),
-    "APPS_SCRIPT_URL_VSL",
-  ).APPS_SCRIPT_URL_VSL;
+    "APPS_SCRIPT_URL_GERENCIA",
+  ).APPS_SCRIPT_URL_GERENCIA;
   const { fetchVslJson } = require("../src/server/adapters/vsl-quality.adapter.server.ts");
   const {
     commercialSchema,
@@ -48,7 +48,7 @@ require.extensions[".ts"] = (m, p) =>
       diagnostics: data.diagnostics,
     });
   }
-  console.log(JSON.stringify({ variable: "APPS_SCRIPT_URL_VSL", passed: true, results }, null, 2));
+  console.log(JSON.stringify({ variable: "APPS_SCRIPT_URL_GERENCIA", passed: true, results }, null, 2));
 })().catch((error) => {
   console.error(error.message);
   process.exitCode = 1;

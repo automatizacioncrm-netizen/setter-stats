@@ -96,8 +96,8 @@ test("monthly schema rejects obsolete layouts, incorrect headers, duplicate mont
 
 test("status does not request upstream; simultaneous requests share one response; malformed responses fail closed", async () => {
   const oldFetch = global.fetch,
-    oldEnv = process.env.APPS_SCRIPT_URL_VSL;
-  process.env.APPS_SCRIPT_URL_VSL = "https://script.google.com/macros/s/test/exec";
+    oldEnv = process.env.APPS_SCRIPT_URL_GERENCIA;
+  process.env.APPS_SCRIPT_URL_GERENCIA = "https://script.google.com/macros/s/test/exec";
   let calls = 0;
   try {
     global.fetch = async () => {
@@ -120,7 +120,7 @@ test("status does not request upstream; simultaneous requests share one response
       (await (await qualityApi()).json()).error,
       "Apps Script: Falta la hoja VSL_CALIDAD_LEADS",
     );
-    process.env.APPS_SCRIPT_URL_VSL += "?token=private-test-token";
+    process.env.APPS_SCRIPT_URL_GERENCIA += "?token=private-test-token";
     global.fetch = async () =>
       Response.json({
         success: false,
@@ -145,8 +145,8 @@ test("status does not request upstream; simultaneous requests share one response
     }
   } finally {
     global.fetch = oldFetch;
-    if (oldEnv === undefined) delete process.env.APPS_SCRIPT_URL_VSL;
-    else process.env.APPS_SCRIPT_URL_VSL = oldEnv;
+    if (oldEnv === undefined) delete process.env.APPS_SCRIPT_URL_GERENCIA;
+    else process.env.APPS_SCRIPT_URL_GERENCIA = oldEnv;
   }
 });
 const {
@@ -346,8 +346,8 @@ test("survey audit filters exact yes/no words, preserves duplicate IDs and origi
 });
 test("detail API validates inputs, shares only identical in-flight requests and omits obsolete server tokens", async () => {
   const oldFetch = global.fetch,
-    oldEnv = process.env.APPS_SCRIPT_URL_VSL;
-  process.env.APPS_SCRIPT_URL_VSL =
+    oldEnv = process.env.APPS_SCRIPT_URL_GERENCIA;
+  process.env.APPS_SCRIPT_URL_GERENCIA =
     "https://script.google.com/macros/s/test/exec?token=private-test";
   const request = (month = "2026-09", status = "ASISTIÓ") =>
     new Request(
@@ -395,8 +395,8 @@ test("detail API validates inputs, shares only identical in-flight requests and 
     assert.equal((await (await surveyDetailApi(request())).json()).total, 0);
   } finally {
     global.fetch = oldFetch;
-    if (oldEnv === undefined) delete process.env.APPS_SCRIPT_URL_VSL;
-    else process.env.APPS_SCRIPT_URL_VSL = oldEnv;
+    if (oldEnv === undefined) delete process.env.APPS_SCRIPT_URL_GERENCIA;
+    else process.env.APPS_SCRIPT_URL_GERENCIA = oldEnv;
   }
 });
 test("confirmed API headings are accepted while header and decimal range validation remain enforced", () => {
@@ -619,8 +619,8 @@ test("filtered contract keeps one interval and four states, preserves KPI and re
 });
 test("report route forwards only validated ranges, isolates concurrent ranges, and never synchronizes on filters", async () => {
   const previous = global.fetch,
-    previousEnv = process.env.APPS_SCRIPT_URL_VSL;
-  process.env.APPS_SCRIPT_URL_VSL = "https://script.google.com/macros/s/test/exec";
+    previousEnv = process.env.APPS_SCRIPT_URL_GERENCIA;
+  process.env.APPS_SCRIPT_URL_GERENCIA = "https://script.google.com/macros/s/test/exec";
   const calls = [];
   const request = (range) =>
     new Request(
@@ -662,16 +662,16 @@ test("report route forwards only validated ranges, isolates concurrent ranges, a
     assert.equal((await qualityApi(request(october))).status, 502);
   } finally {
     global.fetch = previous;
-    if (previousEnv === undefined) delete process.env.APPS_SCRIPT_URL_VSL;
-    else process.env.APPS_SCRIPT_URL_VSL = previousEnv;
+    if (previousEnv === undefined) delete process.env.APPS_SCRIPT_URL_GERENCIA;
+    else process.env.APPS_SCRIPT_URL_GERENCIA = previousEnv;
   }
 });
 test("token-free sync parses the deployed job envelope, rejects cross-origin POST and shares starts", async () => {
   const previous = global.fetch,
-    previousEnv = process.env.APPS_SCRIPT_URL_VSL,
+    previousEnv = process.env.APPS_SCRIPT_URL_GERENCIA,
     previousToken = process.env.VSL_REFRESH_TOKEN;
   delete process.env.VSL_REFRESH_TOKEN;
-  process.env.APPS_SCRIPT_URL_VSL =
+  process.env.APPS_SCRIPT_URL_GERENCIA =
     "https://script.google.com/macros/s/test/exec?token=obsolete&refreshToken=obsolete";
   let phase = "IDLE";
   const calls = [];
@@ -734,8 +734,8 @@ test("token-free sync parses the deployed job envelope, rejects cross-origin POS
     assert.equal((await vslSyncStatusApi()).status, 502);
   } finally {
     global.fetch = previous;
-    if (previousEnv === undefined) delete process.env.APPS_SCRIPT_URL_VSL;
-    else process.env.APPS_SCRIPT_URL_VSL = previousEnv;
+    if (previousEnv === undefined) delete process.env.APPS_SCRIPT_URL_GERENCIA;
+    else process.env.APPS_SCRIPT_URL_GERENCIA = previousEnv;
     if (previousToken === undefined) delete process.env.VSL_REFRESH_TOKEN;
     else process.env.VSL_REFRESH_TOKEN = previousToken;
   }
@@ -852,8 +852,8 @@ test("funnel render handles real labels, eleven columns, percentages, empty/miss
 });
 test("shared report carries funnel data for each global range without extra fetches or breaking tables 1/2", async () => {
   const previous = global.fetch,
-    previousEnv = process.env.APPS_SCRIPT_URL_VSL;
-  process.env.APPS_SCRIPT_URL_VSL = "https://script.google.com/macros/s/test/exec";
+    previousEnv = process.env.APPS_SCRIPT_URL_GERENCIA;
+  process.env.APPS_SCRIPT_URL_GERENCIA = "https://script.google.com/macros/s/test/exec";
   let calls = 0;
   const request = (startDate, endDate) =>
     new Request(
@@ -907,8 +907,8 @@ test("shared report carries funnel data for each global range without extra fetc
     assert.ok(body.quality);
   } finally {
     global.fetch = previous;
-    if (previousEnv === undefined) delete process.env.APPS_SCRIPT_URL_VSL;
-    else process.env.APPS_SCRIPT_URL_VSL = previousEnv;
+    if (previousEnv === undefined) delete process.env.APPS_SCRIPT_URL_GERENCIA;
+    else process.env.APPS_SCRIPT_URL_GERENCIA = previousEnv;
   }
 });
 
@@ -1138,10 +1138,10 @@ test("VSL transport distinguishes timeout, cancellation, network, HTTP, JSON, co
   } = require("../src/server/adapters/vsl-quality.adapter.server.ts");
   assert.equal(VSL_REQUEST_TIMEOUT_MS, 60000);
   const oldFetch = global.fetch,
-    oldEnv = process.env.APPS_SCRIPT_URL_VSL,
+    oldEnv = process.env.APPS_SCRIPT_URL_GERENCIA,
     oldInfo = console.info,
     oldWarn = console.warn;
-  process.env.APPS_SCRIPT_URL_VSL =
+  process.env.APPS_SCRIPT_URL_GERENCIA =
     "https://script.google.com/macros/s/test/exec?token=secret-value";
   const logs = [];
   console.info = (...args) => logs.push(args.join(" "));
@@ -1210,8 +1210,8 @@ test("VSL transport distinguishes timeout, cancellation, network, HTTP, JSON, co
     global.fetch = oldFetch;
     console.info = oldInfo;
     console.warn = oldWarn;
-    if (oldEnv === undefined) delete process.env.APPS_SCRIPT_URL_VSL;
-    else process.env.APPS_SCRIPT_URL_VSL = oldEnv;
+    if (oldEnv === undefined) delete process.env.APPS_SCRIPT_URL_GERENCIA;
+    else process.env.APPS_SCRIPT_URL_GERENCIA = oldEnv;
   }
 });
 test("Orgánico and LIG contracts preserve seven real columns, ratios, periods and independent data", () => {
@@ -1678,8 +1678,8 @@ test("Table 3 extended columns use exact names, preserve zeros and distinct nona
 test("report proxy retains all extended funnel columns, rows and percentColumns in historical and range modes", async () => {
   const { newFunnelAppointmentColumns } = require("../src/lib/appointments-by-funnel.ts");
   const previousFetch = global.fetch,
-    previousEnv = process.env.APPS_SCRIPT_URL_VSL;
-  process.env.APPS_SCRIPT_URL_VSL = "https://script.google.com/macros/s/DEPLOYMENT/exec";
+    previousEnv = process.env.APPS_SCRIPT_URL_GERENCIA;
+  process.env.APPS_SCRIPT_URL_GERENCIA = "https://script.google.com/macros/s/DEPLOYMENT/exec";
   try {
     for (const filtered of [false, true]) {
       const raw = filtered ? filteredFixture("2026-11-01", "2026-11-30") : fixture();
@@ -1701,7 +1701,7 @@ test("report proxy retains all extended funnel columns, rows and percentColumns 
     }
   } finally {
     global.fetch = previousFetch;
-    if (previousEnv === undefined) delete process.env.APPS_SCRIPT_URL_VSL;
-    else process.env.APPS_SCRIPT_URL_VSL = previousEnv;
+    if (previousEnv === undefined) delete process.env.APPS_SCRIPT_URL_GERENCIA;
+    else process.env.APPS_SCRIPT_URL_GERENCIA = previousEnv;
   }
 });

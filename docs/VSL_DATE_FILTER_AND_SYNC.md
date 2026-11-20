@@ -4,7 +4,7 @@
 
 El filtro global de `/reports/vsl-calidad` conserva Todo el histórico, presets en America/Lima, rango personalizado inclusivo de hasta 366 días y Limpiar filtro. Las dos tablas usan una respuesta común, con recalculado remoto al enviar startDate/endDate. La Tabla 1 mantiene las 15 columnas y la Tabla 2 mantiene sus preguntas por estado y cuatro KPI mensuales, sin cambiar fórmulas.
 
-La única variable necesaria para esta integración es APPS_SCRIPT_URL_VSL, privada del servidor. VSL_REFRESH_TOKEN y VSL_REPORT_API_TOKEN no se requieren ni se leen para sincronizar. El transporte elimina parámetros token/refreshToken obsoletos de la URL configurada, si los hubiera, y conserva el tratamiento seguro de errores.
+La única variable necesaria para esta integración es APPS_SCRIPT_URL_GERENCIA, privada del servidor. VSL_REFRESH_TOKEN y VSL_REPORT_API_TOKEN no se requieren ni se leen para sincronizar. El transporte elimina parámetros token/refreshToken obsoletos de la URL configurada, si los hubiera, y conserva el tratamiento seguro de errores.
 
 ## Actualizar datos
 

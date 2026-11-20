@@ -22,7 +22,7 @@ La ausencia de appointmentsByFunnel muestra que la API todavía no entrega la Ta
 - src/components/reports/VslDateFilter.tsx: etiqueta del filtro compartido por las tres tablas.
 - tests/vsl-quality.cjs: contrato, porcentajes, duplicados, vacío/error/truncado, renderizado y consultas compartidas.
 
-No se modificó Google Apps Script, APPS_SCRIPT_URL_VSL ni las reglas comerciales. Las cifras de prueba se limitan a tests.
+No se modificó Google Apps Script, APPS_SCRIPT_URL_GERENCIA ni las reglas comerciales. Las cifras de prueba se limitan a tests.
 
 ## Verificación real
 

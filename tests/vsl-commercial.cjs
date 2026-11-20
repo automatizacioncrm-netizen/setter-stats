@@ -86,8 +86,8 @@ test("contract rejects duplicated allowed closer/product; excluded products are 
 });
 test("backend validates month before network, isolates months and shares identical active requests", async () => {
   const oldFetch = global.fetch,
-    oldUrl = process.env.APPS_SCRIPT_URL_VSL;
-  process.env.APPS_SCRIPT_URL_VSL = "https://script.google.com/macros/s/test/exec?keep=value";
+    oldUrl = process.env.APPS_SCRIPT_URL_GERENCIA;
+  process.env.APPS_SCRIPT_URL_GERENCIA = "https://script.google.com/macros/s/test/exec?keep=value";
   let calls = 0;
   global.fetch = async (url) => {
     calls++;
@@ -134,8 +134,8 @@ test("backend validates month before network, isolates months and shares identic
     );
   } finally {
     global.fetch = oldFetch;
-    if (oldUrl === undefined) delete process.env.APPS_SCRIPT_URL_VSL;
-    else process.env.APPS_SCRIPT_URL_VSL = oldUrl;
+    if (oldUrl === undefined) delete process.env.APPS_SCRIPT_URL_GERENCIA;
+    else process.env.APPS_SCRIPT_URL_GERENCIA = oldUrl;
   }
 });
 

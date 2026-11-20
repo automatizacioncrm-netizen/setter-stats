@@ -29,11 +29,11 @@ const schema = z.object({
 });
 (async () => {
   const { loadEnv } = await import("vite");
-  process.env.APPS_SCRIPT_URL_VSL ||= loadEnv(
+  process.env.APPS_SCRIPT_URL_GERENCIA ||= loadEnv(
     "development",
     process.cwd(),
-    "APPS_SCRIPT_URL_VSL",
-  ).APPS_SCRIPT_URL_VSL;
+    "APPS_SCRIPT_URL_GERENCIA",
+  ).APPS_SCRIPT_URL_GERENCIA;
   const { fetchVslJson } = require("../src/server/adapters/vsl-quality.adapter.server.ts");
   const reports = [];
   for (const month of ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11"]) {
@@ -66,7 +66,7 @@ const schema = z.object({
   const parsed = qualityReportSchema.safeParse(raw);
   const funnels = validateAppointmentsByFunnel(raw.appointmentsByFunnel);
   const result = {
-    variable: "APPS_SCRIPT_URL_VSL",
+    variable: "APPS_SCRIPT_URL_GERENCIA",
     reports,
     reportContract: {
       valid: parsed.success,

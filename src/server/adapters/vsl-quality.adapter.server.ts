@@ -13,14 +13,14 @@ export async function fetchVslJson(
   params: Record<string, string> = {},
   options: { method?: "GET" | "POST"; body?: Record<string, string> } = {},
 ): Promise<unknown> {
-  const value = process.env["APPS_SCRIPT_URL_VSL"];
+  const value = process.env["APPS_SCRIPT_URL_GERENCIA"];
   if (!value)
-    throw new VslTransportError("CONFIGURATION", "Configura APPS_SCRIPT_URL_VSL en el servidor.");
+    throw new VslTransportError("CONFIGURATION", "Configura APPS_SCRIPT_URL_GERENCIA en el servidor.");
   let url: URL;
   try {
     url = new URL(value);
   } catch {
-    throw new VslTransportError("CONFIGURATION", "APPS_SCRIPT_URL_VSL no es una URL válida.");
+    throw new VslTransportError("CONFIGURATION", "APPS_SCRIPT_URL_GERENCIA no es una URL válida.");
   }
   if (
     url.protocol !== "https:" ||

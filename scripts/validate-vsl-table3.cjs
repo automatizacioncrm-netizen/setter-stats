@@ -13,12 +13,12 @@ async function main() {
   const month = process.argv[2] ?? "2026-10";
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error("Usa YYYY-MM como argumento.");
   const { loadEnv } = await import("vite");
-  if (!process.env.APPS_SCRIPT_URL_VSL)
-    process.env.APPS_SCRIPT_URL_VSL = loadEnv(
+  if (!process.env.APPS_SCRIPT_URL_GERENCIA)
+    process.env.APPS_SCRIPT_URL_GERENCIA = loadEnv(
       "development",
       path.resolve(__dirname, ".."),
-      "APPS_SCRIPT_URL_VSL",
-    ).APPS_SCRIPT_URL_VSL;
+      "APPS_SCRIPT_URL_GERENCIA",
+    ).APPS_SCRIPT_URL_GERENCIA;
   const { fetchVslJson } = require("../src/server/adapters/vsl-quality.adapter.server.ts");
   const { qualityReportSchema } = require("../src/lib/vsl-quality.ts");
   const {

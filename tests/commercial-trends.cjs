@@ -336,8 +336,8 @@ test("trend proxy validates ranges, shares requests, forwards only trends parame
   const backend = runtime("apps-script/vsl-commercial/API.gs");
   const payload = backend.run('COM_TRENDS_RESPONSE_("2026-10","2026-10")');
   const oldFetch = global.fetch,
-    oldUrl = process.env.APPS_SCRIPT_URL_VSL;
-  process.env.APPS_SCRIPT_URL_VSL = "https://script.google.com/macros/s/test/exec";
+    oldUrl = process.env.APPS_SCRIPT_URL_GERENCIA;
+  process.env.APPS_SCRIPT_URL_GERENCIA = "https://script.google.com/macros/s/test/exec";
   let calls = 0;
   global.fetch = async (url) => {
     calls++;
@@ -375,8 +375,8 @@ test("trend proxy validates ranges, shares requests, forwards only trends parame
     assert.match((await wrong.json()).error, /otro período/);
   } finally {
     global.fetch = oldFetch;
-    if (oldUrl === undefined) delete process.env.APPS_SCRIPT_URL_VSL;
-    else process.env.APPS_SCRIPT_URL_VSL = oldUrl;
+    if (oldUrl === undefined) delete process.env.APPS_SCRIPT_URL_GERENCIA;
+    else process.env.APPS_SCRIPT_URL_GERENCIA = oldUrl;
   }
 });
 

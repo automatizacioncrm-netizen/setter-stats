@@ -9,11 +9,11 @@ require.extensions[".ts"] = (module, file) =>
   );
 (async () => {
   const { loadEnv } = await import("vite");
-  process.env.APPS_SCRIPT_URL_VSL ||= loadEnv(
+  process.env.APPS_SCRIPT_URL_GERENCIA ||= loadEnv(
     "development",
     process.cwd(),
-    "APPS_SCRIPT_URL_VSL",
-  ).APPS_SCRIPT_URL_VSL;
+    "APPS_SCRIPT_URL_GERENCIA",
+  ).APPS_SCRIPT_URL_GERENCIA;
   const { fetchVslJson } = require("../src/server/adapters/vsl-quality.adapter.server.ts");
   const { commercialTrendsSchema, reconcileTrends } = require("../src/lib/commercial-trends.ts");
   const { commercialSchema } = require("../src/lib/vsl-commercial.ts");

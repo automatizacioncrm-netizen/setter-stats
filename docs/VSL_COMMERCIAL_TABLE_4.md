@@ -4,7 +4,7 @@ Ubicaci贸n: `/reports/vsl-calidad`, despu茅s de Tabla 3. Mantiene las Tablas 1鈥
 
 ## Conexi贸n
 
-`GET /api/reports/vsl-commercial?month=YYYY-MM` utiliza el transporte privado existente y exclusivamente `APPS_SCRIPT_URL_VSL`, con `action=commercial`. Conserva la validaci贸n, timeout y saneamiento de errores del transporte. La URL privada nunca se devuelve al navegador. No ejecuta sincronizaciones ni modifica Sheets.
+`GET /api/reports/vsl-commercial?month=YYYY-MM` utiliza el transporte privado existente y exclusivamente `APPS_SCRIPT_URL_GERENCIA`, con `action=commercial`. Conserva la validaci贸n, timeout y saneamiento de errores del transporte. La URL privada nunca se devuelve al navegador. No ejecuta sincronizaciones ni modifica Sheets.
 
 Solicita un mes por consulta; el cliente comparte resultados por mes, no reconsulta por render/foco y tiene actualizaci贸n manual. El servidor comparte peticiones id茅nticas en curso. Los errores se muestran por mes, sin reutilizar los resultados de otro per铆odo.
 
